@@ -1,0 +1,27 @@
+# Base de datos PostgreSQL para desarrollo local.
+# Lee las variables DB_* del archivo backend/.env (copia de .env.example).
+#
+#   docker compose up -d      -> la enciende
+#   docker compose down       -> la apaga (los datos se conservan)
+#   docker compose down -v    -> la apaga y BORRA los datos
+
+services:
+  db:
+    image: postgres:17
+    container_name: appresso-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-appresso}
+      POSTGRES_USER: ${DB_USER:-appresso}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD. Copia backend/.env.example a backend/.env}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - appresso-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-appresso} -d ${DB_NAME:-appresso}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  appresso-db-data:
