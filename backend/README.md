@@ -128,7 +128,8 @@ Tu computador
 | **`application.properties`** | Archivo de configuración de Spring Boot: puerto, base de datos, etc. |
 | **Controlador (`@RestController`)** | Clase que responde a una dirección web. `HealthController` responde a `/api/health`. |
 | **Actuator** | Módulo que expone el estado del servicio (`/actuator/health`). |
-| **JPA / Hibernate** | Capa que traduce objetos de Java a tablas de la base de datos. Todavía no hay tablas: las crea otra subtarea (modelos de datos). |
+| **JPA / Hibernate** | Capa que traduce objetos de Java a tablas de la base de datos. Las entidades (clases `@Entity`) ya existen; las tablas en PostgreSQL las crea otra subtarea (migraciones). |
+| **Entidad (`@Entity`)** | Clase de Java que representa una tabla. Ver el [modelo de datos](../docs/modelo-de-datos.md). |
 | **DataSource / Hikari** | La conexión a la base de datos y el "pool" (grupo) de conexiones que mantiene abiertas. Verás 10 conexiones desde la app: es normal. |
 | **`ddl-auto=none`** | Le dice a Hibernate que **no cree ni modifique tablas**. |
 | **Variable de entorno** | Un valor que vive fuera del código (en tu `.env` o en el servidor). Así el mismo código funciona en cualquier lugar. |
@@ -147,6 +148,7 @@ Las pruebas **no necesitan Docker ni `.env`**. Usan una base H2 en memoria, conf
 
 Importante:
 
+- En las pruebas Hibernate **sí crea las tablas** en H2 a partir de las entidades (`ddl-auto=create-drop`); así `ModeloDatosTest` comprueba que el modelo está bien mapeado.
 - Ese archivo de pruebas **reemplaza por completo** al de `src/main/resources` mientras se ejecutan las pruebas. Si agregas una propiedad nueva al de `main` y las pruebas la necesitan, hay que ponerla también en el de pruebas.
 - H2 no se comporta igual que PostgreSQL en todo. Sirve para comprobar que la aplicación arranca y se conecta, pero una consulta que funcione en H2 podría fallar en PostgreSQL.
 
@@ -229,11 +231,17 @@ backend/
     ├── main/
     │   ├── java/com/appresso/backend/
     │   │   ├── AppressoBackendApplication.java   # punto de entrada
-    │   │   └── health/HealthController.java      # /api/health
+    │   │   ├── health/HealthController.java      # /api/health
+    │   │   ├── usuarios/                         # Usuario, DispositivoPush, Rol
+    │   │   ├── inventario/                       # Categoria, Producto, MovimientoInventario
+    │   │   ├── comandas/                         # Mesa, Comanda, DetalleComanda, HistorialComanda
+    │   │   ├── caja/                             # Jornada, Pago, MovimientoCaja, SolicitudRetiro, ...
+    │   │   ├── fidelizacion/                     # Cliente, Recompensa, Promocion, CanjeRecompensa, Notificacion
+    │   │   └── auditoria/                        # RegistroAuditoria
     │   └── resources/application.properties      # configuración
     └── test/
         ├── java/com/appresso/backend/            # pruebas
         └── resources/application.properties      # configuración SOLO de pruebas (H2)
 ```
 
-Paquete base: `com.appresso.backend`.
+Paquete base: `com.appresso.backend`. Mapa del modelo de datos: [`docs/modelo-de-datos.md`](../docs/modelo-de-datos.md).
