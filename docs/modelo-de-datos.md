@@ -3,7 +3,7 @@
 Entidades JPA del backend (`backend/src/main/java/com/appresso/backend/`), organizadas por módulo (RNF-27).
 Son **21 entidades** y **10 enumeraciones**. Este documento es el mapa; el detalle de cada campo está en el código.
 
-> Estado: solo el **modelo** (clases). Las tablas todavía no se crean en PostgreSQL (`ddl-auto=none`); eso lo resuelve la subtarea de migraciones. En las pruebas, Hibernate sí crea las tablas en H2 para validar el mapeo.
+> Estado: el **modelo** (clases) y el **esquema** (`backend/src/main/resources/db/migration/V1__esquema_inicial.sql`, ejecutado por Flyway al arrancar). Hibernate corre en `ddl-auto=validate`: no crea tablas, solo comprueba que entidades y tablas coincidan. Las pruebas ejecutan la misma migración en H2. Todo cambio de una entidad necesita su migración nueva (`V2__...`); nunca se edita una ya subida.
 
 ## Diagrama
 
