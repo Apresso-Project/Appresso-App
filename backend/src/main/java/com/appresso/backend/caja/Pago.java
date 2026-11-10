@@ -9,7 +9,7 @@ import com.appresso.backend.usuarios.Usuario;
 import jakarta.persistence.*;
 
 /**
- * Pago de una comanda; una comanda solo admite un pago (RF-28, RF-30, RF-43).
+ * Pago confirmado de una comanda; una comanda solo admite un pago (RF-28, RF-30, RF-43). Un pago solo se registra al confirmarlo: mostrar el QR no crea ningún registro.
  */
 @Entity
 @Table(name = "pagos")
@@ -34,20 +34,15 @@ public class Pago {
 	@Column(nullable = false)
 	private MedioPago medio;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	private EstadoPago estado = EstadoPago.PENDIENTE;
-
 	@Column(nullable = false, unique = true)
 	private UUID identificadorOperacion = UUID.randomUUID();
 
+	/** Fecha y hora en que se confirmó el pago (RF-28). */
 	@Column(nullable = false, updatable = false)
-	private Instant fechaCreacion = Instant.now();
+	private Instant fecha = Instant.now();
 
-	private Instant fechaConfirmacion;
-
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "confirmado_por_id")
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "confirmado_por_id", nullable = false)
 	private Usuario confirmadoPor;
 
 	public Long getId() {
@@ -86,14 +81,6 @@ public class Pago {
 		this.medio = medio;
 	}
 
-	public EstadoPago getEstado() {
-		return estado;
-	}
-
-	public void setEstado(EstadoPago estado) {
-		this.estado = estado;
-	}
-
 	public UUID getIdentificadorOperacion() {
 		return identificadorOperacion;
 	}
@@ -102,20 +89,12 @@ public class Pago {
 		this.identificadorOperacion = identificadorOperacion;
 	}
 
-	public Instant getFechaCreacion() {
-		return fechaCreacion;
+	public Instant getFecha() {
+		return fecha;
 	}
 
-	public void setFechaCreacion(Instant fechaCreacion) {
-		this.fechaCreacion = fechaCreacion;
-	}
-
-	public Instant getFechaConfirmacion() {
-		return fechaConfirmacion;
-	}
-
-	public void setFechaConfirmacion(Instant fechaConfirmacion) {
-		this.fechaConfirmacion = fechaConfirmacion;
+	public void setFecha(Instant fecha) {
+		this.fecha = fecha;
 	}
 
 	public Usuario getConfirmadoPor() {

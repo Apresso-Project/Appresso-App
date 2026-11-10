@@ -5,9 +5,10 @@ import java.time.LocalDate;
 
 import com.appresso.backend.inventario.Producto;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 
 /**
- * Recompensa que el cliente puede canjear; rachaRequerida define el nivel (RF-54, RF-60).
+ * Recompensa que el cliente puede canjear; se canjea con puntos: puntosMinimos es el umbral para acceder y costoPuntos lo que se descuenta (RF-54, RF-60).
  */
 @Entity
 @Table(name = "recompensas")
@@ -34,8 +35,15 @@ public class Recompensa {
 	@JoinColumn(name = "producto_gratis_id")
 	private Producto productoGratis;
 
-	@Column(unique = true)
-	private Integer rachaRequerida;
+	/** Puntos mínimos que el cliente debe tener para acceder (RF-54). Único solo entre recompensas activas: se valida en el servicio. */
+	@Column(nullable = false)
+	@Min(0)
+	private int puntosMinimos;
+
+	/** Puntos que se descuentan al canjearla (RF-54, RF-59). */
+	@Column(nullable = false)
+	@Min(0)
+	private int costoPuntos;
 
 	@Column(nullable = false)
 	private boolean usoUnico = false;
@@ -91,12 +99,20 @@ public class Recompensa {
 		this.productoGratis = productoGratis;
 	}
 
-	public Integer getRachaRequerida() {
-		return rachaRequerida;
+	public int getPuntosMinimos() {
+		return puntosMinimos;
 	}
 
-	public void setRachaRequerida(Integer rachaRequerida) {
-		this.rachaRequerida = rachaRequerida;
+	public void setPuntosMinimos(int puntosMinimos) {
+		this.puntosMinimos = puntosMinimos;
+	}
+
+	public int getCostoPuntos() {
+		return costoPuntos;
+	}
+
+	public void setCostoPuntos(int costoPuntos) {
+		this.costoPuntos = costoPuntos;
 	}
 
 	public boolean isUsoUnico() {

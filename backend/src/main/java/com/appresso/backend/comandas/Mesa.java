@@ -18,7 +18,7 @@ public class Mesa {
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private EstadoMesa estado = EstadoMesa.LIBRE;
+	private EstadoMesa estado = EstadoMesa.DISPONIBLE;
 
 	public Long getId() {
 		return id;

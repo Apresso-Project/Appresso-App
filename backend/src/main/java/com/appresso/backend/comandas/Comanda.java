@@ -35,7 +35,7 @@ public class Comanda {
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private EstadoComanda estado = EstadoComanda.BORRADOR;
+	private EstadoComanda estado = EstadoComanda.PENDIENTE;
 
 	@Column(nullable = false, precision = 14, scale = 2)
 	private BigDecimal subtotal = BigDecimal.ZERO;

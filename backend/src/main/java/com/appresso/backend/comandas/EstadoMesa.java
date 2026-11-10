@@ -5,7 +5,7 @@ package com.appresso.backend.comandas;
  */
 public enum EstadoMesa {
 
-	LIBRE,
+	DISPONIBLE,
 	OCUPADA
 
 }

@@ -232,6 +232,7 @@ backend/
     │   ├── java/com/appresso/backend/
     │   │   ├── AppressoBackendApplication.java   # punto de entrada
     │   │   ├── health/HealthController.java      # /api/health
+    │   │   ├── config/ZonaHorariaConfig.java     # zona horaria del negocio (America/Bogota)
     │   │   ├── usuarios/                         # Usuario, DispositivoPush, Rol
     │   │   ├── inventario/                       # Categoria, Producto, MovimientoInventario
     │   │   ├── comandas/                         # Mesa, Comanda, DetalleComanda, HistorialComanda

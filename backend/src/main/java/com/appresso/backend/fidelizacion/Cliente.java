@@ -1,10 +1,10 @@
 package com.appresso.backend.fidelizacion;
 
 import java.time.Instant;
-import java.time.LocalDate;
 
 import com.appresso.backend.usuarios.Usuario;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 
 /**
  * Cliente registrado en el programa de fidelización (RF-50 a RF-52).
@@ -34,10 +34,10 @@ public class Cliente {
 
 	private Instant fechaAceptacionDatos;
 
+	/** Saldo de puntos de fidelidad: +1 por pago confirmado (RF-52), se descuenta al canjear (RF-59). No vencen. */
 	@Column(nullable = false)
-	private int racha = 0;
-
-	private LocalDate ultimaVisita;
+	@Min(0)
+	private int puntos = 0;
 
 	@Column(nullable = false, updatable = false)
 	private Instant fechaRegistro = Instant.now();
@@ -98,20 +98,12 @@ public class Cliente {
 		this.fechaAceptacionDatos = fechaAceptacionDatos;
 	}
 
-	public int getRacha() {
-		return racha;
+	public int getPuntos() {
+		return puntos;
 	}
 
-	public void setRacha(int racha) {
-		this.racha = racha;
-	}
-
-	public LocalDate getUltimaVisita() {
-		return ultimaVisita;
-	}
-
-	public void setUltimaVisita(LocalDate ultimaVisita) {
-		this.ultimaVisita = ultimaVisita;
+	public void setPuntos(int puntos) {
+		this.puntos = puntos;
 	}
 
 	public Instant getFechaRegistro() {

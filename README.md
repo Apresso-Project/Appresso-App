@@ -99,8 +99,9 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 
 ### Módulo 6 — Fidelización (RF-50 a RF-62)
 - Registro de clientes: nombre, apellido, documento, celular + aceptación Ley 1581
-- 1 punto por pedido pagado; descuento de puntos al canjear recompensa
-- Admin configura niveles de recompensa (umbral de puntos, costo en puntos, beneficio)
+- 1 punto por pedido pagado (RF-52); el saldo se guarda en el cliente y los puntos no vencen
+- Descuento de puntos al canjear una recompensa o una promoción
+- Admin configura recompensas (puntos mínimos, costo en puntos, beneficio) y promociones temporales con costo en puntos (p. ej. 2x1, 50 % de descuento); puede crearlas y desactivarlas
 - Búsqueda de cliente por documento en ≤ 2 s
 - Recompensas de un solo uso marcadas como usadas para evitar doble canje
 - Notificaciones push al cliente sobre nuevas recompensas y promociones vigentes
