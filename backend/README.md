@@ -128,9 +128,11 @@ Tu computador
 | **`application.properties`** | Archivo de configuración de Spring Boot: puerto, base de datos, etc. |
 | **Controlador (`@RestController`)** | Clase que responde a una dirección web. `HealthController` responde a `/api/health`. |
 | **Actuator** | Módulo que expone el estado del servicio (`/actuator/health`). |
-| **JPA / Hibernate** | Capa que traduce objetos de Java a tablas de la base de datos. Todavía no hay tablas: las crea otra subtarea (modelos de datos). |
+| **JPA / Hibernate** | Capa que traduce objetos de Java a tablas de la base de datos. Las entidades (clases `@Entity`) son las 21 del modelo; las tablas las crea Flyway (ver más abajo). |
+| **Entidad (`@Entity`)** | Clase de Java que representa una tabla. Ver el [modelo de datos](../docs/modelo-de-datos.md). |
 | **DataSource / Hikari** | La conexión a la base de datos y el "pool" (grupo) de conexiones que mantiene abiertas. Verás 10 conexiones desde la app: es normal. |
-| **`ddl-auto=none`** | Le dice a Hibernate que **no cree ni modifique tablas**. |
+| **`ddl-auto=validate`** | Le dice a Hibernate que **no cree ni modifique tablas**, solo que compruebe al arrancar que las entidades coinciden con las tablas. Si no coinciden, el backend no arranca. |
+| **Flyway / migración** | Herramienta que crea y cambia las tablas ejecutando, en orden, los archivos `V1__...sql`, `V2__...sql` de `src/main/resources/db/migration`. Guarda en la tabla `flyway_schema_history` cuáles ya corrió, y en cada base solo ejecuta los que faltan. |
 | **Variable de entorno** | Un valor que vive fuera del código (en tu `.env` o en el servidor). Así el mismo código funciona en cualquier lugar. |
 | **Docker Compose** | Herramienta que lee `docker-compose.yml` y enciende los contenedores definidos ahí. |
 | **H2** | Base de datos pequeña en memoria, que solo se usa en las pruebas. |
@@ -147,6 +149,7 @@ Las pruebas **no necesitan Docker ni `.env`**. Usan una base H2 en memoria, conf
 
 Importante:
 
+- Las pruebas ejecutan **las mismas migraciones de Flyway** que producción, pero en H2, y luego Hibernate (`ddl-auto=validate`) comprueba que las entidades coincidan con esas tablas. Así `ModeloDatosTest` verifica a la vez el modelo y el script SQL: si alguien cambia una entidad sin escribir su migración, las pruebas fallan.
 - Ese archivo de pruebas **reemplaza por completo** al de `src/main/resources` mientras se ejecutan las pruebas. Si agregas una propiedad nueva al de `main` y las pruebas la necesitan, hay que ponerla también en el de pruebas.
 - H2 no se comporta igual que PostgreSQL en todo. Sirve para comprobar que la aplicación arranca y se conecta, pero una consulta que funcione en H2 podría fallar en PostgreSQL.
 
@@ -205,13 +208,24 @@ failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine
 
 La base de datos se apagó o dejó de responder. Enciéndela con `docker compose up -d`. El backend se reconecta solo: no hace falta reiniciarlo (lo comprobamos).
 
+### Error 5. `Schema-validation: missing column [...] in table [...]` (o `wrong column type`)
+
+Una entidad no coincide con las tablas. **Causa:** alguien cambió una clase `@Entity` (o una migración) y no hizo el otro cambio.
+
+**Qué hacer:** crea una migración nueva que ajuste la tabla (ver [sección 8](#8-reglas-del-equipo)). En tu base local, si te tocó una versión vieja del esquema: `docker compose down -v` y `docker compose up -d` (borra tus datos locales).
+
+### Error 6. `Migration checksum mismatch for migration version 1`
+
+Alguien **editó** una migración que ya se había ejecutado en tu base. **Nunca se edita una migración ya subida a `main`**: si cambió por error, devuélvela a como estaba (`git checkout -- <archivo>`) y haz el cambio en una migración nueva. En tu base local de desarrollo puedes empezar de cero con `docker compose down -v`.
+
 ---
 
 ## 8. Reglas del equipo
 
 - **Nunca subas el `.env`** al repositorio. Ya está en el `.gitignore`. Si necesitas compartir una variable nueva, agrégala al `.env.example` con un valor de ejemplo.
 - **No pongas contraseñas en `application.properties`.**
-- **No cambies `ddl-auto`** sin acordarlo con quien hace los modelos de datos: define cómo se crean las tablas.
+- **No cambies `ddl-auto`** sin acordarlo con quien hace los modelos de datos: debe seguir en `validate`.
+- **Las tablas se cambian solo con migraciones.** Si modificas una entidad (agregas un campo, una tabla...), crea el archivo siguiente en `src/main/resources/db/migration`, por ejemplo `V2__agrega_campo_x.sql`, con el SQL del cambio (`alter table ...`). Reglas: el número sube de uno en uno, el nombre es `V<número>__<descripción>.sql` (con **dos** guiones bajos), **nunca se edita una migración ya subida a `main`**, y debe funcionar en PostgreSQL y en H2 (SQL estándar). Comprueba con `./gradlew test`.
 
 ---
 
@@ -229,11 +243,20 @@ backend/
     ├── main/
     │   ├── java/com/appresso/backend/
     │   │   ├── AppressoBackendApplication.java   # punto de entrada
-    │   │   └── health/HealthController.java      # /api/health
-    │   └── resources/application.properties      # configuración
+    │   │   ├── health/HealthController.java      # /api/health
+    │   │   ├── config/ZonaHorariaConfig.java     # zona horaria del negocio (America/Bogota)
+    │   │   ├── usuarios/                         # Usuario, DispositivoPush, Rol
+    │   │   ├── inventario/                       # Categoria, Producto, MovimientoInventario
+    │   │   ├── comandas/                         # Mesa, Comanda, DetalleComanda, HistorialComanda
+    │   │   ├── caja/                             # Jornada, Pago, MovimientoCaja, SolicitudRetiro, ...
+    │   │   ├── fidelizacion/                     # Cliente, Recompensa, Promocion, CanjeRecompensa, Notificacion
+    │   │   └── auditoria/                        # RegistroAuditoria
+    │   └── resources/
+    │       ├── application.properties            # configuración
+    │       └── db/migration/V1__esquema_inicial.sql   # tablas (Flyway)
     └── test/
         ├── java/com/appresso/backend/            # pruebas
         └── resources/application.properties      # configuración SOLO de pruebas (H2)
 ```
 
-Paquete base: `com.appresso.backend`.
+Paquete base: `com.appresso.backend`. Mapa del modelo de datos: [`docs/modelo-de-datos.md`](../docs/modelo-de-datos.md).
