@@ -1,0 +1,66 @@
+# Pipeline de integracion continua (CI) del backend.
+# Cada vez que alguien abre o actualiza un Pull Request hacia main, o sube
+# cambios a main, GitHub levanta una maquina limpia, compila el backend y
+# corre todas las pruebas. Si algo falla, el PR muestra una X roja.
+
+name: CI backend
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Si subes otro commit al mismo PR mientras corre el pipeline, se cancela
+# la ejecucion vieja (ya no sirve) y solo corre la nueva.
+concurrency:
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permisos minimos: el pipeline solo necesita leer el codigo.
+permissions:
+  contents: read
+
+jobs:
+  # Este nombre ("build-backend") es el que se marca como obligatorio
+  # en la proteccion de la rama main.
+  build-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Guarda en cache las dependencias de Gradle para que las siguientes
+      # ejecuciones sean mas rapidas.
+      - name: Preparar Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Los archivos creados en Windows pueden no traer permiso de ejecucion.
+      - name: Dar permiso de ejecucion a gradlew
+        run: chmod +x gradlew
+
+      # "build" compila el codigo y corre las pruebas (con H2, sin Docker).
+      - name: Compilar y probar
+        run: ./gradlew build --no-daemon
+
+      # Si las pruebas fallan, guarda el reporte HTML para poder descargarlo
+      # desde la pagina de la ejecucion y ver que prueba fallo y por que.
+      - name: Guardar reporte de pruebas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-pruebas
+          path: backend/build/reports/tests/test/
+          if-no-files-found: ignore
