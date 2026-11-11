@@ -23,6 +23,11 @@ dependencies {
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// Autenticacion (2.1.1): BCrypt para las contrasenas y JWT para el token de sesion.
+	// Se usa solo spring-security-crypto, NO el starter de seguridad (esa capa es de 2.3.1).
+	implementation 'org.springframework.security:spring-security-crypto'
+	// Boot no administra esta version; es la misma que usa Spring Security 7.1.x (para 2.3.1).
+	implementation 'com.nimbusds:nimbus-jose-jwt:10.9.1'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
 	testRuntimeOnly 'com.h2database:h2'
