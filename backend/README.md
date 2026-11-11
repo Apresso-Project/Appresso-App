@@ -136,6 +136,9 @@ Tu computador
 | **Variable de entorno** | Un valor que vive fuera del código (en tu `.env` o en el servidor). Así el mismo código funciona en cualquier lugar. |
 | **Docker Compose** | Herramienta que lee `docker-compose.yml` y enciende los contenedores definidos ahí. |
 | **H2** | Base de datos pequeña en memoria, que solo se usa en las pruebas. |
+| **CI / pipeline** | Integración continua: un "robot" de GitHub que, en cada Pull Request, compila el backend y corre las pruebas en una máquina limpia. Ver [sección 5.1](#51-integración-continua-el-pipeline-de-github). |
+| **GitHub Actions / workflow** | El servicio de GitHub que ejecuta el pipeline, y el archivo `.github/workflows/ci-backend.yml` que describe sus pasos. |
+| **Check** | El resultado (✅ o ❌) que el pipeline muestra en el Pull Request. |
 
 ---
 
@@ -152,6 +155,32 @@ Importante:
 - Las pruebas ejecutan **las mismas migraciones de Flyway** que producción, pero en H2, y luego Hibernate (`ddl-auto=validate`) comprueba que las entidades coincidan con esas tablas. Así `ModeloDatosTest` verifica a la vez el modelo y el script SQL: si alguien cambia una entidad sin escribir su migración, las pruebas fallan.
 - Ese archivo de pruebas **reemplaza por completo** al de `src/main/resources` mientras se ejecutan las pruebas. Si agregas una propiedad nueva al de `main` y las pruebas la necesitan, hay que ponerla también en el de pruebas.
 - H2 no se comporta igual que PostgreSQL en todo. Sirve para comprobar que la aplicación arranca y se conecta, pero una consulta que funcione en H2 podría fallar en PostgreSQL.
+
+### 5.1. Integración continua: el pipeline de GitHub
+
+El archivo `.github/workflows/ci-backend.yml` define el pipeline **CI backend**. Corre solo, sin que hagas nada:
+
+- cuando abres o actualizas un Pull Request hacia `main`, y
+- cuando algo se une a `main`.
+
+Hace lo mismo que harías a mano en una máquina nueva: descarga el código, instala JDK 21 y ejecuta `./gradlew build` dentro de `backend/` (compila y corre las pruebas, con H2, sin Docker ni `.env`). Dura unos minutos.
+
+**Cómo leer el resultado** (en el Pull Request, abajo, en la sección de checks):
+
+| Lo que ves | Significa |
+|------------|-----------|
+| 🟡 en curso | Todavía corre. Espera. |
+| ✅ `build-backend` | Compila y las pruebas pasan. |
+| ❌ `build-backend` | Algo falló. Entra con **Details**, abre el paso en rojo y lee el primer error. |
+
+**Si falla:**
+1. Reproduce el fallo en tu máquina, desde `backend/`: `./gradlew build`. Casi siempre falla igual.
+2. Si en tu máquina pasa y en GitHub no, descarga el reporte: en la página de la ejecución, abajo, en **Artifacts**, está `reporte-pruebas` (se guarda solo cuando fallan pruebas). Abre `index.html`.
+3. Arregla, haz commit y push: el pipeline corre de nuevo solo.
+
+La rama `main` está protegida: **no se puede unir un Pull Request si `build-backend` no está en verde.** No se arregla saltándose la regla, se arregla el fallo.
+
+Cuando exista el proyecto Android, tendrá su propio workflow y su check se añadirá a la protección.
 
 ---
 
@@ -226,6 +255,7 @@ Alguien **editó** una migración que ya se había ejecutado en tu base. **Nunca
 - **No pongas contraseñas en `application.properties`.**
 - **No cambies `ddl-auto`** sin acordarlo con quien hace los modelos de datos: debe seguir en `validate`.
 - **Las tablas se cambian solo con migraciones.** Si modificas una entidad (agregas un campo, una tabla...), crea el archivo siguiente en `src/main/resources/db/migration`, por ejemplo `V2__agrega_campo_x.sql`, con el SQL del cambio (`alter table ...`). Reglas: el número sube de uno en uno, el nombre es `V<número>__<descripción>.sql` (con **dos** guiones bajos), **nunca se edita una migración ya subida a `main`**, y debe funcionar en PostgreSQL y en H2 (SQL estándar). Comprueba con `./gradlew test`.
+- **Antes de abrir un Pull Request, corre `./gradlew build` en `backend/`.** Es lo mismo que ejecuta el pipeline; si pasa en tu máquina, casi seguro pasa en GitHub.
 
 ---
 

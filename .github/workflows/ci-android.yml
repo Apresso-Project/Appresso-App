@@ -1,0 +1,74 @@
+# Pipeline de integracion continua (CI) de la app Android.
+# Igual que el del backend: en cada Pull Request hacia main, o al subir
+# cambios a main, GitHub levanta una maquina limpia, compila la app, corre
+# las pruebas unitarias y el analisis estatico (lint). Si algo falla, el PR
+# muestra una X roja.
+#
+# No lleva filtro de rutas (paths) a proposito: un check que no corre en
+# algunos PRs deja el PR esperando para siempre si algun dia se hace obligatorio.
+
+name: CI android
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Si subes otro commit al mismo PR mientras corre el pipeline, se cancela
+# la ejecucion vieja (ya no sirve) y solo corre la nueva.
+concurrency:
+  group: ci-android-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permisos minimos: el pipeline solo necesita leer el codigo.
+permissions:
+  contents: read
+
+jobs:
+  # Cuando el check funcione en main se puede marcar como obligatorio en la
+  # proteccion de la rama main con este nombre.
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      # El proyecto pide JDK 21 (android/gradle/gradle-daemon-jvm.properties).
+      - name: Instalar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Guarda en cache las dependencias de Gradle para que las siguientes
+      # ejecuciones sean mas rapidas. El Android SDK ya viene en la maquina.
+      - name: Preparar Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Los archivos creados en Windows pueden no traer permiso de ejecucion.
+      - name: Dar permiso de ejecucion a gradlew
+        run: chmod +x gradlew
+
+      # Compila el APK de depuracion, corre las pruebas unitarias (JVM, sin
+      # emulador) y el analisis estatico.
+      - name: Compilar, probar y analizar
+        run: ./gradlew assembleDebug testDebugUnitTest lintDebug --no-daemon
+
+      # Si algo falla, guarda los reportes HTML para descargarlos desde la
+      # pagina de la ejecucion y ver que fallo y por que.
+      - name: Guardar reportes
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-android
+          path: |
+            android/app/build/reports/tests/
+            android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
