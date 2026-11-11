@@ -24,7 +24,7 @@ Todos los comandos se ejecutan **dentro de la carpeta `backend/`**.
 
 ### Paso 1. Crear tu archivo `.env`
 
-El `.env` guarda los datos de conexión a la base de datos. No se sube al repositorio (cada quien tiene el suyo).
+El `.env` guarda los datos de conexión a la base de datos y la clave con la que se firman los tokens de sesión. No se sube al repositorio (cada quien tiene el suyo).
 
 ```bash
 # Git Bash, Linux o macOS
@@ -34,7 +34,30 @@ cp .env.example .env
 copy .env.example .env
 ```
 
-Abre `.env` y cambia `DB_PASSWORD` por la clave que quieras para tu base de datos local.
+Abre `.env` y cambia dos valores:
+
+- `DB_PASSWORD`: la clave que quieras para tu base de datos local.
+- `JWT_SECRET`: una clave larga y aleatoria (**32 caracteres o más**) con la que el backend firma los tokens de sesión. Sin ella el backend no arranca. Genera una así:
+
+```bash
+# Git Bash, Linux o macOS
+openssl rand -base64 48
+
+# Windows PowerShell
+$b = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)
+```
+
+Cada persona puede usar la suya en local; no hace falta que sea la misma. En producción se usa otra distinta.
+
+**Administrador de prueba (solo local).** Para poder iniciar sesión sin crear usuarios a mano, agrega estas tres líneas al `.env` (si copiaste `.env.example` ya vienen, solo cambia la contraseña):
+
+```
+spring.profiles.active=dev
+DEV_ADMIN_CORREO=admin@appresso.test
+DEV_ADMIN_CONTRASENA=una_clave_tuya
+```
+
+Con el perfil `dev` activo, al arrancar el backend crea ese administrador **si no existe** (la contraseña se guarda con BCrypt). Si no activas el perfil, no se crea nada. Ojo con la primera línea: va en minúsculas y con puntos, tal cual.
 
 ### Paso 2. Encender la base de datos
 
@@ -83,6 +106,22 @@ curl http://localhost:8080/actuator/health/db
 
 - `/api/health` responde si el backend está vivo.
 - `/actuator/health/db` responde `UP` solo si el backend **logró conectarse a PostgreSQL**. Si dice `DOWN`, la base de datos no está disponible.
+
+### Paso 5. Probar el inicio de sesión
+
+Con el administrador de prueba (ver el paso 1) puedes iniciar sesión a mano:
+
+```bash
+# Git Bash, Linux o macOS
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"correo":"admin@appresso.test","contrasena":"una_clave_tuya"}'
+
+# Windows cmd
+curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"correo\":\"admin@appresso.test\",\"contrasena\":\"una_clave_tuya\"}"
+```
+
+Con las credenciales correctas responde `200` con `{"token":"...","rol":"ADMINISTRADOR","nombre":"Administrador de prueba"}`. Con unas incorrectas, `401` y `{"mensaje":"Credenciales inválidas"}`. Después de **5 fallos seguidos** la cuenta se bloquea 15 minutos (`423`), aunque escribas bien la contraseña.
 
 ---
 
@@ -139,6 +178,10 @@ Tu computador
 | **CI / pipeline** | Integración continua: un "robot" de GitHub que, en cada Pull Request, compila el backend y corre las pruebas en una máquina limpia. Ver [sección 5.1](#51-integración-continua-el-pipeline-de-github). |
 | **GitHub Actions / workflow** | El servicio de GitHub que ejecuta el pipeline, y el archivo `.github/workflows/ci-backend.yml` que describe sus pasos. |
 | **Check** | El resultado (✅ o ❌) que el pipeline muestra en el Pull Request. |
+| **Token / JWT** | Al iniciar sesión el backend entrega un "pase" temporal (el token). La app lo envía en cada petición para no mandar la contraseña de nuevo. Un JWT lleva dentro el id del usuario, su rol y su fecha de vencimiento, y está **firmado** con `JWT_SECRET`: si alguien lo modifica, la firma deja de coincidir y el backend lo rechaza. Cualquiera puede leer su contenido, por eso no lleva datos sensibles. |
+| **`JWT_SECRET`** | La clave secreta con la que el backend firma los tokens. Quien la conozca podría fabricar tokens de cualquier rol, así que no se sube al repositorio y es distinta en cada entorno. |
+| **Perfil (`dev`)** | Un "modo" de Spring que activa partes del código solo en ciertos entornos. El perfil `dev` se activa con `spring.profiles.active=dev` en tu `.env` y hoy solo sirve para crear el administrador de prueba. En el servidor no se activa. |
+| **BCrypt** | Forma de guardar contraseñas: en la base queda un *hash* (una huella irreversible), nunca la contraseña. Al iniciar sesión se compara la contraseña escrita contra esa huella. |
 
 ---
 
@@ -155,6 +198,8 @@ Importante:
 - Las pruebas ejecutan **las mismas migraciones de Flyway** que producción, pero en H2, y luego Hibernate (`ddl-auto=validate`) comprueba que las entidades coincidan con esas tablas. Así `ModeloDatosTest` verifica a la vez el modelo y el script SQL: si alguien cambia una entidad sin escribir su migración, las pruebas fallan.
 - Ese archivo de pruebas **reemplaza por completo** al de `src/main/resources` mientras se ejecutan las pruebas. Si agregas una propiedad nueva al de `main` y las pruebas la necesitan, hay que ponerla también en el de pruebas.
 - H2 no se comporta igual que PostgreSQL en todo. Sirve para comprobar que la aplicación arranca y se conecta, pero una consulta que funcione en H2 podría fallar en PostgreSQL.
+- Las pruebas traen su **propia** `appresso.jwt.secret` en ese archivo de pruebas (no usan tu `JWT_SECRET`), por eso `./gradlew test` y el pipeline funcionan sin `.env`.
+- Las pruebas de inicio de sesión (`auth/AuthControllerTest`) **no son `@Transactional` a propósito**: si lo fueran, compartirían la transacción con el servicio y no detectarían que el contador de intentos fallidos debe guardarse aunque el login termine en error. Cada prueba crea sus usuarios y los borra al final; si escribes otra prueba de ese estilo, haz lo mismo para no dejar datos que afecten a las demás (la base H2 es la misma para todas).
 
 ### 5.1. Integración continua: el pipeline de GitHub
 
@@ -189,6 +234,8 @@ Cuando exista el proyecto Android, tendrá su propio workflow y su check se aña
 En un servidor no hay archivo `.env`: las variables las define el proveedor del servidor.
 
 - Se pueden definir `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`, igual que en desarrollo.
+- Debe definirse `JWT_SECRET` (32 caracteres o más), **distinta a la de desarrollo** y guardada solo en las variables del servidor. Opcionalmente `JWT_EXPIRACION_MINUTOS` (por defecto 720, es decir, 12 horas).
+- **No definas `spring.profiles.active=dev` ni `DEV_ADMIN_*` en el servidor.** Son solo para tu computador: crearían una cuenta de administrador con una contraseña conocida por el equipo.
 - O, si el proveedor entrega una sola dirección de conexión, se puede usar `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` y `SPRING_DATASOURCE_PASSWORD`. Spring las usa en lugar de lo que diga `application.properties`.
 
 El despliegue (servidor, HTTPS, copias de seguridad) es el entregable 8.5.1 y no está resuelto aquí.
@@ -247,12 +294,36 @@ Una entidad no coincide con las tablas. **Causa:** alguien cambió una clase `@E
 
 Alguien **editó** una migración que ya se había ejecutado en tu base. **Nunca se edita una migración ya subida a `main`**: si cambió por error, devuélvela a como estaba (`git checkout -- <archivo>`) y haz el cambio en una migración nueva. En tu base local de desarrollo puedes empezar de cero con `docker compose down -v`.
 
+### Error 7. `Falta JWT_SECRET o es demasiado corta (mínimo 32 caracteres)`
+
+```
+APPLICATION FAILED TO START
+
+Description:
+    ...
+    Reason: java.lang.IllegalStateException: Falta JWT_SECRET o es demasiado corta (mínimo 32 caracteres). Defínela en backend/.env; ver README, sección 2.
+```
+
+**Causa:** el backend no encuentra `JWT_SECRET` o su valor tiene menos de 32 caracteres. Pasa sobre todo cuando tu `.env` es anterior a la autenticación y no tiene esa línea, o cuando dejaste el valor de ejemplo de `.env.example`.
+
+**Qué hacer:** agrega a `backend/.env` una línea `JWT_SECRET=...` con una clave generada (ver el [paso 1](#paso-1-crear-tu-archivo-env)) y vuelve a ejecutar. Como siempre, lanza el comando desde `backend/`.
+
+### Error 8. Existe `admin@appresso.test` pero la contraseña no funciona (`401`)
+
+**Causa:** la cuenta se creó antes con otra contraseña. El backend **no modifica** una cuenta que ya existe: cambiar `DEV_ADMIN_CONTRASENA` después no cambia su contraseña. Si además fallaste 5 veces, está bloqueada 15 minutos (`423`).
+
+**Qué hacer:** borra la cuenta y reinicia el backend; se creará de nuevo con la contraseña actual de tu `.env`:
+
+```bash
+docker exec appresso-db psql -U appresso -d appresso -c "delete from usuarios where correo='admin@appresso.test'"
+```
+
 ---
 
 ## 8. Reglas del equipo
 
 - **Nunca subas el `.env`** al repositorio. Ya está en el `.gitignore`. Si necesitas compartir una variable nueva, agrégala al `.env.example` con un valor de ejemplo.
-- **No pongas contraseñas en `application.properties`.**
+- **No pongas contraseñas ni claves (`JWT_SECRET`) en `application.properties`** ni en ningún archivo que se suba al repositorio.
 - **No cambies `ddl-auto`** sin acordarlo con quien hace los modelos de datos: debe seguir en `validate`.
 - **Las tablas se cambian solo con migraciones.** Si modificas una entidad (agregas un campo, una tabla...), crea el archivo siguiente en `src/main/resources/db/migration`, por ejemplo `V2__agrega_campo_x.sql`, con el SQL del cambio (`alter table ...`). Reglas: el número sube de uno en uno, el nombre es `V<número>__<descripción>.sql` (con **dos** guiones bajos), **nunca se edita una migración ya subida a `main`**, y debe funcionar en PostgreSQL y en H2 (SQL estándar). Comprueba con `./gradlew test`.
 - **Antes de abrir un Pull Request, corre `./gradlew build` en `backend/`.** Es lo mismo que ejecuta el pipeline; si pasa en tu máquina, casi seguro pasa en GitHub.
@@ -275,7 +346,8 @@ backend/
     │   │   ├── AppressoBackendApplication.java   # punto de entrada
     │   │   ├── health/HealthController.java      # /api/health
     │   │   ├── config/ZonaHorariaConfig.java     # zona horaria del negocio (America/Bogota)
-    │   │   ├── usuarios/                         # Usuario, DispositivoPush, Rol
+    │   │   ├── auth/                             # inicio de sesión: AuthController, AuthService, JwtService, DTO
+    │   │   ├── usuarios/                         # Usuario, UsuarioRepository, AdminDePruebaInicializador (solo perfil dev), DispositivoPush, Rol
     │   │   ├── inventario/                       # Categoria, Producto, MovimientoInventario
     │   │   ├── comandas/                         # Mesa, Comanda, DetalleComanda, HistorialComanda
     │   │   ├── caja/                             # Jornada, Pago, MovimientoCaja, SolicitudRetiro, ...
@@ -289,4 +361,4 @@ backend/
         └── resources/application.properties      # configuración SOLO de pruebas (H2)
 ```
 
-Paquete base: `com.appresso.backend`. Mapa del modelo de datos: [`docs/modelo-de-datos.md`](../docs/modelo-de-datos.md).
+Paquete base: `com.appresso.backend`. Mapa del modelo de datos: [`docs/modelo-de-datos.md`](../docs/modelo-de-datos.md). Contrato del inicio de sesión (para quien lo consuma desde Android): [`docs/api-auth.md`](../docs/api-auth.md).
