@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Solo en debug: el backend local responde por http:// y Android 9+ lo bloquea por defecto.
+         Este archivo no entra en el release, que debe usar siempre HTTPS (entregables 8.4.1 y 8.5.1). -->
+    <application android:usesCleartextTraffic="true" />
+
+</manifest>

@@ -1,3 +1,31 @@
 <resources>
     <string name="app_name">Appresso</string>
+
+    <!-- Login -->
+    <string name="login_subtitle">Ingresa con tu correo y contraseña.</string>
+    <string name="login_title">Inicia sesión</string>
+    <string name="login_email_label">Correo electrónico</string>
+    <string name="login_email_placeholder">tu@correo.co</string>
+    <string name="login_password_label">Contraseña</string>
+    <string name="login_password_placeholder">Tu contraseña</string>
+    <string name="login_show_password">Mostrar</string>
+    <string name="login_hide_password">Ocultar</string>
+    <string name="login_submit">Entrar</string>
+    <string name="login_loading">Iniciando sesión</string>
+
+    <!-- Login: errores. Sin datos técnicos y sin decir qué dato falló en las credenciales. -->
+    <string name="login_error_email_invalid">El correo no tiene un formato válido.</string>
+    <string name="login_error_password_too_long">La contraseña no puede superar 72 caracteres.</string>
+    <string name="login_error_credentials">Credenciales inválidas</string>
+    <string name="login_error_locked">Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo más tarde.</string>
+    <string name="login_error_invalid_data">Revisa los datos ingresados.</string>
+    <string name="login_error_no_connection">Sin conexión a Internet. Por favor, verifica tu red.</string>
+    <string name="login_error_server">Algo salió mal. Intenta de nuevo en unos minutos.</string>
+
+    <!-- Pantallas provisionales tras iniciar sesión (se reemplazan con los demás módulos) -->
+    <string name="admin_home_title">Panel del administrador</string>
+    <string name="admin_home_greeting">Hola, %1$s</string>
+    <string name="admin_home_pending">Aquí irán las opciones de administración. Esta pantalla es provisional.</string>
+    <string name="sin_pantalla_title">Sesión iniciada</string>
+    <string name="sin_pantalla_message">Tu rol (%1$s) todavía no tiene pantalla en la app. Esta pantalla es provisional.</string>
 </resources>
