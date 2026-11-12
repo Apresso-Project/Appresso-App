@@ -243,7 +243,7 @@ class TiempoRealTest {
 	}
 
 	private static ComandaEventoDatos comanda(long id, List<ItemAgregado> items) {
-		return new ComandaEventoDatos(id, 1L, "PENDIENTE", "BORRADOR", new BigDecimal("9000.00"), items);
+		return new ComandaEventoDatos(id, 1L, "ENVIADA", "PENDIENTE", new BigDecimal("9000.00"), items);
 	}
 
 	private static Instant fecha(String mensaje) {

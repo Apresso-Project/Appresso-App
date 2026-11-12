@@ -109,7 +109,7 @@ public void enviarAComanda(Long comandaId) {
     // ... cambiar el estado, descontar el inventario, guardar ...
     publicador.publicarComanda(TipoEvento.COMANDA_ESTADO_CAMBIADO,
             new ComandaEventoDatos(comanda.getId(), comanda.getMesa().getId(),
-                    "PENDIENTE", "BORRADOR", comanda.getTotal(), null));
+                    "ENVIADA", "PENDIENTE", comanda.getTotal(), null));
 }
 ```
 
@@ -123,7 +123,7 @@ Dónde publicar:
 | el mesero la envía, cocina la prepara o la termina, o caja la cierra | `COMANDA_ESTADO_CAMBIADO` |
 | se agregan productos a una comanda ya enviada | `COMANDA_MODIFICADA` |
 | se crea un producto | `PRODUCTO_CREADO` |
-| cambia nombre, precio, categoría o activo | `PRODUCTO_ACTUALIZADO` |
+| cambia nombre, descripción, precio, umbral mínimo o activo | `PRODUCTO_ACTUALIZADO` |
 | cambia el stock (venta o ajuste manual) | `EXISTENCIAS_ACTUALIZADAS` |
 
 ## Servicios que ya publican (SCRUM-28)
@@ -178,6 +178,29 @@ Cada prueba de reconexión del cliente comprueba, entre otras cosas: esperas de 
 
 > La latencia que mide la pantalla incluye la diferencia entre el reloj del servidor y el del celular. Si ambos están en hora automática, el error es de milisegundos. Esta prueba mide la red local, no la del local de la cafetería: la medición final se repite allí (Plan de Calidad, riesgo R-11).
 
+## Mediciones en dispositivo real (SCRUM-31 y SCRUM-32)
+
+> **COMPLETAR con lo medido.** Anota los valores tal cual; si algo no se pudo probar, escribe «no se probó» y el motivo.
+
+- **Fecha, red y equipos:** … (Wi-Fi o punto de acceso; modelo y Android de cada teléfono; cuántos dispositivos conectados a la vez).
+- **Eventos emitidos:** … (cantidad y pausa usadas).
+
+| Dispositivo | Eventos recibidos | p95 (ms) | % bajo 3 s |
+|---|---|---|---|
+| … | … | … | … |
+
+Criterio: al menos 95 % de los eventos bajo 3 s. Resultado: …
+
+| Prueba | Qué pasó | Tiempo en reconectar |
+|---|---|---|
+| Servidor caído y de vuelta | … | … |
+| Modo avión | … | … |
+| App en segundo plano | … | … |
+| Eventos perdidos (aparece `↻ RESINCRONIZAR`) | … | — |
+| Wi-Fi sin Internet: tiempo hasta «Sin conexión» (RNF-21: ≤ 5 s) | … | — |
+
+**No se pudo probar:** …
+
 ## Pruebas del servidor
 
 `ServiciosTiempoRealTest` comprueba, con un publicador simulado, que cada operación publica el evento correcto, que se cumplen las reglas de arriba y que una operación inválida no publica nada.
@@ -195,6 +218,6 @@ La prueba de carga corre en una sola máquina, así que mide el servidor, no la 
 ## Límites actuales
 
 - **Cliente sin REST de resincronización:** el cliente avisa cuándo consultar por REST, pero las consultas de comandas y catálogo las construyen otras tareas.
-- **Sin autenticación:** cualquiera que llegue al servidor puede suscribirse. Falta validar el token en el `CONNECT` cuando exista el login (HU-01, RNF-07).
+- **Sin autenticación en el WebSocket:** el login ya existe (2.1.1), pero el `CONNECT` todavía no valida el token, así que cualquiera que llegue al servidor puede suscribirse. Esa validación queda para la capa de autorización 2.3.1 (RNF-07).
 - **Broker en memoria:** sirve con un solo servidor. Con varios habría que usar un broker externo.
 - **Los eventos no se guardan:** la recuperación depende de reconsultar por REST.

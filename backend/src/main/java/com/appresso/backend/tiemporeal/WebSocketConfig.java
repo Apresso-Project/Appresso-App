@@ -28,7 +28,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
 		// Las apps nativas no envían "Origin"; el patrón abierto solo afecta a navegadores.
-		// TODO: autenticar el CONNECT con el token de sesión cuando exista el login (HU-01).
+		// TODO (2.3.1): validar el token JWT en el CONNECT. El login ya existe (2.1.1); la validación
+		// en el canal WebSocket queda para la capa de autorización 2.3.1.
 		registry.addEndpoint(Destinos.ENDPOINT)
 				.setAllowedOriginPatterns("*")
 				.withSockJS();

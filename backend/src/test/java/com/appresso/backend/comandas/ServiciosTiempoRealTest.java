@@ -224,6 +224,8 @@ class ServiciosTiempoRealTest {
 		ArgumentCaptor<ComandaEventoDatos> datos = ArgumentCaptor.forClass(ComandaEventoDatos.class);
 		verify(publicador).publicarComanda(eq(TipoEvento.COMANDA_MODIFICADA), datos.capture());
 		assertThat(datos.getValue().total()).isEqualByComparingTo("13500.00");
+		// estadoAnterior solo viaja en COMANDA_ESTADO_CAMBIADO: una modificación no debe parecer un cambio de estado.
+		assertThat(datos.getValue().estadoAnterior()).isNull();
 		assertThat(c.getDetalles()).hasSize(2);
 		assertThat(c.getDetalles().get(1).isAgregadoDespuesDeEnvio()).isTrue();
 		assertThat(cafe.getStockActual()).isEqualTo(7);

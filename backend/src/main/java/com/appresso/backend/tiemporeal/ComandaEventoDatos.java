@@ -9,7 +9,7 @@ import java.util.List;
  *
  * @param comandaId       id de la comanda
  * @param mesaId          id de la mesa
- * @param estado          estado actual (nombre de EstadoComanda: BORRADOR, PENDIENTE, EN_PREPARACION, LISTO, CANCELADA)
+ * @param estado          estado actual (nombre de EstadoComanda: PENDIENTE, ENVIADA, EN_PREPARACION, LISTA, CERRADA)
  * @param estadoAnterior  estado previo; solo en COMANDA_ESTADO_CAMBIADO, en otro caso null
  * @param total           total actual de la comanda
  * @param itemsAgregados  solo en COMANDA_MODIFICADA: lo que se añadió (cocina lo resalta, RF-21); en otro caso vacío

@@ -149,7 +149,7 @@ public class ComandaService {
 		recalcular(comanda);
 
 		publicador.publicarComanda(TipoEvento.COMANDA_MODIFICADA,
-				datos(comanda, comanda.getEstado(), List.of(aItem(item))));
+				datos(comanda, null, List.of(aItem(item))));
 		return comanda;
 	}
 
