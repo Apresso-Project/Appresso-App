@@ -5,6 +5,8 @@ import com.appresso.app.data.auth.AlmacenSesionEnMemoria
 import com.appresso.app.data.auth.AuthRepository
 import com.appresso.app.data.auth.AuthRepositoryRemoto
 import com.appresso.app.data.remote.ClienteHttp
+import com.appresso.app.data.usuarios.UsuariosRepository
+import com.appresso.app.data.usuarios.UsuariosRepositoryRemoto
 
 /**
  * Crea y reúne los objetos que comparte toda la app (el almacén de sesión y el acceso al backend).
@@ -16,5 +18,9 @@ class ContenedorApp(urlBase: String) {
 
     val authRepository: AuthRepository by lazy {
         AuthRepositoryRemoto(ClienteHttp.crearAuthApi(urlBase))
+    }
+
+    val usuariosRepository: UsuariosRepository by lazy {
+        UsuariosRepositoryRemoto(ClienteHttp.crearUsuariosApi(urlBase), almacenSesion)
     }
 }

@@ -1,5 +1,7 @@
 package com.appresso.app.ui.admin
 
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +20,7 @@ import com.appresso.app.ui.theme.Ink
  * sus módulos.
  */
 @Composable
-fun AdminHomeScreen(nombre: String, modifier: Modifier = Modifier) {
+fun AdminHomeScreen(nombre: String, onAbrirUsuarios: () -> Unit, modifier: Modifier = Modifier) {
     PantallaProvisional(
         titulo = stringResource(R.string.admin_home_title),
         modifier = modifier,
@@ -33,11 +35,17 @@ fun AdminHomeScreen(nombre: String, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyLarge,
             color = Ink,
         )
+        Button(
+            onClick = onAbrirUsuarios,
+            colors = ButtonDefaults.buttonColors(containerColor = Espresso),
+        ) {
+            Text(stringResource(R.string.admin_home_users))
+        }
     }
 }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 private fun AdminHomeScreenPreview() {
-    AppressoTheme { AdminHomeScreen(nombre = "Administrador de prueba") }
+    AppressoTheme { AdminHomeScreen(nombre = "Administrador de prueba", onAbrirUsuarios = {}) }
 }

@@ -42,4 +42,14 @@ object ClienteHttp {
             .build()
             .create(AuthApi::class.java)
     }
+
+    /** Igual que [crearAuthApi] pero para la administración de usuarios (docs/api-usuarios.md). */
+    fun crearUsuariosApi(urlBase: String, tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS): UsuariosApi {
+        return Retrofit.Builder()
+            .baseUrl(urlBase)
+            .client(crearCliente(tiempoLimiteSegundos))
+            .addConverterFactory(json.asConverterFactory("application/json; charset=UTF-8".toMediaType()))
+            .build()
+            .create(UsuariosApi::class.java)
+    }
 }
