@@ -86,6 +86,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    // Tiempo real (8.2.1): lectura del JSON de los eventos
+    implementation(libs.gson)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

@@ -3,6 +3,20 @@
 
     <!-- Solo en debug: el backend local responde por http:// y Android 9+ lo bloquea por defecto.
          Este archivo no entra en el release, que debe usar siempre HTTPS (entregables 8.4.1 y 8.5.1). -->
-    <application android:usesCleartextTraffic="true" />
+    <application android:usesCleartextTraffic="true">
+
+        <!-- Pantalla de diagnóstico del tiempo real (8.2.1): segundo ícono «Appresso Diagnóstico». Solo debug. -->
+        <activity
+            android:name=".DiagnosticoTiempoRealActivity"
+            android:exported="true"
+            android:label="Appresso Diagnóstico"
+            android:theme="@style/Theme.Appresso">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
 
 </manifest>
