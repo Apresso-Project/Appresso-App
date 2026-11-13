@@ -26,6 +26,8 @@ dependencies {
 	// Autenticacion (2.1.1): BCrypt para las contrasenas y JWT para el token de sesion.
 	// Se usa solo spring-security-crypto, NO el starter de seguridad (esa capa es de 2.3.1).
 	implementation 'org.springframework.security:spring-security-crypto'
+	// Control de acceso por rol (2.3.1): filtro JWT, 401/403 y reglas por rol.
+	implementation 'org.springframework.boot:spring-boot-starter-security'
 	// Boot no administra esta version; es la misma que usa Spring Security 7.1.x (para 2.3.1).
 	implementation 'com.nimbusds:nimbus-jose-jwt:10.9.1'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -35,6 +37,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
