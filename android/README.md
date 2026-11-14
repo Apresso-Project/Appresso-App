@@ -69,16 +69,17 @@ app/src/main/java/com/appresso/app/
 ├── data/
 │   ├── auth/              # Rol, Sesion, ResultadoLogin, AuthRepository (+ remoto) y AlmacenSesion
 │   └── remote/            # AuthApi (Retrofit), los DTO, ClienteHttp (OkHttp, tiempos de espera) e InterceptorSesion (token y 401)
+├── permisos/              # Permisos.kt: qué acciones y opciones tiene cada rol (con pruebas)
 └── ui/
-    ├── AppressoRaiz.kt    # elige la pantalla según haya sesión (login o pantalla del rol)
+    ├── AppressoRaiz.kt    # elige la pantalla según la sesión y la sección abierta
     ├── Destino.kt         # destinoPara(sesion): la regla de a dónde ir (con pruebas)
-    ├── PantallaProvisional.kt, SinPantallaScreen.kt   # marco y aviso provisionales
+    ├── PantallaProvisional.kt   # marco de las secciones provisionales
     ├── theme/             # colores, tipografías y tema (guía de estilo de Figma)
     ├── login/             # LoginScreen (dibuja), LoginRoute (la conecta) y LoginViewModel (decide)
-    └── admin/             # AdminHomeScreen: pantalla básica del administrador (provisional)
+    └── inicio/            # InicioScreen (menú de cada rol) y SeccionProvisionalScreen
 ```
 
-**Después de iniciar sesión.** Hoy solo existe la pantalla básica del **administrador** (`AdminHomeScreen`: saludo con el nombre y un aviso de que es provisional). Cualquier otro rol ve un aviso provisional ("tu rol todavía no tiene pantalla"). No hay botón de cerrar sesión: la sesión está solo en memoria, así que cerrar la app del todo vuelve al login. Las pantallas reales de cada rol y que cada rol vea solo lo suyo llegan con los demás módulos y con el entregable 2.3.1.
+**Después de iniciar sesión (SCRUM-48).** Cada rol llega a su **inicio**, con solo las opciones que le corresponden y un botón para cerrar sesión. Qué ve y qué puede hacer cada rol está en `permisos/Permisos.kt`: `opcionesPara(rol)` arma el menú y `puede(rol, Accion.X)` sirve para mostrar u ocultar botones dentro de una pantalla. Refleja la política del backend ([`docs/permisos-por-rol.md`](../docs/permisos-por-rol.md)); si cambia una regla allá, se cambia aquí. Las secciones aún son provisionales: cada módulo conecta su pantalla real en `AppressoRaiz` (función `Seccion`), por ejemplo `Opcion.USUARIOS -> UsuariosRoute(...)`. La sesión sigue solo en memoria: cerrar la app del todo vuelve al login.
 
 El contrato del inicio de sesión que consume la app está en [`docs/api-auth.md`](../docs/api-auth.md). `AuthRepositoryRemoto` traduce cada respuesta (200, 400, 401, 423, sin conexión, error del servidor) a un `ResultadoLogin`, y la pantalla solo conoce la interfaz `AuthRepository`.
 

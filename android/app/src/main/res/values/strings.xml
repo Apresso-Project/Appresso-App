@@ -22,10 +22,41 @@
     <string name="login_error_no_connection">Sin conexión a Internet. Por favor, verifica tu red.</string>
     <string name="login_error_server">Algo salió mal. Intenta de nuevo en unos minutos.</string>
 
-    <!-- Pantallas provisionales tras iniciar sesión (se reemplazan con los demás módulos) -->
-    <string name="admin_home_title">Panel del administrador</string>
-    <string name="admin_home_greeting">Hola, %1$s</string>
-    <string name="admin_home_pending">Aquí irán las opciones de administración. Esta pantalla es provisional.</string>
-    <string name="sin_pantalla_title">Sesión iniciada</string>
-    <string name="sin_pantalla_message">Tu rol (%1$s) todavía no tiene pantalla en la app. Esta pantalla es provisional.</string>
+    <!-- Inicio de cada rol (SCRUM-48) -->
+    <string name="inicio_saludo">Hola, %1$s</string>
+    <string name="inicio_subtitulo">¿Qué quieres hacer hoy?</string>
+    <string name="inicio_cerrar_sesion">Cerrar sesión</string>
+    <string name="seccion_provisional">Esta sección llega con su módulo. Por ahora es provisional.</string>
+    <string name="seccion_volver">Volver al inicio</string>
+
+    <!-- Roles -->
+    <string name="rol_administrador">Administrador</string>
+    <string name="rol_cajero">Cajero</string>
+    <string name="rol_mesero">Mesero</string>
+    <string name="rol_cocinero">Cocinero</string>
+    <string name="rol_cliente">Cliente</string>
+
+    <!-- Opciones del menú (ver permisos/Permisos.kt) -->
+    <string name="opcion_usuarios">Usuarios</string>
+    <string name="opcion_usuarios_desc">Crea, edita y desactiva las cuentas del equipo.</string>
+    <string name="opcion_productos_inventario">Productos e inventario</string>
+    <string name="opcion_productos_inventario_desc">Catálogo, existencias, alertas y movimientos.</string>
+    <string name="opcion_mesas_comandas">Mesas y comandas</string>
+    <string name="opcion_mesas_comandas_desc">Abre comandas por mesa y envíalas a cocina.</string>
+    <string name="opcion_pedidos">Pedidos</string>
+    <string name="opcion_pedidos_desc">Consulta las comandas del día y su estado.</string>
+    <string name="opcion_cocina">Cocina</string>
+    <string name="opcion_cocina_desc">Comandas por preparar, en orden de llegada.</string>
+    <string name="opcion_cobros">Cobros</string>
+    <string name="opcion_cobros_desc">Cobra comandas y muestra el código QR de pago.</string>
+    <string name="opcion_caja">Caja</string>
+    <string name="opcion_caja_desc">Movimientos, saldos y cierre de la jornada.</string>
+    <string name="opcion_solicitudes_retiro">Solicitudes de retiro</string>
+    <string name="opcion_solicitudes_retiro_desc">Pide o aprueba retiros de dinero de la caja.</string>
+    <string name="opcion_clientes">Clientes</string>
+    <string name="opcion_clientes_desc">Registra clientes y consulta sus puntos.</string>
+    <string name="opcion_recompensas_promociones">Recompensas y promociones</string>
+    <string name="opcion_recompensas_promociones_desc">Beneficios disponibles para los clientes.</string>
+    <string name="opcion_mis_puntos">Mis puntos</string>
+    <string name="opcion_mis_puntos_desc">Tus puntos de fidelidad acumulados.</string>
 </resources>
