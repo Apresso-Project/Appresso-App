@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * Reglas, en orden (gana la primera que coincide):
  * <ol>
  * <li>Públicos, sin token: iniciar sesión, {@code /api/health} y {@code /actuator/health}.</li>
- * <li>Por rol: cada módulo, según la política de permisos (SCRUM-47).</li>
+ * <li>Por rol: cada módulo, según {@link PoliticaPermisos} (SCRUM-47).</li>
  * <li>Todo lo demás: basta con haber iniciado sesión.</li>
  * </ol>
  * Sin token válido responde 401; con token válido pero sin el rol necesario, 403. Ambos con el
@@ -52,19 +52,28 @@ public class SeguridadConfig {
 				.logout(AbstractHttpConfigurer::disable)
 				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-				.authorizeHttpRequests(reglas -> reglas
-						// 1. Públicos
-						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/health", "/actuator/health", "/actuator/health/**")
-								.permitAll()
-						.requestMatchers("/error").permitAll()
+				.authorizeHttpRequests(reglas -> {
+					// 1. Públicos
+					reglas.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+							.requestMatchers(HttpMethod.GET, "/api/health", "/actuator/health", "/actuator/health/**")
+							.permitAll()
+							.requestMatchers("/error").permitAll();
 
-						// 2. Por rol (política de permisos, SCRUM-47). Se agregan aquí a medida que
-						//    existan los endpoints de cada módulo.
-						.requestMatchers("/api/usuarios", "/api/usuarios/**").hasRole("ADMINISTRADOR")
+					// 2. Por rol: la política de permisos (SCRUM-47), en su orden.
+					for (PoliticaPermisos.Regla regla : PoliticaPermisos.REGLAS) {
+						var ruta = regla.metodo() == null
+								? reglas.requestMatchers(regla.patron())
+								: reglas.requestMatchers(regla.metodo(), regla.patron());
+						if (regla.roles().isEmpty()) {
+							ruta.denyAll();
+						} else {
+							ruta.hasAnyRole(regla.nombresDeRoles());
+						}
+					}
 
-						// 3. El resto: cualquier usuario con sesión.
-						.anyRequest().authenticated())
+					// 3. El resto: cualquier usuario con sesión.
+					reglas.anyRequest().authenticated();
+				})
 
 				.exceptionHandling(e -> e
 						.authenticationEntryPoint((solicitud, respuesta, ex) ->

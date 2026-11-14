@@ -2,7 +2,7 @@
 
 Contrato del inicio de sesión (entregable 2.1.1, RF-01) para quien lo consuma desde la app Android. El código está en `backend/src/main/java/com/appresso/backend/auth/` y las pruebas en `backend/src/test/java/com/appresso/backend/auth/`.
 
-> Estado: existe **un solo endpoint**, `POST /api/auth/login`. El backend **emite** el token, pero todavía **ningún endpoint lo exige ni lo valida**: eso llega con el entregable 2.3.1 (control de acceso por rol).
+> Estado: `POST /api/auth/login` emite el token y, desde 2.3.1, **los demás endpoints lo exigen y lo validan** según el rol. Qué rol puede usar cada endpoint está en [`permisos-por-rol.md`](permisos-por-rol.md).
 
 ## Iniciar sesión
 
@@ -99,9 +99,16 @@ Es un JWT firmado (HS256) con una clave que solo conoce el servidor.
 - **Almacenamiento en Android:** en Android Keystore (entregable 8.4.1). Mientras tanto, detrás de una interfaz propia para poder cambiarlo sin tocar el resto.
 - **Cerrar sesión** es solo borrar el token en el teléfono: el servidor no guarda sesiones.
 
-### Cómo se enviará (previsto, aún sin efecto)
+### Cómo se envía
 
-Las peticiones a endpoints protegidos llevarán `Authorization: Bearer <token>`. Es la convención prevista para 2.3.1; hasta entonces ningún endpoint la lee, y 2.3.1 puede confirmarla o ajustarla.
+Toda petición a un endpoint protegido lleva `Authorization: Bearer <token>` (confirmado en 2.3.1).
+
+| Código | Cuándo | Qué hace la app |
+|---|---|---|
+| **401** | Sin token, o token vencido, alterado o de una cuenta desactivada | Borrar la sesión y volver al login |
+| **403** | Token válido, pero el rol no tiene permiso | Mostrar el `mensaje` y quedarse en la pantalla |
+
+Ambos responden `{ "mensaje": "..." }`, igual que el resto de errores. El detalle de los permisos está en [`permisos-por-rol.md`](permisos-por-rol.md).
 
 ## Qué debe hacer la app con cada respuesta
 
@@ -132,7 +139,7 @@ Desde un emulador de Android, `localhost` es el propio emulador: el backend de t
 
 ## Fuera de este contrato (por ahora)
 
-- Validación del token y autorización por rol en los demás endpoints, y cierre de sesión por inactividad: **2.3.1**.
+- Cierre de sesión por 30 minutos de inactividad (RNF-26.2): pendiente.
 - Renovación del token (refresh) y cierre de sesión en el servidor: no previstos.
 - Registro de los intentos fallidos en la auditoría (RNF-12): pendiente de decidir.
 - Almacenamiento seguro del token en Android y HTTPS: **8.4.1**.
