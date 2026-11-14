@@ -2,20 +2,28 @@ package com.appresso.app.ui
 
 import com.appresso.app.data.auth.Rol
 import com.appresso.app.data.auth.Sesion
+import com.appresso.app.permisos.Opcion
+import com.appresso.app.permisos.opcionesPara
+import com.appresso.app.permisos.puedeVer
 
-/** A qué pantalla debe ir la app según haya o no una sesión iniciada. */
+/** A qué pantalla debe ir la app según la sesión y la sección que el usuario abrió. */
 sealed interface Destino {
 
     data object Login : Destino
 
-    data class InicioAdmin(val nombre: String) : Destino
+    /** El menú de inicio del rol, solo con las opciones que le corresponden (SCRUM-48). */
+    data class Inicio(val nombre: String, val rol: Rol, val opciones: List<Opcion>) : Destino
 
-    /** Roles que todavía no tienen pantalla propia (llegan con los demás módulos). */
-    data class SinPantalla(val rol: Rol) : Destino
+    /** Una sección del menú ya abierta. */
+    data class Seccion(val opcion: Opcion, val rol: Rol) : Destino
 }
 
-fun destinoPara(sesion: Sesion?): Destino = when {
+/**
+ * @param abierta la sección que el usuario tocó en el menú, o null si está en el inicio.
+ *   Si el rol no puede verla, se ignora y se muestra el inicio: nunca se abre una sección ajena.
+ */
+fun destinoPara(sesion: Sesion?, abierta: Opcion? = null): Destino = when {
     sesion == null -> Destino.Login
-    sesion.rol == Rol.ADMINISTRADOR -> Destino.InicioAdmin(sesion.nombre)
-    else -> Destino.SinPantalla(sesion.rol)
+    abierta != null && puedeVer(sesion.rol, abierta) -> Destino.Seccion(abierta, sesion.rol)
+    else -> Destino.Inicio(sesion.nombre, sesion.rol, opcionesPara(sesion.rol))
 }
