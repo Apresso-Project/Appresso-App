@@ -1,5 +1,6 @@
 package com.appresso.app.data.remote
 
+import com.appresso.app.data.auth.AlmacenSesion
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -17,8 +18,13 @@ object ClienteHttp {
 
     /**
      * @param tiempoLimiteSegundos tiempo máximo de conexión, de envío y de espera de respuesta
+     * @param almacenSesion si se pasa, cada petición lleva el token de la sesión y un 401 la cierra
+     *   (ver [InterceptorSesion])
      */
-    fun crearCliente(tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS): OkHttpClient =
+    fun crearCliente(
+        tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS,
+        almacenSesion: AlmacenSesion? = null,
+    ): OkHttpClient =
         OkHttpClient.Builder()
             .connectTimeout(tiempoLimiteSegundos, TimeUnit.SECONDS)
             .readTimeout(tiempoLimiteSegundos, TimeUnit.SECONDS)
@@ -28,18 +34,30 @@ object ClienteHttp {
             // la contraseña sin que el usuario lo sepa, y cada envío fallido cuenta como un intento
             // para el bloqueo de la cuenta.
             .retryOnConnectionFailure(false)
+            .apply { if (almacenSesion != null) addInterceptor(InterceptorSesion(almacenSesion)) }
+            .build()
+
+    /**
+     * Retrofit configurado para el backend. Todas las APIs (login, usuarios, comandas...) se crean
+     * desde aquí con `.create(MiApi::class.java)`, así comparten el cliente y llevan el token.
+     *
+     * @param urlBase debe terminar en "/" (en la app viene de `BuildConfig.API_BASE_URL`)
+     */
+    fun crearRetrofit(
+        urlBase: String,
+        almacenSesion: AlmacenSesion? = null,
+        tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS,
+    ): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(urlBase)
+            .client(crearCliente(tiempoLimiteSegundos, almacenSesion))
+            .addConverterFactory(json.asConverterFactory("application/json; charset=UTF-8".toMediaType()))
             .build()
 
     /**
      * @param urlBase debe terminar en "/" (en la app viene de `BuildConfig.API_BASE_URL`)
      * @param tiempoLimiteSegundos tiempo máximo de conexión y de espera de respuesta
      */
-    fun crearAuthApi(urlBase: String, tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS): AuthApi {
-        return Retrofit.Builder()
-            .baseUrl(urlBase)
-            .client(crearCliente(tiempoLimiteSegundos))
-            .addConverterFactory(json.asConverterFactory("application/json; charset=UTF-8".toMediaType()))
-            .build()
-            .create(AuthApi::class.java)
-    }
+    fun crearAuthApi(urlBase: String, tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS): AuthApi =
+        crearRetrofit(urlBase, tiempoLimiteSegundos = tiempoLimiteSegundos).create(AuthApi::class.java)
 }

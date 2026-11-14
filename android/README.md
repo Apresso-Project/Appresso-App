@@ -68,7 +68,7 @@ app/src/main/java/com/appresso/app/
 ├── ContenedorApp.kt       # reúne los objetos compartidos (almacén de sesión, acceso al backend)
 ├── data/
 │   ├── auth/              # Rol, Sesion, ResultadoLogin, AuthRepository (+ remoto) y AlmacenSesion
-│   └── remote/            # AuthApi (Retrofit), los DTO y ClienteHttp (OkHttp, tiempos de espera)
+│   └── remote/            # AuthApi (Retrofit), los DTO, ClienteHttp (OkHttp, tiempos de espera) e InterceptorSesion (token y 401)
 └── ui/
     ├── AppressoRaiz.kt    # elige la pantalla según haya sesión (login o pantalla del rol)
     ├── Destino.kt         # destinoPara(sesion): la regla de a dónde ir (con pruebas)
@@ -89,6 +89,8 @@ El contrato del inicio de sesión que consume la app está en [`docs/api-auth.md
 - **Sesión:** `AlmacenSesion` es una interfaz; hoy se usa `AlmacenSesionEnMemoria`, así que la sesión **se pierde al cerrar la app** y hay que volver a iniciar sesión. Es provisional a propósito: guardar el token en disco sin cifrar sería peor. El almacenamiento cifrado (Android Keystore) llega con 8.4.1 y bastará con otra implementación de la interfaz. Al implementarlo hay que revisar `android:allowBackup` del manifest, que hoy está activo.
 
 Las pruebas unitarias (`app/src/test`) corren en la JVM, sin emulador ni backend: el repositorio se prueba contra un servidor HTTP simulado (MockWebServer) que responde lo que respondería el real.
+
+**Token y sesión vencida (SCRUM-46).** `ContenedorApp` crea un solo `Retrofit` para toda la app; las APIs nuevas se crean con `contenedor.retrofit.create(MiApi::class.java)`. Su cliente lleva `InterceptorSesion`, que agrega `Authorization: Bearer <token>` a cada petición (menos al login) y, si el backend responde **401**, borra la sesión: la app vuelve sola al login. Un **403** no cierra la sesión; la pantalla debe mostrar el `mensaje` del servidor. Ver [`docs/permisos-por-rol.md`](../docs/permisos-por-rol.md).
 
 ## 5. Librerías de red
 
