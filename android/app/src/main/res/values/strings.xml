@@ -21,6 +21,8 @@
     <string name="login_error_invalid_data">Revisa los datos ingresados.</string>
     <string name="login_error_no_connection">Sin conexión a Internet. Por favor, verifica tu red.</string>
     <string name="login_error_server">Algo salió mal. Intenta de nuevo en unos minutos.</string>
+    <string name="error_prohibido">No tienes permiso para realizar esta acción.</string>
+    <string name="error_sin_conexion">Sin conexión a Internet. Por favor, verifica tu red.</string>
 
     <!-- Inicio de cada rol (SCRUM-48) -->
     <string name="inicio_saludo">Hola, %1$s</string>

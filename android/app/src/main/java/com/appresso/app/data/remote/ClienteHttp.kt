@@ -20,10 +20,13 @@ object ClienteHttp {
      * @param tiempoLimiteSegundos tiempo máximo de conexión, de envío y de espera de respuesta
      * @param almacenSesion si se pasa, cada petición lleva el token de la sesión y un 401 la cierra
      *   (ver [InterceptorSesion])
+     * @param bus si se pasa, los 403 y la pérdida de conexión de los endpoints protegidos se avisan
+     *   por ahí (ver [InterceptorErrores])
      */
     fun crearCliente(
         tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS,
         almacenSesion: AlmacenSesion? = null,
+        bus: BusEventosRed? = null,
     ): OkHttpClient =
         OkHttpClient.Builder()
             .connectTimeout(tiempoLimiteSegundos, TimeUnit.SECONDS)
@@ -34,7 +37,10 @@ object ClienteHttp {
             // la contraseña sin que el usuario lo sepa, y cada envío fallido cuenta como un intento
             // para el bloqueo de la cuenta.
             .retryOnConnectionFailure(false)
-            .apply { if (almacenSesion != null) addInterceptor(InterceptorSesion(almacenSesion)) }
+            .apply {
+                if (almacenSesion != null) addInterceptor(InterceptorSesion(almacenSesion))
+                if (bus != null) addInterceptor(InterceptorErrores(bus))
+            }
             .build()
 
     /**
@@ -47,10 +53,11 @@ object ClienteHttp {
         urlBase: String,
         almacenSesion: AlmacenSesion? = null,
         tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS,
+        bus: BusEventosRed? = null,
     ): Retrofit =
         Retrofit.Builder()
             .baseUrl(urlBase)
-            .client(crearCliente(tiempoLimiteSegundos, almacenSesion))
+            .client(crearCliente(tiempoLimiteSegundos, almacenSesion, bus))
             .addConverterFactory(json.asConverterFactory("application/json; charset=UTF-8".toMediaType()))
             .build()
 
