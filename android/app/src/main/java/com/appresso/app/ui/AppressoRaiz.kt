@@ -2,6 +2,8 @@ package com.appresso.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -60,7 +62,13 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
         }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
+    // contentWindowInsets en cero: cada pantalla ya deja su espacio para la barra de estado
+    // (statusBarsPadding) y pinta su cabecera Espresso detrás de ella. Con los márgenes por defecto
+    // del Scaffold, ese espacio se sumaba dos veces y aparecía una franja clara arriba.
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbar, modifier = Modifier.navigationBarsPadding()) },
+    ) { padding ->
         Box(Modifier.padding(padding)) {
             when (val destino = destinoPara(sesion, abierta)) {
                 Destino.Login -> {
