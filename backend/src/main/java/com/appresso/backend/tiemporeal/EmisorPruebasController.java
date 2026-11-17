@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,10 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
  * ver cómo los recibe la app Android y medir la latencia.
  *
  * <p>Existe únicamente con el perfil {@code dev} (el mismo que crea el administrador de prueba);
- * en producción este controlador no se carga.</p>
+ * en producción este controlador no se carga. Con sesión de administrador (2.3.1).</p>
  *
  * <pre>
- * curl -X POST "http://localhost:8080/api/dev/tiempo-real/emitir?cantidad=20&amp;pausaMs=500"
+ * curl -X POST "http://localhost:8080/api/dev/tiempo-real/emitir?cantidad=20&amp;pausaMs=500" \
+ *      -H "Authorization: Bearer &lt;token del administrador&gt;"
  * </pre>
  */
 @Profile("dev")
@@ -40,6 +42,7 @@ public class EmisorPruebasController {
 	 * Responde de inmediato; los eventos salen en segundo plano.
 	 */
 	@PostMapping("/emitir")
+	@PreAuthorize("hasRole('ADMINISTRADOR')")
 	public Map<String, Object> emitir(@RequestParam(defaultValue = "10") int cantidad,
 			@RequestParam(defaultValue = "0") long pausaMs) {
 		int total = Math.max(1, Math.min(cantidad, MAXIMO_EVENTOS));

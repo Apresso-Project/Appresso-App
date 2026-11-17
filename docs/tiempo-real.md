@@ -73,7 +73,7 @@ Código en `android/app/src/main/java/com/appresso/app/tiemporeal/`. Es un clien
 | Pieza | Qué hace |
 |---|---|
 | `CodecoStomp`, `MarcoStomp` | Convierte marcos STOMP a texto y de vuelta (STOMP 1.2); reconoce los latidos. |
-| `ClienteStomp` | Conecta, manda `CONNECT` con latidos de 10 s, se suscribe, entrega eventos, detecta caídas y **reconecta solo**. |
+| `ClienteStomp` | Conecta, manda `CONNECT` con latidos de 10 s y el token de la sesión, se suscribe, entrega eventos, detecta caídas y **reconecta solo**. |
 | `PoliticaReintento` | Retroceso exponencial: `min(30 s, 1 s × 2^intento)` ± 20 %. |
 | `EventoTiempoReal` | Sobre JSON del servidor (`id`, `secuencia`, `tipo`, `fecha`, `datos`), más `comanda()` / `producto()` para leer `datos`. |
 | `MedidorLatencia` | Calcula el percentil 95 y el porcentaje de eventos bajo 3 s. |
@@ -83,7 +83,10 @@ Código en `android/app/src/main/java/com/appresso/app/tiemporeal/`. Es un clien
 Cómo lo usa una pantalla:
 
 ```kotlin
-val tiempoReal = ConexionTiempoReal(applicationContext, "ws://192.168.1.10:8080/ws/websocket")
+val tiempoReal = ConexionTiempoReal(
+    applicationContext, "ws://192.168.1.10:8080/ws/websocket",
+    token = { contenedor.almacenSesion.sesion.value?.token }, // el servidor lo exige en el CONNECT
+)
 tiempoReal.adjuntar(lifecycle)                       // conecta y desconecta según la pantalla
 lifecycleScope.launch { tiempoReal.eventos.collect { actualizarPantalla(it) } }
 lifecycleScope.launch { tiempoReal.resincronizar.collect { recargarPorRest() } }
@@ -162,12 +165,12 @@ Cada prueba de reconexión del cliente comprueba, entre otras cosas: esperas de 
 
 ### Prueba manual con celular o emulador (SCRUM-31 y SCRUM-32)
 
-1. Enciende el backend con el perfil `dev` (`backend/README.md`, pasos 1 a 3). Con ese perfil existe un emisor de eventos de prueba: `POST /api/dev/tiempo-real/emitir?cantidad=N&pausaMs=M`. No existe en producción.
+1. Enciende el backend con el perfil `dev` (`backend/README.md`, pasos 1 a 3). Con ese perfil existe un emisor de eventos de prueba: `POST /api/dev/tiempo-real/emitir?cantidad=N&pausaMs=M`, que exige el token del **administrador** (`Authorization: Bearer <token>`). No existe en producción. Para obtener el token, inicia sesión con el administrador de prueba (`POST /api/auth/login`, ver `api-auth.md`).
 2. Instala la versión **debug** de la app. Aparece un segundo ícono, **Appresso Diagnóstico**.
-3. En la pantalla, escribe la dirección del servidor: `ws://10.0.2.2:8080/ws/websocket` en el emulador, o `ws://<IP del PC>:8080/ws/websocket` en un celular (mismo Wi-Fi que el PC; abre el puerto 8080 en el firewall de Windows). Pulsa **Conectar**: debe decir «🟢 Conectado».
+3. En la pantalla, pega el **token de sesión** de cualquier usuario activo (el del login: el servidor lo exige en el `CONNECT`) y escribe la dirección del servidor: `ws://10.0.2.2:8080/ws/websocket` en el emulador, o `ws://<IP del PC>:8080/ws/websocket` en un celular (mismo Wi-Fi que el PC; abre el puerto 8080 en el firewall de Windows). Pulsa **Conectar**: debe decir «🟢 Conectado».
 4. **Latencia (SCRUM-31):** deja el reloj del celular en hora automática y emite eventos:
    ```bash
-   curl -X POST "http://localhost:8080/api/dev/tiempo-real/emitir?cantidad=200&pausaMs=100"
+   curl -X POST "http://localhost:8080/api/dev/tiempo-real/emitir?cantidad=200&pausaMs=100"         -H "Authorization: Bearer <token del administrador>"
    ```
    La pantalla muestra cada evento con su latencia y el resumen `p95 = … ms · … % bajo 3 s`. **Criterio: al menos 95 % de los eventos en menos de 3 s.** Repite con varios dispositivos a la vez (Plan de Calidad) y anota los resultados.
 5. **Desconexión y reconexión (SCRUM-32):**
@@ -218,6 +221,6 @@ La prueba de carga corre en una sola máquina, así que mide el servidor, no la 
 ## Límites actuales
 
 - **Cliente sin REST de resincronización:** el cliente avisa cuándo consultar por REST, pero las consultas de comandas y catálogo las construyen otras tareas.
-- **Sin autenticación en el WebSocket:** el login ya existe (2.1.1), pero el `CONNECT` todavía no valida el token, así que cualquiera que llegue al servidor puede suscribirse. Esa validación queda para la capa de autorización 2.3.1 (RNF-07).
+- **Autenticación solo al conectar:** el `CONNECT` exige `Authorization: Bearer <token>` (2.3.1, `AutenticacionStomp`); sin token válido, o con una cuenta desactivada, el servidor responde `ERROR` y cierra. El token se valida una sola vez: una conexión abierta sigue viva aunque después se desactive la cuenta o venza el token (12 h); al reconectar se vuelve a validar. Tampoco hay permisos por tópico: cualquier rol autenticado puede suscribirse a `/topic/comandas` y `/topic/catalogo`. Decidir si el cliente debe verlos (RNF-07).
 - **Broker en memoria:** sirve con un solo servidor. Con varios habría que usar un broker externo.
 - **Los eventos no se guardan:** la recuperación depende de reconsultar por REST.

@@ -32,7 +32,10 @@ data class InfoConexion(
  *
  * Uso típico:
  * ```
- * val tiempoReal = ConexionTiempoReal(applicationContext, "ws://192.168.1.10:8080/ws/websocket")
+ * val tiempoReal = ConexionTiempoReal(
+ *     applicationContext, "ws://192.168.1.10:8080/ws/websocket",
+ *     token = { contenedor.almacenSesion.sesion.value?.token }, // el servidor lo exige en el CONNECT (2.3.1)
+ * )
  * tiempoReal.adjuntar(lifecycle)
  * lifecycleScope.launch { tiempoReal.eventos.collect { actualizarPantalla(it) } }
  * lifecycleScope.launch { tiempoReal.resincronizar.collect { recargarPorRest() } }
@@ -44,6 +47,7 @@ class ConexionTiempoReal(
     url: String,
     private val topicos: Set<String> = Topicos.TODOS,
     fabrica: FabricaConexion = FabricaOkHttp(),
+    token: () -> String? = { null },
 ) : DefaultLifecycleObserver {
 
     private val _estado = MutableStateFlow(InfoConexion())
@@ -74,6 +78,7 @@ class ConexionTiempoReal(
         },
         // La secuencia es global: solo se puede vigilar si se escuchan todos los tópicos.
         detectarSaltos = topicos == Topicos.TODOS,
+        token = token,
     ).also { c -> topicos.forEach(c::suscribir) }
 
     private val conectividad = context.applicationContext.getSystemService(ConnectivityManager::class.java)

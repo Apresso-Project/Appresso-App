@@ -137,6 +137,31 @@ class ClienteStompTest {
     }
 
     @Test
+    fun elCONNECTLlevaElTokenDeLaSesionYSeVuelveAPedirEnCadaConexion() {
+        var token: String? = "token-1"
+        val conToken = ClienteStomp("ws://test", red, reloj, registro, PoliticaReintento(jitter = 0.0), token = { token })
+
+        conToken.iniciar()
+        red.ultimo.abrir()
+        assertEquals("Bearer token-1", red.ultimo.enviados.single()!!.cabeceras["Authorization"])
+
+        // La sesión cambió: la reconexión manda el token vigente, no el viejo.
+        token = "token-2"
+        red.ultimo.cerrarElServidor()
+        reloj.avanzar(2_000)
+        red.ultimo.abrir()
+        assertEquals("Bearer token-2", red.ultimo.enviados.single()!!.cabeceras["Authorization"])
+        conToken.detener()
+    }
+
+    @Test
+    fun sinSesionElCONNECTNoLlevaAuthorization() {
+        cliente.iniciar()
+        red.ultimo.abrir()
+        assertEquals(null, red.ultimo.enviados.single()!!.cabeceras["Authorization"])
+    }
+
+    @Test
     fun entregaLosEventosConSuTopico() {
         cliente.iniciar()
         conectarBien()

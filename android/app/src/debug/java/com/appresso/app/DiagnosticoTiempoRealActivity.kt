@@ -65,6 +65,8 @@ class DiagnosticoTiempoRealActivity : ComponentActivity() {
     private fun Pantalla(modifier: Modifier) {
         // 10.0.2.2 es el PC visto desde el emulador. En un celular real: la IP del PC en la red Wi-Fi.
         var url by remember { mutableStateOf("ws://10.0.2.2:8080/ws/websocket") }
+        // El servidor exige el token en el CONNECT (2.3.1): el que devuelve POST /api/auth/login.
+        var token by remember { mutableStateOf("") }
         var activa by remember { mutableStateOf<ConexionTiempoReal?>(null) }
         val medidor = remember { MedidorLatencia() }
         val lineas = remember { mutableStateListOf<String>() }
@@ -101,10 +103,18 @@ class DiagnosticoTiempoRealActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
+            OutlinedTextField(
+                value = token,
+                onValueChange = { token = it.trim() },
+                label = { Text("Token de sesión (del login)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
                     conexion?.detener()
-                    conexion = ConexionTiempoReal(applicationContext, url).also { it.iniciar() }
+                    conexion = ConexionTiempoReal(applicationContext, url, token = { token.ifBlank { null } })
+                        .also { it.iniciar() }
                     activa = conexion
                 }) { Text("Conectar") }
                 OutlinedButton(onClick = {

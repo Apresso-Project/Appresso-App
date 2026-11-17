@@ -58,7 +58,13 @@ DEV_ADMIN_CONTRASENA=una_clave_tuya
 ```
 
 Con el perfil `dev` activo, al arrancar el backend crea ese administrador **si no existe** (la contraseña se guarda con BCrypt). Si no activas el perfil, no se crea nada. Ojo con la primera línea: va en minúsculas y con puntos, tal cual.
+**Usuarios de prueba de los demás roles (solo local).** Para probar los permisos con los cinco roles (2.3.1), agrega también:
 
+```
+DEV_USUARIOS_CONTRASENA=otra_clave_tuya
+```
+
+Con el perfil `dev`, se crean (si no existen) `cajero@appresso.test`, `mesero@appresso.test`, `cocinero@appresso.test` y `cliente@appresso.test`, todos con esa contraseña. Si la variable está vacía, no se crean. La verificación completa con los cinco roles está en [`docs/verificacion-roles.md`](../docs/verificacion-roles.md).
 ### Paso 2. Encender la base de datos
 
 Abre Docker Desktop, espera a que diga que está en ejecución y luego:

@@ -38,10 +38,15 @@ import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
+import com.appresso.backend.auth.JwtService;
 import com.appresso.backend.tiemporeal.ComandaEventoDatos.ItemAgregado;
+import com.appresso.backend.usuarios.Rol;
+import com.appresso.backend.usuarios.Usuario;
+import com.appresso.backend.usuarios.UsuarioRepository;
 
 /**
  * Pruebas de la sincronización en tiempo real (8.2.1). Levantan el servidor en un
@@ -69,6 +74,15 @@ class TiempoRealTest {
 	@Autowired
 	private SimpleBrokerMessageHandler broker;
 
+	@Autowired
+	private UsuarioRepository usuarios;
+
+	@Autowired
+	private JwtService jwt;
+
+	/** Usuario de prueba con sesión: el CONNECT exige su token (2.3.1). */
+	private Usuario usuario;
+
 	/** Los clientes STOMP lo necesitan para latidos y confirmaciones (recibos). */
 	private static final ThreadPoolTaskScheduler PLANIFICADOR = new ThreadPoolTaskScheduler();
 
@@ -85,6 +99,29 @@ class TiempoRealTest {
 	void cerrarClientes() {
 		clientes.forEach(WebSocketStompClient::stop);
 		clientes.clear();
+		if (usuario != null) {
+			usuarios.deleteById(usuario.getId());
+			usuario = null;
+		}
+	}
+
+	@Test
+	void sinTokenElConnectEsRechazado() {
+		assertThatThrownBy(() -> conectarCon(null)).isInstanceOf(Exception.class);
+	}
+
+	@Test
+	void conUnTokenAlteradoElConnectEsRechazado() {
+		String alterado = token().substring(0, token().length() - 2) + "xx";
+		assertThatThrownBy(() -> conectarCon("Bearer " + alterado)).isInstanceOf(Exception.class);
+	}
+
+	@Test
+	void conUnaCuentaDesactivadaElConnectEsRechazado() {
+		String token = token();
+		usuario.setActivo(false);
+		usuarios.save(usuario);
+		assertThatThrownBy(() -> conectarCon("Bearer " + token)).isInstanceOf(Exception.class);
 	}
 
 	@Test
@@ -199,13 +236,35 @@ class TiempoRealTest {
 	// --- Ayudas ---
 
 	private StompSession conectar() throws Exception {
+		return conectarCon("Bearer " + token());
+	}
+
+	/** Conecta mandando {@code Authorization} en el CONNECT (o sin él si es {@code null}). */
+	private StompSession conectarCon(String autorizacion) throws Exception {
 		WebSocketStompClient cliente = new WebSocketStompClient(new StandardWebSocketClient());
 		cliente.setMessageConverter(new TextoPlano());
 		cliente.setTaskScheduler(PLANIFICADOR);
 		clientes.add(cliente);
+		StompHeaders cabeceras = new StompHeaders();
+		if (autorizacion != null) {
+			cabeceras.add("Authorization", autorizacion);
+		}
 		return cliente.connectAsync("ws://localhost:" + puerto + Destinos.ENDPOINT + "/websocket",
-				new StompSessionHandlerAdapter() {
+				new WebSocketHttpHeaders(), cabeceras, new StompSessionHandlerAdapter() {
 				}).get(5, TimeUnit.SECONDS);
+	}
+
+	/** Token de un usuario de prueba activo; el usuario se crea la primera vez y se borra al terminar. */
+	private String token() {
+		if (usuario == null) {
+			Usuario u = new Usuario();
+			u.setNombre("Tiempo real");
+			u.setCorreo("tiemporeal." + System.nanoTime() + "@appresso.test");
+			u.setContrasenaHash("no-se-usa-en-esta-prueba");
+			u.setRol(Rol.MESERO);
+			usuario = usuarios.save(u);
+		}
+		return jwt.generar(usuario);
 	}
 
 	/**

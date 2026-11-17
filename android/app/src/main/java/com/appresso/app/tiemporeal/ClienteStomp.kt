@@ -44,6 +44,9 @@ interface EscuchaCliente {
  * @param detectarSaltos revisar que `secuencia` suba de 1 en 1. La secuencia del servidor es única
  * para todos los tópicos, así que solo tiene sentido si el cliente está suscrito a **todos**; si se
  * suscribe a solo uno, pasar `false` (la resincronización al reconectar sigue funcionando).
+ * @param token el token de la sesión (el del login). El servidor lo exige en el `CONNECT`
+ * (`Authorization: Bearer <token>`, 2.3.1). Se pide en cada conexión y reconexión, así que siempre
+ * se manda el vigente; si devuelve `null` no se manda y el servidor rechaza la conexión.
  */
 class ClienteStomp(
     private val url: String,
@@ -54,6 +57,7 @@ class ClienteStomp(
     private val latidoMs: Long = 10_000,
     private val esperaConnectedMs: Long = 10_000,
     private val detectarSaltos: Boolean = true,
+    private val token: () -> String? = { null },
 ) {
     private val lock = Any()
 
@@ -177,14 +181,9 @@ class ClienteStomp(
 
     private fun alAbrirSocket(miGeneracion: Int) {
         ultimaActividadMs = programador.ahoraMs()
-        conexion?.enviar(
-            CodecoStomp.codificar(
-                MarcoStomp(
-                    "CONNECT",
-                    linkedMapOf("accept-version" to "1.2", "host" to "appresso", "heart-beat" to "$latidoMs,$latidoMs"),
-                ),
-            ),
-        )
+        val cabeceras = linkedMapOf("accept-version" to "1.2", "host" to "appresso", "heart-beat" to "$latidoMs,$latidoMs")
+        token()?.let { cabeceras["Authorization"] = "Bearer $it" }
+        conexion?.enviar(CodecoStomp.codificar(MarcoStomp("CONNECT", cabeceras)))
         tareaConnected = programador.programar(esperaConnectedMs) {
             synchronized(lock) {
                 if (miGeneracion == generacion && estado == EstadoConexion.CONECTANDO) {
