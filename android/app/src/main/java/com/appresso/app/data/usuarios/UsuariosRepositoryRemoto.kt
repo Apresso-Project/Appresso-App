@@ -1,6 +1,5 @@
 package com.appresso.app.data.usuarios
 
-import com.appresso.app.data.auth.AlmacenSesion
 import com.appresso.app.data.remote.ClienteHttp
 import com.appresso.app.data.remote.ErrorRespuesta
 import com.appresso.app.data.remote.UsuarioCrearBody
@@ -12,47 +11,42 @@ import kotlinx.serialization.SerializationException
 import retrofit2.Response
 
 /**
- * Habla con `/api/usuarios` usando el token de la sesión actual y traduce cada respuesta del
- * contrato a un [ResultadoUsuarios]. Si no hay sesión ni siquiera llama al servidor.
+ * Habla con `/api/usuarios` y traduce cada respuesta del contrato a un [ResultadoUsuarios]. El token
+ * y el cierre de sesión ante un 401 los maneja el cliente HTTP compartido (`InterceptorSesion`).
  */
-class UsuariosRepositoryRemoto(
-    private val api: UsuariosApi,
-    private val almacenSesion: AlmacenSesion,
-) : UsuariosRepository {
+class UsuariosRepositoryRemoto(private val api: UsuariosApi) : UsuariosRepository {
 
     override suspend fun listar(): ResultadoUsuarios<List<Usuario>> =
-        ejecutar({ autorizacion -> api.listar(autorizacion) }) { lista -> lista.map { it.aUsuario() } }
+        ejecutar({ api.listar() }) { lista -> lista.map { it.aUsuario() } }
 
     override suspend fun crear(datos: DatosUsuario): ResultadoUsuarios<Usuario> =
-        ejecutar({ autorizacion ->
-            api.crear(autorizacion, UsuarioCrearBody(datos.nombre, datos.correo, datos.contrasena.orEmpty(), datos.rol))
+        ejecutar({
+            api.crear(UsuarioCrearBody(datos.nombre, datos.correo, datos.contrasena.orEmpty(), datos.rol))
         }) { it.aUsuario() }
 
     override suspend fun editar(id: Long, datos: DatosUsuario): ResultadoUsuarios<Usuario> =
-        ejecutar({ autorizacion ->
-            api.editar(autorizacion, id, UsuarioEditarBody(datos.nombre, datos.correo, datos.rol, datos.contrasena))
+        ejecutar({
+            api.editar(id, UsuarioEditarBody(datos.nombre, datos.correo, datos.rol, datos.contrasena))
         }) { it.aUsuario() }
 
     override suspend fun desactivar(id: Long): ResultadoUsuarios<Usuario> =
-        ejecutar({ autorizacion -> api.desactivar(autorizacion, id) }) { it.aUsuario() }
+        ejecutar({ api.desactivar(id) }) { it.aUsuario() }
 
     override suspend fun activar(id: Long): ResultadoUsuarios<Usuario> =
-        ejecutar({ autorizacion -> api.activar(autorizacion, id) }) { it.aUsuario() }
+        ejecutar({ api.activar(id) }) { it.aUsuario() }
 
     private suspend fun <T, R> ejecutar(
-        llamada: suspend (autorizacion: String) -> Response<T>,
+        llamada: suspend () -> Response<T>,
         transformar: (T) -> R,
-    ): ResultadoUsuarios<R> {
-        val token = almacenSesion.sesion.value?.token ?: return ResultadoUsuarios.SesionInvalida
-        return try {
-            traducir(llamada("Bearer $token"), transformar)
+    ): ResultadoUsuarios<R> =
+        try {
+            traducir(llamada(), transformar)
         } catch (e: IOException) {
             ResultadoUsuarios.SinConexion
         } catch (e: SerializationException) {
             // Respondió 2xx con un cuerpo ilegible (o un rol que la app no conoce).
             ResultadoUsuarios.ErrorDelServidor
         }
-    }
 
     private fun <T, R> traducir(respuesta: Response<T>, transformar: (T) -> R): ResultadoUsuarios<R> = when {
         respuesta.isSuccessful -> {

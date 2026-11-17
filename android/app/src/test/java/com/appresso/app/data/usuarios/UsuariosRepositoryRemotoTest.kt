@@ -4,6 +4,7 @@ import com.appresso.app.data.auth.AlmacenSesionEnMemoria
 import com.appresso.app.data.auth.Rol
 import com.appresso.app.data.auth.Sesion
 import com.appresso.app.data.remote.ClienteHttp
+import com.appresso.app.data.remote.UsuariosApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -34,7 +35,9 @@ class UsuariosRepositoryRemotoTest {
         servidor = MockWebServer()
         servidor.start()
         almacen = AlmacenSesionEnMemoria().also { it.guardar(Sesion("tok.en.x", Rol.ADMINISTRADOR, "Admin")) }
-        repositorio = UsuariosRepositoryRemoto(ClienteHttp.crearUsuariosApi(servidor.url("/").toString(), 2), almacen)
+        // El mismo cliente que usa la app: agrega el token y cierra la sesión ante un 401.
+        val retrofit = ClienteHttp.crearRetrofit(servidor.url("/").toString(), almacen, tiempoLimiteSegundos = 2)
+        repositorio = UsuariosRepositoryRemoto(retrofit.create(UsuariosApi::class.java))
     }
 
     @After
@@ -59,11 +62,20 @@ class UsuariosRepositoryRemotoTest {
     }
 
     @Test
-    fun `sin sesion no llama al servidor y devuelve SesionInvalida`() = runTest {
+    fun `sin sesion la peticion sale sin token y el 401 se traduce a SesionInvalida`() = runTest {
         almacen.borrar()
+        servidor.enqueue(json(401, """{"mensaje":"Tu sesión no es válida o expiró. Inicia sesión de nuevo."}"""))
 
         assertEquals(ResultadoUsuarios.SesionInvalida, repositorio.listar())
-        assertEquals(0, servidor.requestCount)
+        assertEquals(null, servidor.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `un 401 con sesion cierra la sesion`() = runTest {
+        servidor.enqueue(json(401, """{"mensaje":"Tu sesión no es válida o expiró. Inicia sesión de nuevo."}"""))
+
+        assertEquals(ResultadoUsuarios.SesionInvalida, repositorio.listar())
+        assertEquals(null, almacen.sesion.value)
     }
 
     @Test
@@ -120,16 +132,16 @@ class UsuariosRepositoryRemotoTest {
 
     @Test
     fun `401 devuelve SesionInvalida`() = runTest {
-        servidor.enqueue(json(401, """{"mensaje":"Tu sesión no es válida o venció. Inicia sesión de nuevo."}"""))
+        servidor.enqueue(json(401, """{"mensaje":"Tu sesión no es válida o expiró. Inicia sesión de nuevo."}"""))
 
         assertEquals(ResultadoUsuarios.SesionInvalida, repositorio.listar())
     }
 
     @Test
     fun `403 devuelve el mensaje del servidor`() = runTest {
-        servidor.enqueue(json(403, """{"mensaje":"Acceso no autorizado"}"""))
+        servidor.enqueue(json(403, """{"mensaje":"No tienes permiso para realizar esta acción."}"""))
 
-        assertEquals(ResultadoUsuarios.SinPermiso("Acceso no autorizado"), repositorio.listar())
+        assertEquals(ResultadoUsuarios.SinPermiso("No tienes permiso para realizar esta acción."), repositorio.listar())
     }
 
     @Test

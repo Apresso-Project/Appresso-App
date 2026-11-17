@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.appresso.app.data.auth.AlmacenSesion
 import com.appresso.app.data.auth.Rol
 import com.appresso.app.data.usuarios.DatosUsuario
 import com.appresso.app.data.usuarios.ResultadoUsuarios
@@ -70,7 +69,6 @@ data class UsuariosUiState(
 
 class UsuariosViewModel(
     private val repositorio: UsuariosRepository,
-    private val almacenSesion: AlmacenSesion,
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(UsuariosUiState())
@@ -127,7 +125,7 @@ class UsuariosViewModel(
                 // La lista se actualiza con la respuesta, sin volver a pedirla.
                 _estado.update { it.copy(procesandoId = null, usuarios = reemplazar(it.usuarios, r.valor)) }
             } else {
-                val error = r.aError()
+                val error = r.aError(avisaElCliente = true)
                 _estado.update { it.copy(procesandoId = null, errorAccion = error) }
                 if (error == ErrorUsuarios.NoEncontrado) cargar()
             }
@@ -222,24 +220,26 @@ class UsuariosViewModel(
             Campo.entries.firstOrNull { it.name.equals(nombre, ignoreCase = true) }?.let { it to ErrorCampo.Servidor(texto) }
         }.toMap()
         // Si el servidor señaló campos concretos, el aviso general sobra.
-        val general = if (errores.isNotEmpty()) null else r.aError()
+        val general = if (errores.isNotEmpty()) null else r.aError(avisaElCliente = true)
         _estado.update { estado ->
             estado.copy(formulario = estado.formulario?.copy(guardando = false, errores = errores, error = general))
         }
     }
 
-    /** Un 401 (token vencido o cuenta desactivada) cierra la sesión y la app vuelve al login. */
-    private fun ResultadoUsuarios<*>.aError(): ErrorUsuarios? = when (this) {
+    /**
+     * Un 401 (token vencido o cuenta desactivada) no muestra nada: el cliente HTTP ya cerró la sesión
+     * y la app vuelve al login. Con [avisaElCliente], la falta de conexión y el 403 tampoco se
+     * repiten aquí, porque el cliente HTTP ya los avisó en pantalla (`AppressoRaiz`); la lista los
+     * conserva para ofrecer «Reintentar».
+     */
+    private fun ResultadoUsuarios<*>.aError(avisaElCliente: Boolean = false): ErrorUsuarios? = when (this) {
         is ResultadoUsuarios.Exito -> null
         is ResultadoUsuarios.DatosInvalidos -> ErrorUsuarios.DatosInvalidos(mensaje)
         is ResultadoUsuarios.Conflicto -> ErrorUsuarios.Regla(mensaje)
-        ResultadoUsuarios.SesionInvalida -> {
-            almacenSesion.borrar()
-            null
-        }
-        is ResultadoUsuarios.SinPermiso -> ErrorUsuarios.SinPermiso(mensaje)
+        ResultadoUsuarios.SesionInvalida -> null
+        is ResultadoUsuarios.SinPermiso -> if (avisaElCliente) null else ErrorUsuarios.SinPermiso(mensaje)
         ResultadoUsuarios.NoEncontrado -> ErrorUsuarios.NoEncontrado
-        ResultadoUsuarios.SinConexion -> ErrorUsuarios.SinConexion
+        ResultadoUsuarios.SinConexion -> if (avisaElCliente) null else ErrorUsuarios.SinConexion
         ResultadoUsuarios.ErrorDelServidor -> ErrorUsuarios.ErrorDelServidor
     }
 
@@ -247,6 +247,7 @@ class UsuariosViewModel(
         const val MAX_NOMBRE = 100
         const val MAX_CORREO = 150
         const val MIN_CONTRASENA = 8
+        /** En bytes (UTF-8), igual que el servidor. */
         const val MAX_CONTRASENA = 72
 
         private val FORMATO_CORREO = Regex("^[^@\\s]+@[^@\\s]+$")
@@ -268,7 +269,9 @@ class UsuariosViewModel(
                 f.contrasena.isEmpty() && obligatoria -> put(Campo.CONTRASENA, ErrorCampo.Obligatorio)
                 f.contrasena.isEmpty() -> Unit // al editar, vacía = no cambiarla
                 f.contrasena.length < MIN_CONTRASENA -> put(Campo.CONTRASENA, ErrorCampo.ContrasenaCorta)
-                f.contrasena.length > MAX_CONTRASENA -> put(Campo.CONTRASENA, ErrorCampo.ContrasenaLarga)
+                // El servidor mide en bytes (BCrypt admite 72): las tildes y la ñ ocupan 2.
+                f.contrasena.toByteArray(Charsets.UTF_8).size > MAX_CONTRASENA ->
+                    put(Campo.CONTRASENA, ErrorCampo.ContrasenaLarga)
             }
             if (f.rol == null) put(Campo.ROL, ErrorCampo.Obligatorio)
         }
@@ -287,7 +290,7 @@ class UsuariosViewModel(
         internal fun reemplazar(lista: List<Usuario>, usuario: Usuario) =
             ordenar(lista.filterNot { it.id == usuario.id } + usuario)
 
-        fun factory(repositorio: UsuariosRepository, almacenSesion: AlmacenSesion): ViewModelProvider.Factory =
-            viewModelFactory { initializer { UsuariosViewModel(repositorio, almacenSesion) } }
+        fun factory(repositorio: UsuariosRepository): ViewModelProvider.Factory =
+            viewModelFactory { initializer { UsuariosViewModel(repositorio) } }
     }
 }

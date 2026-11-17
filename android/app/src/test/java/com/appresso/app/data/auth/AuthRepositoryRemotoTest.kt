@@ -221,7 +221,9 @@ class AuthRepositoryRemotoTest {
         val corto = ClienteHttp.crearCliente(tiempoLimiteSegundos = 3)
 
         assertFalse(porDefecto.retryOnConnectionFailure)
-        assertEquals(ClienteHttp.TIEMPO_LIMITE_SEGUNDOS * 1000, porDefecto.connectTimeoutMillis.toLong())
+        // La conexión es corta para avisar «Sin conexión» en 5 s o menos (RNF-21).
+        assertEquals(ClienteHttp.TIEMPO_CONEXION_SEGUNDOS * 1000, porDefecto.connectTimeoutMillis.toLong())
+        assertTrue(porDefecto.connectTimeoutMillis < 5000)
         assertEquals(ClienteHttp.TIEMPO_LIMITE_SEGUNDOS * 1000, porDefecto.readTimeoutMillis.toLong())
         assertEquals(3000, corto.connectTimeoutMillis)
         assertEquals(3000, corto.readTimeoutMillis)

@@ -1,8 +1,6 @@
 package com.appresso.app.ui.usuarios
 
-import com.appresso.app.data.auth.AlmacenSesionEnMemoria
 import com.appresso.app.data.auth.Rol
-import com.appresso.app.data.auth.Sesion
 import com.appresso.app.data.usuarios.DatosUsuario
 import com.appresso.app.data.usuarios.ResultadoUsuarios
 import com.appresso.app.data.usuarios.Usuario
@@ -27,15 +25,13 @@ class UsuariosViewModelTest {
     private val beto = Usuario(2, "beto", "beto@appresso.test", Rol.CAJERO, true)
 
     private val repo = RepositorioFalso()
-    private val almacen = AlmacenSesionEnMemoria()
     private lateinit var vm: UsuariosViewModel
 
     @Before
     fun iniciar() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        almacen.guardar(Sesion("t", Rol.ADMINISTRADOR, "Admin"))
         repo.lista = ResultadoUsuarios.Exito(listOf(beto, ana))
-        vm = UsuariosViewModel(repo, almacen)
+        vm = UsuariosViewModel(repo)
     }
 
     @After
@@ -65,16 +61,17 @@ class UsuariosViewModelTest {
 
     @Test
     fun `un 403 al cargar se muestra con el mensaje del servidor`() {
-        repo.lista = ResultadoUsuarios.SinPermiso("Acceso no autorizado")
+        repo.lista = ResultadoUsuarios.SinPermiso("No tienes permiso para realizar esta acción.")
         vm.cargar()
-        assertEquals(ErrorUsuarios.SinPermiso("Acceso no autorizado"), estado.errorLista)
+        assertEquals(ErrorUsuarios.SinPermiso("No tienes permiso para realizar esta acción."), estado.errorLista)
     }
 
     @Test
-    fun `un 401 cierra la sesion`() {
+    fun `un 401 no muestra error porque el cliente HTTP ya cerro la sesion`() {
         repo.lista = ResultadoUsuarios.SesionInvalida
         vm.cargar()
-        assertNull(almacen.sesion.value)
+        assertNull(estado.errorLista)
+        assertFalse(estado.cargando)
     }
 
     // ------------------------------------------------------------ crear
@@ -129,6 +126,23 @@ class UsuariosViewModelTest {
     }
 
     @Test
+    fun `la contrasena larga se mide en bytes como el servidor`() {
+        vm.nuevoUsuario()
+        vm.onNombreChange("Carla")
+        vm.onCorreoChange("carla@appresso.test")
+        vm.onRolChange(Rol.MESERO)
+        // 40 caracteres pero 80 bytes en UTF-8 (cada ñ ocupa 2): el servidor la rechazaría.
+        vm.onContrasenaChange("ñ".repeat(40))
+        vm.guardar()
+        assertEquals(ErrorCampo.ContrasenaLarga, estado.formulario!!.errores[Campo.CONTRASENA])
+
+        // 36 ñ = 72 bytes: es el máximo permitido.
+        vm.onContrasenaChange("ñ".repeat(36))
+        vm.guardar()
+        assertNull(estado.formulario!!.errores[Campo.CONTRASENA])
+    }
+
+    @Test
     fun `editar un campo borra solo su error`() {
         vm.nuevoUsuario()
         vm.guardar()
@@ -149,12 +163,13 @@ class UsuariosViewModelTest {
     }
 
     @Test
-    fun `sin conexion al guardar conserva lo escrito y muestra el error`() {
+    fun `sin conexion al guardar conserva lo escrito y no repite el aviso del cliente HTTP`() {
         repo.crear = ResultadoUsuarios.SinConexion
         llenarNuevo()
 
         val f = estado.formulario!!
-        assertEquals(ErrorUsuarios.SinConexion, f.error)
+        assertNull(f.error) // el aviso «Sin conexión» lo muestra AppressoRaiz
+        assertFalse(f.guardando)
         assertEquals("Carla", f.nombre)
         assertEquals("clave-segura", f.contrasena)
     }

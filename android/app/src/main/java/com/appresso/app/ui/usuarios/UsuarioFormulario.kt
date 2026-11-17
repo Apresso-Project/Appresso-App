@@ -41,6 +41,8 @@ fun UsuarioFormulario(
     onGuardar: () -> Unit,
     onCancelar: () -> Unit,
     modifier: Modifier = Modifier,
+    /** true al editar la propia cuenta: el servidor no deja cambiarse el rol, así que no se ofrece. */
+    rolBloqueado: Boolean = false,
 ) {
     val editando = estado.editando != null
     Column(
@@ -86,13 +88,13 @@ fun UsuarioFormulario(
                     .fillMaxWidth()
                     .selectable(
                         selected = estado.rol == rol,
-                        enabled = !estado.guardando,
+                        enabled = !estado.guardando && !rolBloqueado,
                         role = Role.RadioButton,
                         onClick = { onRolChange(rol) },
                     ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = estado.rol == rol, onClick = null, enabled = !estado.guardando)
+                RadioButton(selected = estado.rol == rol, onClick = null, enabled = !estado.guardando && !rolBloqueado)
                 Text(
                     text = etiquetaDe(rol),
                     style = MaterialTheme.typography.bodyLarge,
@@ -100,6 +102,13 @@ fun UsuarioFormulario(
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
+        }
+        if (rolBloqueado) {
+            Text(
+                text = stringResource(R.string.user_form_role_own_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink,
+            )
         }
         estado.errores[Campo.ROL]?.let {
             Text(textoDe(it), color = Error, style = MaterialTheme.typography.bodySmall)

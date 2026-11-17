@@ -1,9 +1,11 @@
 package com.appresso.backend.usuarios;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -50,13 +52,15 @@ class UsuarioControllerTest {
 	@Autowired RegistroAuditoriaRepository auditoria;
 	@Autowired PasswordEncoder codificador;
 	@Autowired JwtService jwt;
+	@Autowired UsuarioService servicio;
 
 	MockMvc mvc;
 	Usuario admin;
 
 	@BeforeEach
 	void preparar() {
-		mvc = MockMvcBuilders.webAppContextSetup(context).build();
+		// Con la cadena de seguridad real (2.3.1), igual que en producción.
+		mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
 		admin = crearCuenta(Rol.ADMINISTRADOR, true);
 	}
 
@@ -140,7 +144,7 @@ class UsuarioControllerTest {
 			for (MockHttpServletRequestBuilder peticion : todosLosEndpoints(objetivo.getId())) {
 				enviar(conSesion(peticion, intruso))
 						.andExpect(status().isForbidden())
-						.andExpect(jsonPath("$.mensaje").value("Acceso no autorizado"));
+						.andExpect(jsonPath("$.mensaje").value("No tienes permiso para realizar esta acción."));
 			}
 		}
 	}
@@ -192,6 +196,49 @@ class UsuarioControllerTest {
 				cuerpoEditar(mesero.getNombre(), mesero.getCorreo(), null, "CAJERO")), admin))
 				.andExpect(status().isOk());
 		enviar(get("/api/usuarios").header("Authorization", token)).andExpect(status().isForbidden());
+	}
+
+	@Test
+	void siempreQuedaAlMenosUnAdministradorActivo() {
+		// Deja un único administrador activo (todo se deshace al terminar la prueba).
+		usuarios.findAll().stream()
+				.filter(u -> u.getRol() == Rol.ADMINISTRADOR && u.isActivo())
+				.forEach(u -> u.setActivo(false));
+		Usuario unico = crearCuenta(Rol.ADMINISTRADOR, true);
+		// Simula a quien ya dejó de ser administrador por otra solicitud simultánea: pasó la
+		// seguridad pero ya no cuenta como "otro administrador".
+		Usuario exAdmin = crearCuenta(Rol.CAJERO, true);
+
+		assertThatThrownBy(() -> servicio.desactivar(unico.getId(), exAdmin.getId()))
+				.isInstanceOf(UsuarioService.ReglaUsuarioException.class)
+				.hasMessage("Debe quedar al menos un administrador activo.");
+		assertThatThrownBy(() -> servicio.editar(unico.getId(),
+				new UsuarioEditarRequest(unico.getNombre(), unico.getCorreo(), null, Rol.MESERO), exAdmin.getId()))
+				.isInstanceOf(UsuarioService.ReglaUsuarioException.class);
+
+		assertThat(usuarios.findById(unico.getId()).orElseThrow().isActivo()).isTrue();
+		assertThat(usuarios.findById(unico.getId()).orElseThrow().getRol()).isEqualTo(Rol.ADMINISTRADOR);
+	}
+
+	@Test
+	void conOtroAdministradorActivoSiSePuedeDegradarAUno() throws Exception {
+		Usuario otro = crearCuenta(Rol.ADMINISTRADOR, true);
+
+		enviar(conSesion(json(put("/api/usuarios/" + otro.getId()),
+				cuerpoEditar(otro.getNombre(), otro.getCorreo(), null, "MESERO")), admin))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void editarSinCambiosNoRegistraAuditoria() throws Exception {
+		Usuario mesero = crearCuenta(Rol.MESERO, true);
+		long antes = auditoria.count();
+
+		enviar(conSesion(json(put("/api/usuarios/" + mesero.getId()),
+				cuerpoEditar(mesero.getNombre(), mesero.getCorreo(), null, "MESERO")), admin))
+				.andExpect(status().isOk());
+
+		assertThat(auditoria.count()).isEqualTo(antes);
 	}
 
 	// ------------------------------------------------------------------ listar y consultar

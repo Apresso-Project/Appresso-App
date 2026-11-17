@@ -23,6 +23,10 @@ import com.appresso.backend.auditoria.RegistroAuditoriaRepository;
  * <li>Desactivar no borra: la cuenta conserva su historial y no puede iniciar sesión (RF-02).</li>
  * <li>Un administrador no puede desactivar su propia cuenta ni cambiarse el rol: así el sistema no se
  * queda sin administradores por accidente. Otro administrador puede hacerlo.</li>
+ * <li>Siempre queda al menos un administrador activo, aunque dos administradores se degraden entre
+ * sí al mismo tiempo (se serializan bloqueando las filas de los administradores activos).</li>
+ * <li>Cambiar una contraseña no cierra las sesiones ya abiertas de esa cuenta: su token sigue
+ * sirviendo hasta que venza (12 h). Desactivar la cuenta sí corta el acceso de inmediato.</li>
  * <li>Cambiar la contraseña de una cuenta también la desbloquea (borra los intentos fallidos).</li>
  * <li>Crear, editar, desactivar y activar quedan en la auditoría (RNF-12), sin guardar contraseñas.</li>
  * </ul>
@@ -114,6 +118,9 @@ public class UsuarioService {
 		if (Objects.equals(id, actorId) && datos.rol() != usuario.getRol()) {
 			throw new ReglaUsuarioException("No puedes cambiar tu propio rol. Pídeselo a otro administrador.");
 		}
+		if (usuario.getRol() == Rol.ADMINISTRADOR && usuario.isActivo() && datos.rol() != Rol.ADMINISTRADOR) {
+			exigirOtroAdministradorActivo(usuario);
+		}
 
 		StringBuilder cambios = new StringBuilder();
 		if (!usuario.getNombre().equals(datos.nombre().trim())) {
@@ -137,7 +144,10 @@ public class UsuarioService {
 		}
 		usuarios.save(usuario);
 
-		registrar(actorId, "USUARIO_EDITADO", usuario, cambios.isEmpty() ? "Sin cambios" : cambios.toString().trim());
+		// Si no cambió nada no hay nada que auditar.
+		if (!cambios.isEmpty()) {
+			registrar(actorId, "USUARIO_EDITADO", usuario, cambios.toString().trim());
+		}
 		return UsuarioRespuesta.de(usuario);
 	}
 
@@ -149,6 +159,9 @@ public class UsuarioService {
 			throw new ReglaUsuarioException("No puedes desactivar tu propia cuenta. Pídeselo a otro administrador.");
 		}
 		if (usuario.isActivo()) {
+			if (usuario.getRol() == Rol.ADMINISTRADOR) {
+				exigirOtroAdministradorActivo(usuario);
+			}
 			usuario.setActivo(false);
 			usuarios.save(usuario);
 			registrar(actorId, "USUARIO_DESACTIVADO", usuario, "Cuenta " + usuario.getCorreo());
@@ -172,6 +185,18 @@ public class UsuarioService {
 
 	private Usuario buscar(Long id) {
 		return usuarios.findById(id).orElseThrow(() -> new UsuarioNoEncontradoException(id));
+	}
+
+	/**
+	 * Falla si {@code objetivo} es el único administrador activo. Bloquea las filas de los
+	 * administradores activos para que dos solicitudes simultáneas no puedan dejar el sistema sin ninguno.
+	 */
+	private void exigirOtroAdministradorActivo(Usuario objetivo) {
+		boolean hayOtro = usuarios.bloquearAdministradoresActivos().stream()
+				.anyMatch(admin -> !admin.getId().equals(objetivo.getId()));
+		if (!hayOtro) {
+			throw new ReglaUsuarioException("Debe quedar al menos un administrador activo.");
+		}
 	}
 
 	private void exigirCorreoLibre(String correo, Long idPropio) {

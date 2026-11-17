@@ -50,6 +50,8 @@ fun UsuariosScreen(
     onReintentar: () -> Unit,
     onVolver: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Id de quien inició sesión: su cuenta no ofrece desactivarse. `null` si no se conoce. */
+    miId: Long? = null,
 ) {
     PantallaProvisional(titulo = stringResource(R.string.users_title), modifier = modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -86,6 +88,7 @@ fun UsuariosScreen(
                     TarjetaUsuario(
                         usuario = usuario,
                         ocupado = estado.procesandoId == usuario.id,
+                        esPropia = usuario.id == miId,
                         onEditar = { onEditar(usuario) },
                         onDesactivar = { onDesactivar(usuario) },
                         onActivar = { onActivar(usuario) },
@@ -100,6 +103,7 @@ fun UsuariosScreen(
 private fun TarjetaUsuario(
     usuario: Usuario,
     ocupado: Boolean,
+    esPropia: Boolean,
     onEditar: () -> Unit,
     onDesactivar: () -> Unit,
     onActivar: () -> Unit,
@@ -114,6 +118,9 @@ private fun TarjetaUsuario(
             Text(usuario.correo, style = MaterialTheme.typography.bodyMedium, color = Muted)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(etiquetaDe(usuario.rol), style = MaterialTheme.typography.labelLarge, color = Espresso)
+                if (esPropia) {
+                    Text(stringResource(R.string.users_own_account), style = MaterialTheme.typography.labelLarge, color = Muted)
+                }
                 // El estado va también en texto, no solo en color.
                 Text(
                     text = stringResource(if (usuario.activo) R.string.users_status_active else R.string.users_status_inactive),
@@ -123,7 +130,9 @@ private fun TarjetaUsuario(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onEditar, enabled = !ocupado) { Text(stringResource(R.string.users_edit)) }
-                if (usuario.activo) {
+                if (usuario.activo && esPropia) {
+                    // Un administrador no puede desactivar su propia cuenta: no se ofrece.
+                } else if (usuario.activo) {
                     TextButton(onClick = onDesactivar, enabled = !ocupado) {
                         Text(stringResource(R.string.users_deactivate), color = Error)
                     }

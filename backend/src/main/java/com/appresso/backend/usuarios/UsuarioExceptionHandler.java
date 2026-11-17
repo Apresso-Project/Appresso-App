@@ -20,7 +20,7 @@ import com.appresso.backend.usuarios.UsuarioService.UsuarioNoEncontradoException
 /**
  * Traduce los errores de la administración de usuarios a respuestas sin trazas técnicas (RNF-19),
  * con el mismo formato que el inicio de sesión: {@code { "mensaje", "campos"? }}.
- * Los 401 y 403 los responde {@code ControlAccesoInterceptor} antes de llegar aquí.
+ * Los 401 y 403 los responde la seguridad ({@code SeguridadConfig}) antes de llegar aquí.
  */
 @RestControllerAdvice(assignableTypes = UsuarioController.class)
 public class UsuarioExceptionHandler {

@@ -16,7 +16,13 @@ import com.appresso.app.ui.PantallaProvisional
 
 /** Conecta lista, formulario y diálogos de confirmación con [UsuariosViewModel]. */
 @Composable
-fun UsuariosRoute(viewModel: UsuariosViewModel, onVolver: () -> Unit, modifier: Modifier = Modifier) {
+fun UsuariosRoute(
+    viewModel: UsuariosViewModel,
+    onVolver: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** Id de quien inició sesión, para no ofrecerle acciones sobre su propia cuenta. */
+    miId: Long? = null,
+) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val formulario = estado.formulario
 
@@ -33,6 +39,7 @@ fun UsuariosRoute(viewModel: UsuariosViewModel, onVolver: () -> Unit, modifier: 
             onReintentar = viewModel::cargar,
             onVolver = onVolver,
             modifier = modifier,
+            miId = miId,
         )
     } else {
         PantallaProvisional(
@@ -49,6 +56,7 @@ fun UsuariosRoute(viewModel: UsuariosViewModel, onVolver: () -> Unit, modifier: 
                 onRolChange = viewModel::onRolChange,
                 onGuardar = viewModel::guardar,
                 onCancelar = viewModel::cerrarFormulario,
+                rolBloqueado = miId != null && formulario.editando?.id == miId,
             )
         }
         if (formulario.confirmando && formulario.editando != null) {

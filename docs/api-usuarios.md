@@ -14,14 +14,14 @@ Authorization: Bearer <token>
 
 | Código | Cuándo | Cuerpo |
 |---|---|---|
-| **401** | Falta el encabezado, el token es inválido o venció, o la cuenta ya no existe o está desactivada | `{ "mensaje": "Tu sesión no es válida o venció. Inicia sesión de nuevo." }` |
-| **403** | Sesión válida pero el rol **no es administrador** | `{ "mensaje": "Acceso no autorizado" }` |
+| **401** | Falta el encabezado, el token es inválido o venció, o la cuenta ya no existe o está desactivada | `{ "mensaje": "Tu sesión no es válida o expiró. Inicia sesión de nuevo." }` |
+| **403** | Sesión válida pero el rol **no es administrador** | `{ "mensaje": "No tienes permiso para realizar esta acción." }` |
 
 Cómo decide el servidor:
 
 - Mira el rol que la cuenta tiene **en la base de datos en este momento**, no el que trae el token. Por eso, si el administrador cambia un rol (RF-02, RF-03) o desactiva una cuenta, el efecto es inmediato aunque el usuario siga con su token viejo (válido hasta 12 horas).
-- La app, ante un `401`, debe volver a la pantalla de inicio de sesión. Ante un `403`, mostrar "No cuentas con los permisos necesarios para realizar esta operación" (RF-04).
-- Esta verificación la hace `ControlAccesoInterceptor` con la anotación `@RequiereRol`. El entregable 2.3.1 puede reutilizarla en el resto de controladores.
+- La app, ante un `401`, vuelve a la pantalla de inicio de sesión; ante un `403`, muestra el aviso "No tienes permiso para realizar esta acción." (RF-04). Ambos los maneja el cliente HTTP compartido de la app.
+- Esta verificación la hace la seguridad común del backend (2.3.1): la regla `/api/usuarios/**` de `PoliticaPermisos` (ver [`permisos-por-rol.md`](permisos-por-rol.md)). El controlador no repite la comprobación.
 
 ## Endpoints
 
@@ -90,9 +90,11 @@ Todos traen `mensaje` (texto para mostrar al usuario, sin datos técnicos); los 
 ## Reglas de negocio
 
 - **Un administrador no puede desactivar su propia cuenta ni cambiarse el rol.** Así el sistema no se queda sin administradores por accidente. Otro administrador sí puede hacerlo. Responde `409`.
+- **Siempre queda al menos un administrador activo.** Desactivar o cambiar de rol al único administrador activo responde `409` (`"Debe quedar al menos un administrador activo."`), aunque dos administradores lo intenten a la vez (el servidor atiende esas solicitudes una tras otra).
+- **Cambiar una contraseña no cierra las sesiones abiertas** de esa cuenta: su token sigue sirviendo hasta que venza (12 h). Si hay que cortar el acceso de inmediato, se desactiva la cuenta (eso sí es inmediato) y se vuelve a activar.
 - El correo es único sin importar mayúsculas ("Ana@x.com" y "ana@x.com" son el mismo). Se guarda sin espacios sobrantes.
 - Cambiar un rol surte efecto **de inmediato** (RF-02, RF-03).
-- **Auditoría (RNF-12):** crear, editar, desactivar y activar quedan en `registros_auditoria` con el administrador responsable, la fecha y un detalle del cambio (por ejemplo `rol MESERO -> COCINERO`). La contraseña nunca se guarda ahí.
+- **Auditoría (RNF-12):** crear, editar (solo si algo cambió), desactivar y activar quedan en `registros_auditoria` con el administrador responsable, la fecha y un detalle del cambio (por ejemplo `rol MESERO -> COCINERO`). La contraseña nunca se guarda ahí.
 
 ## Qué debe hacer la app
 
@@ -100,8 +102,8 @@ Todos traen `mensaje` (texto para mostrar al usuario, sin datos técnicos); los 
 |---|---|
 | **200 / 201** | Reemplazar o agregar la cuenta devuelta en la lista, sin recargar toda la pantalla. |
 | **400** con `campos` | Señalar cada campo en el formulario, conservando lo escrito (RNF-19). |
-| **401** | Cerrar la sesión local y volver al inicio de sesión. |
-| **403** | "No cuentas con los permisos necesarios para realizar esta operación". La pantalla de usuarios solo se muestra al administrador. |
+| **401** | Cerrar la sesión local y volver al inicio de sesión (lo hace el cliente HTTP compartido). |
+| **403** | Aviso "No tienes permiso para realizar esta acción." (cliente HTTP compartido). La pantalla de usuarios solo se muestra al administrador. |
 | **404** | "Ese usuario ya no existe" y recargar la lista. |
 | **409** | Mostrar el `mensaje` (y señalar `campos.correo` si viene). |
 | Sin conexión o tiempo agotado | "Sin conexión a Internet. Por favor, verifica tu red." (RF-05, RNF-21). |
