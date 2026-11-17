@@ -24,6 +24,67 @@
     <string name="error_prohibido">No tienes permiso para realizar esta acción.</string>
     <string name="error_sin_conexion">Sin conexión a Internet. Por favor, verifica tu red.</string>
 
+    <!-- Administración de usuarios (2.2.1). Pantalla de lista provisional hasta tener el diseño de Figma. -->
+    <string name="users_title">Usuarios</string>
+    <string name="users_new">Nuevo usuario</string>
+    <string name="users_back">Volver</string>
+    <string name="users_loading">Cargando usuarios</string>
+    <string name="users_empty">No hay usuarios registrados.</string>
+    <string name="users_retry">Reintentar</string>
+    <string name="users_edit">Editar</string>
+    <string name="users_deactivate">Desactivar</string>
+    <string name="users_own_account">Tu cuenta</string>
+    <string name="users_activate">Activar</string>
+    <string name="users_status_active">Activo</string>
+    <string name="users_status_inactive">Inactivo</string>
+    <string name="users_ok">Entendido</string>
+
+    <string name="role_administrador">Administrador</string>
+    <string name="role_cajero">Cajero</string>
+    <string name="role_mesero">Mesero</string>
+    <string name="role_cocinero">Cocinero</string>
+    <string name="role_cliente">Cliente</string>
+
+    <!-- Formulario crear / editar -->
+    <string name="user_form_title_new">Nuevo usuario</string>
+    <string name="user_form_title_edit">Editar usuario</string>
+    <string name="user_form_name">Nombre</string>
+    <string name="user_form_email">Correo electrónico</string>
+    <string name="user_form_password">Contraseña</string>
+    <string name="user_form_password_edit_hint">Déjala vacía para no cambiarla</string>
+    <string name="user_form_role_own_hint">No puedes cambiar tu propio rol. Pídeselo a otro administrador.</string>
+    <string name="user_form_role">Rol</string>
+    <string name="user_form_save">Guardar</string>
+    <string name="user_form_saving">Guardando</string>
+    <string name="user_form_cancel">Cancelar</string>
+
+    <!-- Errores de campo (se validan antes de llamar al servidor) -->
+    <string name="user_error_required">Este campo es obligatorio.</string>
+    <string name="user_error_name_long">El nombre no puede superar 100 caracteres.</string>
+    <string name="user_error_email_invalid">El correo no tiene un formato válido.</string>
+    <string name="user_error_password_short">La contraseña debe tener al menos 8 caracteres.</string>
+    <string name="user_error_password_long">La contraseña es demasiado larga (máximo 72 bytes; las tildes y la ñ cuentan doble).</string>
+
+    <!-- Errores generales -->
+    <string name="user_error_no_connection">Sin conexión a Internet. Por favor, verifica tu red.</string>
+    <string name="user_error_server">Algo salió mal. Intenta de nuevo en unos minutos.</string>
+    <string name="user_error_not_found">Ese usuario ya no existe. Se actualizó la lista.</string>
+    <string name="user_error_forbidden">No cuentas con los permisos necesarios para realizar esta operación</string>
+    <string name="user_error_rule">No se pudo completar la operación.</string>
+    <string name="user_error_invalid_data">Revisa los datos ingresados.</string>
+
+    <!-- Confirmaciones -->
+    <string name="user_confirm_deactivate_title">¿Desactivar a %1$s?</string>
+    <string name="user_confirm_deactivate_message">No podrá iniciar sesión mientras la cuenta esté inactiva. Podrás activarla de nuevo cuando quieras.</string>
+    <string name="user_confirm_deactivate_action">Desactivar</string>
+    <string name="user_confirm_changes_title">¿Guardar los cambios?</string>
+    <string name="user_confirm_changes_intro">Se modificará:</string>
+    <string name="user_confirm_change_name">El nombre</string>
+    <string name="user_confirm_change_email">El correo</string>
+    <string name="user_confirm_change_password">La contraseña</string>
+    <string name="user_confirm_change_role">El rol: de %1$s a %2$s</string>
+    <string name="user_confirm_changes_action">Guardar cambios</string>
+
     <!-- Inicio de cada rol (SCRUM-48) -->
     <string name="inicio_saludo">Hola, %1$s</string>
     <string name="inicio_subtitulo">¿Qué quieres hacer hoy?</string>

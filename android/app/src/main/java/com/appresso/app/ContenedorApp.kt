@@ -7,6 +7,9 @@ import com.appresso.app.data.auth.AuthRepositoryRemoto
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.BusEventosRed
 import com.appresso.app.data.remote.ClienteHttp
+import com.appresso.app.data.remote.UsuariosApi
+import com.appresso.app.data.usuarios.UsuariosRepository
+import com.appresso.app.data.usuarios.UsuariosRepositoryRemoto
 import retrofit2.Retrofit
 
 /**
@@ -30,5 +33,9 @@ class ContenedorApp(urlBase: String) {
 
     val authRepository: AuthRepository by lazy {
         AuthRepositoryRemoto(retrofit.create(AuthApi::class.java))
+    }
+
+    val usuariosRepository: UsuariosRepository by lazy {
+        UsuariosRepositoryRemoto(retrofit.create(UsuariosApi::class.java))
     }
 }

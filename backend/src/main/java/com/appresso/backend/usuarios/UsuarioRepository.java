@@ -1,5 +1,6 @@
 package com.appresso.backend.usuarios;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,5 +22,15 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select u from Usuario u where lower(u.correo) = lower(:correo)")
 	Optional<Usuario> buscarPorCorreoBloqueandoFila(@Param("correo") String correo);
+
+	/**
+	 * Los administradores activos, con sus filas bloqueadas hasta que termine la transacción. Se usa
+	 * antes de quitarle a alguien su condición de administrador activo: dos solicitudes simultáneas
+	 * (cada administrador degradando al otro) se atienden una tras otra y la segunda ya ve el
+	 * resultado de la primera.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select u from Usuario u where u.rol = com.appresso.backend.usuarios.Rol.ADMINISTRADOR and u.activo = true order by u.id")
+	List<Usuario> bloquearAdministradoresActivos();
 
 }

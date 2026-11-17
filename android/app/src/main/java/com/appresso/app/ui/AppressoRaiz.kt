@@ -21,12 +21,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appresso.app.ContenedorApp
 import com.appresso.app.R
+import com.appresso.app.data.auth.TokenSesion
 import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Opcion
 import com.appresso.app.ui.inicio.InicioScreen
 import com.appresso.app.ui.inicio.SeccionProvisionalScreen
 import com.appresso.app.ui.login.LoginRoute
 import com.appresso.app.ui.login.LoginViewModel
+import com.appresso.app.ui.usuarios.UsuariosRoute
+import com.appresso.app.ui.usuarios.UsuariosViewModel
 
 /**
  * Raíz de la app: elige la pantalla según la sesión y la sección abierta (ver [destinoPara]).
@@ -88,7 +91,7 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
 
                 is Destino.Seccion -> {
                     BackHandler { abierta = null }
-                    Seccion(destino, onVolver = { abierta = null })
+                    Seccion(destino, contenedor, token = sesion?.token, onVolver = { abierta = null })
                 }
             }
         }
@@ -96,12 +99,25 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
 }
 
 /**
- * La pantalla de cada sección. Hoy todas son provisionales; cada módulo reemplaza la suya, por
- * ejemplo: `Opcion.USUARIOS -> UsuariosRoute(...)`.
+ * La pantalla de cada sección. Las que aún no tienen módulo son provisionales; cada módulo reemplaza
+ * la suya con su caso.
  */
 @Composable
-private fun Seccion(destino: Destino.Seccion, onVolver: () -> Unit) {
+private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     when (destino.opcion) {
+        Opcion.USUARIOS -> {
+            // La clave evita que otra cuenta que inicie sesión después herede la lista anterior.
+            val viewModel: UsuariosViewModel = viewModel(
+                key = "usuarios-$token",
+                factory = UsuariosViewModel.factory(contenedor.usuariosRepository),
+            )
+            UsuariosRoute(
+                viewModel = viewModel,
+                onVolver = onVolver,
+                miId = token?.let(TokenSesion::idDeUsuario),
+            )
+        }
+
         else -> SeccionProvisionalScreen(opcion = destino.opcion, onVolver = onVolver)
     }
 }
