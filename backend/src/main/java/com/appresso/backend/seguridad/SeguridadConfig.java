@@ -24,7 +24,8 @@ import jakarta.servlet.http.HttpServletResponse;
  * <p>
  * Reglas, en orden (gana la primera que coincide):
  * <ol>
- * <li>Públicos, sin token: iniciar sesión, {@code /api/health} y {@code /actuator/health}.</li>
+ * <li>Públicos, sin token: iniciar sesión, {@code /api/health}, {@code /actuator/health} y el
+ * apretón de manos del WebSocket {@code /ws/**} (ahí el token se exige en el {@code CONNECT}).</li>
  * <li>Por rol: cada módulo, según {@link PoliticaPermisos} (SCRUM-47).</li>
  * <li>Todo lo demás: basta con haber iniciado sesión.</li>
  * </ol>
@@ -57,7 +58,10 @@ public class SeguridadConfig {
 					reglas.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
 							.requestMatchers(HttpMethod.GET, "/api/health", "/actuator/health", "/actuator/health/**")
 							.permitAll()
-							.requestMatchers("/error").permitAll();
+							.requestMatchers("/error").permitAll()
+							// El apretón de manos del WebSocket es público; el token se valida en el
+							// CONNECT de STOMP (AutenticacionStomp).
+							.requestMatchers("/ws/**").permitAll();
 
 					// 2. Por rol: la política de permisos (SCRUM-47), en su orden.
 					for (PoliticaPermisos.Regla regla : PoliticaPermisos.REGLAS) {

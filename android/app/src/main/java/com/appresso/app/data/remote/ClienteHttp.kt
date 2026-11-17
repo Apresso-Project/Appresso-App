@@ -13,11 +13,20 @@ object ClienteHttp {
 
     const val TIEMPO_LIMITE_SEGUNDOS = 15L
 
+    /**
+     * Tiempo máximo para abrir la conexión. Es corto a propósito: con el Wi-Fi conectado pero sin
+     * Internet la conexión no se abre ni se rechaza, y el aviso «Sin conexión» debe salir en 5 s o
+     * menos (RNF-21). El resto de la petición (envío y espera de respuesta) sigue con
+     * [TIEMPO_LIMITE_SEGUNDOS], porque un servidor gratuito puede tardar en despertar.
+     */
+    const val TIEMPO_CONEXION_SEGUNDOS = 4L
+
     /** `ignoreUnknownKeys`: si el backend agrega un campo, las versiones viejas de la app no se rompen. */
     val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * @param tiempoLimiteSegundos tiempo máximo de conexión, de envío y de espera de respuesta
+     * @param tiempoLimiteSegundos tiempo máximo de envío y de espera de respuesta; la conexión usa
+     *   como mucho [TIEMPO_CONEXION_SEGUNDOS]
      * @param almacenSesion si se pasa, cada petición lleva el token de la sesión y un 401 la cierra
      *   (ver [InterceptorSesion])
      * @param bus si se pasa, los 403 y la pérdida de conexión de los endpoints protegidos se avisan
@@ -29,7 +38,7 @@ object ClienteHttp {
         bus: BusEventosRed? = null,
     ): OkHttpClient =
         OkHttpClient.Builder()
-            .connectTimeout(tiempoLimiteSegundos, TimeUnit.SECONDS)
+            .connectTimeout(minOf(tiempoLimiteSegundos, TIEMPO_CONEXION_SEGUNDOS), TimeUnit.SECONDS)
             .readTimeout(tiempoLimiteSegundos, TimeUnit.SECONDS)
             .writeTimeout(tiempoLimiteSegundos, TimeUnit.SECONDS)
             // Con esto activado, OkHttp puede reenviar la solicitud por otra conexión si la primera

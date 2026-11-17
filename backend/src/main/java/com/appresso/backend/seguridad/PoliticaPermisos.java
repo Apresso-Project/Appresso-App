@@ -30,6 +30,10 @@ import com.appresso.backend.usuarios.Rol;
  * agrega un endpoint sin declararlo aquí, responde 403 en vez de quedar abierto.</li>
  * <li>{@code ejemplo} es una ruta concreta que cumple el patrón; la usan las pruebas.</li>
  * </ul>
+ * El administrador puede hacer lo que hace cualquier otro rol (decisión del equipo): está en todas
+ * las reglas con roles, salvo {@code /api/clientes/yo}, que son los puntos de un cliente y el
+ * administrador no tiene registro de cliente.
+ * <p>
  * Las rutas son una propuesta acordada a partir de los requerimientos: quien implemente cada
  * módulo debe usar estas mismas rutas o actualizar la regla correspondiente.
  */
@@ -80,23 +84,23 @@ public final class PoliticaPermisos {
 
 			// ---------------------------------------------------------------- Comandas y cocina (módulos 3 y 4)
 			regla(GET, "/api/mesas/**", "/api/mesas", solo(ADMINISTRADOR, MESERO), "RF-15"),
-			regla(PATCH, "/api/comandas/*/estado", "/api/comandas/1/estado", solo(COCINERO), "RF-25"),
-			regla(POST, "/api/comandas", "/api/comandas", solo(MESERO), "RF-15"),
-			regla(POST, "/api/comandas/*/productos", "/api/comandas/1/productos", solo(MESERO), "RF-16, RF-20"),
-			regla(POST, "/api/comandas/*/confirmar", "/api/comandas/1/confirmar", solo(MESERO), "RF-18"),
-			regla(PUT, "/api/comandas/*/cliente", "/api/comandas/1/cliente", solo(MESERO), "RF-22"),
-			regla(POST, "/api/comandas/*/recompensa", "/api/comandas/1/recompensa", solo(MESERO), "RF-58"),
+			regla(PATCH, "/api/comandas/*/estado", "/api/comandas/1/estado", solo(ADMINISTRADOR, COCINERO), "RF-25"),
+			regla(POST, "/api/comandas", "/api/comandas", solo(ADMINISTRADOR, MESERO), "RF-15"),
+			regla(POST, "/api/comandas/*/productos", "/api/comandas/1/productos", solo(ADMINISTRADOR, MESERO), "RF-16, RF-20"),
+			regla(POST, "/api/comandas/*/confirmar", "/api/comandas/1/confirmar", solo(ADMINISTRADOR, MESERO), "RF-18"),
+			regla(PUT, "/api/comandas/*/cliente", "/api/comandas/1/cliente", solo(ADMINISTRADOR, MESERO), "RF-22"),
+			regla(POST, "/api/comandas/*/recompensa", "/api/comandas/1/recompensa", solo(ADMINISTRADOR, MESERO), "RF-58"),
 			regla(GET, "/api/comandas/**", "/api/comandas", solo(ADMINISTRADOR, MESERO, CAJERO, COCINERO),
 					"RF-19, RF-23"),
 			regla(CUALQUIERA, "/api/comandas/**", "/api/comandas/1", NADIE, "—"),
 
 			// ---------------------------------------------------------------- Caja y pagos (módulo 5)
-			regla(POST, "/api/pagos/efectivo", "/api/pagos/efectivo", solo(CAJERO), "RF-29"),
-			regla(POST, "/api/pagos/transferencia", "/api/pagos/transferencia", solo(MESERO, CAJERO),
+			regla(POST, "/api/pagos/efectivo", "/api/pagos/efectivo", solo(ADMINISTRADOR, CAJERO), "RF-29"),
+			regla(POST, "/api/pagos/transferencia", "/api/pagos/transferencia", solo(ADMINISTRADOR, MESERO, CAJERO),
 					"RF-30, RF-41, RF-43"),
 			regla(GET, "/api/pagos/**", "/api/pagos", solo(ADMINISTRADOR, CAJERO), "RF-38, RF-39"),
 			regla(CUALQUIERA, "/api/pagos/**", "/api/pagos/1", NADIE, "—"),
-			regla(GET, "/api/caja/qr", "/api/caja/qr", solo(MESERO, CAJERO), "RF-40"),
+			regla(GET, "/api/caja/qr", "/api/caja/qr", solo(ADMINISTRADOR, MESERO, CAJERO), "RF-40"),
 			regla(GET, "/api/caja/saldos", "/api/caja/saldos", solo(ADMINISTRADOR), "RF-39"),
 			regla(GET, "/api/caja/movimientos", "/api/caja/movimientos", solo(ADMINISTRADOR, CAJERO), "RF-38, RF-39"),
 			regla(POST, "/api/caja/ingresos", "/api/caja/ingresos", solo(ADMINISTRADOR), "RF-32"),
@@ -104,10 +108,10 @@ public final class PoliticaPermisos {
 			regla(CUALQUIERA, "/api/caja/**", "/api/caja/otra", NADIE, "—"),
 			regla(PATCH, "/api/solicitudes-retiro/*/decision", "/api/solicitudes-retiro/1/decision",
 					solo(ADMINISTRADOR), "RF-36"),
-			regla(POST, "/api/solicitudes-retiro", "/api/solicitudes-retiro", solo(CAJERO), "RF-34"),
+			regla(POST, "/api/solicitudes-retiro", "/api/solicitudes-retiro", solo(ADMINISTRADOR, CAJERO), "RF-34"),
 			regla(GET, "/api/solicitudes-retiro/**", "/api/solicitudes-retiro", solo(ADMINISTRADOR, CAJERO), "RF-36"),
 			regla(CUALQUIERA, "/api/solicitudes-retiro/**", "/api/solicitudes-retiro/1", NADIE, "—"),
-			regla(POST, "/api/jornadas/cierre", "/api/jornadas/cierre", solo(CAJERO), "RF-44"),
+			regla(POST, "/api/jornadas/cierre", "/api/jornadas/cierre", solo(ADMINISTRADOR, CAJERO), "RF-44"),
 			regla(PATCH, "/api/jornadas/*/base", "/api/jornadas/1/base", solo(ADMINISTRADOR), "RF-47"),
 			regla(POST, "/api/jornadas", "/api/jornadas", solo(ADMINISTRADOR, CAJERO), "RF-49"),
 			regla(GET, "/api/jornadas/**", "/api/jornadas", solo(ADMINISTRADOR, CAJERO), "RF-45, RF-48"),

@@ -15,11 +15,12 @@ class PermisosTest {
     // ---------------------------------------------------------------- menú de cada rol
 
     @Test
-    fun `el administrador ve la gestion del local pero no las tareas operativas`() {
+    fun `el administrador ve todas las secciones de trabajo`() {
         assertEquals(
             listOf(
-                Opcion.USUARIOS, Opcion.PRODUCTOS_E_INVENTARIO, Opcion.PEDIDOS, Opcion.CAJA,
-                Opcion.SOLICITUDES_RETIRO, Opcion.CLIENTES, Opcion.RECOMPENSAS_Y_PROMOCIONES,
+                Opcion.USUARIOS, Opcion.PRODUCTOS_E_INVENTARIO, Opcion.MESAS_Y_COMANDAS, Opcion.COCINA,
+                Opcion.COBROS, Opcion.CAJA, Opcion.SOLICITUDES_RETIRO, Opcion.CLIENTES,
+                Opcion.RECOMPENSAS_Y_PROMOCIONES,
             ),
             opcionesPara(Rol.ADMINISTRADOR),
         )
@@ -65,19 +66,28 @@ class PermisosTest {
             Accion.CREAR_COMANDA to Rol.MESERO, // RF-15
             Accion.CERRAR_CAJA to Rol.CAJERO, // RF-44
             Accion.DECIDIR_RETIRO to Rol.ADMINISTRADOR, // RF-36
-            Accion.VER_MIS_PUNTOS to Rol.CLIENTE, // RF-55
         )
+        // El administrador puede además hacer lo de los demás roles (decisión del equipo).
         exclusivas.forEach { (accion, unico) ->
             Rol.entries.forEach { rol ->
-                assertEquals("$accion / $rol", rol == unico, puede(rol, accion))
+                assertEquals("$accion / $rol", rol == unico || rol == Rol.ADMINISTRADOR, puede(rol, accion))
             }
         }
     }
 
     @Test
-    fun `el administrador no cobra en efectivo ni crea comandas`() {
-        assertFalse(puede(Rol.ADMINISTRADOR, Accion.COBRAR_EFECTIVO))
-        assertFalse(puede(Rol.ADMINISTRADOR, Accion.CREAR_COMANDA))
+    fun `los puntos de un cliente son solo del cliente`() {
+        Rol.entries.forEach { rol ->
+            assertEquals(rol.name, rol == Rol.CLIENTE, puede(rol, Accion.VER_MIS_PUNTOS))
+        }
+    }
+
+    @Test
+    fun `el administrador puede hacer todo lo que hace cualquier otro rol salvo ver puntos de cliente`() {
+        Accion.entries.filter { it != Accion.VER_MIS_PUNTOS }.forEach { accion ->
+            assertTrue("ADMINISTRADOR / $accion", puede(Rol.ADMINISTRADOR, accion))
+        }
+        assertFalse(puede(Rol.ADMINISTRADOR, Accion.VER_MIS_PUNTOS))
     }
 
     // ---------------------------------------------------------------- coherencia

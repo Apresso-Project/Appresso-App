@@ -23,6 +23,7 @@ dependencies {
 	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	// Autenticacion (2.1.1): BCrypt para las contrasenas y JWT para el token de sesion.
 	// Se usa solo spring-security-crypto, NO el starter de seguridad (esa capa es de 2.3.1).
 	implementation 'org.springframework.security:spring-security-crypto'

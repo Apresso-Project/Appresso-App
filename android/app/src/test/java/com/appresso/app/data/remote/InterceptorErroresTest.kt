@@ -10,6 +10,7 @@ import okhttp3.HttpUrl
 import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -53,6 +54,21 @@ class InterceptorErroresTest {
         llamar(url)
 
         assertEquals(EventoRed.SIN_CONEXION, withTimeout(2000) { evento.await() })
+    }
+
+    @Test
+    fun unaLlamadaCanceladaNoEmiteSinConexion() = runBlocking {
+        // El servidor no contesta: la llamada queda esperando hasta que la cancelamos.
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val evento = async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeoutOrNull(500) { bus.eventos.first() }
+        }
+
+        val llamada = cliente.newCall(Request.Builder().url(server.url("/api/inventario")).build())
+        Thread { Thread.sleep(150); llamada.cancel() }.start()
+        runCatching { llamada.execute().close() }
+
+        assertNull(evento.await())
     }
 
     @Test

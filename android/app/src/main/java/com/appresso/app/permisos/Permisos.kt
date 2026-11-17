@@ -14,6 +14,9 @@ import com.appresso.app.data.auth.Rol.MESERO
  * igual rechazaría con 403. Ocultar no es la seguridad (esa la da el backend); es para que cada
  * rol vea solo lo suyo. Si cambia una regla en el backend, se cambia también aquí.
  *
+ * El administrador puede hacer lo que hace cualquier otro rol (decisión del equipo), salvo ver los
+ * puntos de un cliente, que no aplica a su cuenta.
+ *
  * Cómo usarlo en una pantalla:
  * ```
  * if (puede(sesion.rol, Accion.GESTIONAR_CATALOGO)) { BotonNuevoProducto(...) }
@@ -30,23 +33,23 @@ enum class Accion(vararg permitidos: Rol) {
 
     // Comandas y cocina
     VER_MESAS(ADMINISTRADOR, MESERO),
-    CREAR_COMANDA(MESERO),
-    APLICAR_RECOMPENSA(MESERO),
+    CREAR_COMANDA(ADMINISTRADOR, MESERO),
+    APLICAR_RECOMPENSA(ADMINISTRADOR, MESERO),
     VER_COMANDAS(ADMINISTRADOR, CAJERO, MESERO, COCINERO),
-    CAMBIAR_ESTADO_PREPARACION(COCINERO),
+    CAMBIAR_ESTADO_PREPARACION(ADMINISTRADOR, COCINERO),
 
     // Caja y pagos
-    COBRAR_EFECTIVO(CAJERO),
-    CONFIRMAR_TRANSFERENCIA(CAJERO, MESERO),
-    VER_QR(CAJERO, MESERO),
+    COBRAR_EFECTIVO(ADMINISTRADOR, CAJERO),
+    CONFIRMAR_TRANSFERENCIA(ADMINISTRADOR, CAJERO, MESERO),
+    VER_QR(ADMINISTRADOR, CAJERO, MESERO),
     VER_PAGOS_Y_MOVIMIENTOS(ADMINISTRADOR, CAJERO),
     VER_SALDOS(ADMINISTRADOR),
     REGISTRAR_INGRESO(ADMINISTRADOR),
     REGISTRAR_RETIRO(ADMINISTRADOR),
-    SOLICITAR_RETIRO(CAJERO),
+    SOLICITAR_RETIRO(ADMINISTRADOR, CAJERO),
     VER_SOLICITUDES_RETIRO(ADMINISTRADOR, CAJERO),
     DECIDIR_RETIRO(ADMINISTRADOR),
-    CERRAR_CAJA(CAJERO),
+    CERRAR_CAJA(ADMINISTRADOR, CAJERO),
     REGISTRAR_BASE(ADMINISTRADOR),
     ABRIR_JORNADA(ADMINISTRADOR, CAJERO),
     VER_INFORMES_CIERRE(ADMINISTRADOR, CAJERO),
@@ -98,10 +101,14 @@ fun puede(rol: Rol, accion: Accion): Boolean = rol in accion.roles
 
 /** El menú de inicio de cada rol, en el orden en que se muestra. */
 fun opcionesPara(rol: Rol): List<Opcion> = when (rol) {
+    // El administrador tiene todas las secciones de trabajo. No incluye «Pedidos» (la vista de solo
+    // lectura de cajero) porque ya la tiene dentro de «Mesas y comandas», ni «Mis puntos».
     ADMINISTRADOR -> listOf(
         Opcion.USUARIOS,
         Opcion.PRODUCTOS_E_INVENTARIO,
-        Opcion.PEDIDOS,
+        Opcion.MESAS_Y_COMANDAS,
+        Opcion.COCINA,
+        Opcion.COBROS,
         Opcion.CAJA,
         Opcion.SOLICITUDES_RETIRO,
         Opcion.CLIENTES,

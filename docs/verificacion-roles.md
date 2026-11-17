@@ -44,8 +44,8 @@ Inicia sesión con los cinco roles y prueba las 42 reglas de [`permisos-por-rol.
 
 | Resultado | |
 |---|---|
-| Verificaciones correctas | ___ / 252 |
-| Fallas | ___ |
+| Verificaciones correctas | 252 / 252 (17/11/2026) |
+| Fallas | 0 |
 | Evidencia | `verificacion-roles.csv` + captura de la consola |
 
 ## Parte B — App: cada rol ve solo lo suyo
@@ -54,7 +54,7 @@ Para cada rol: iniciar sesión, comparar el menú con la columna "Debe ver", abr
 
 | Rol | Debe ver (en este orden) | No debe ver (ejemplos) | Menú correcto | Abre y vuelve | Cierra sesión | Captura |
 |---|---|---|:-:|:-:|:-:|---|
-| Administrador | Usuarios · Productos e inventario · Pedidos · Caja · Solicitudes de retiro · Clientes · Recompensas y promociones | Mesas y comandas · Cocina · Cobros | | | | |
+| Administrador | Usuarios · Productos e inventario · Mesas y comandas · Cocina · Cobros · Caja · Solicitudes de retiro · Clientes · Recompensas y promociones | Pedidos · Mis puntos | | | | |
 | Cajero | Cobros · Pedidos · Caja · Solicitudes de retiro | Usuarios · Cocina · Clientes | | | | |
 | Mesero | Mesas y comandas · Cobros · Clientes | Usuarios · Caja · Cocina | | | | |
 | Cocinero | Cocina | Todo lo demás | | | | |
