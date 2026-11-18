@@ -162,7 +162,8 @@ public class ComandaService {
 		}
 		Producto producto = productos.findById(item.productoId())
 				.orElseThrow(() -> noExiste("Producto", item.productoId()));
-		if (!producto.isActivo()) {
+		// Un producto de una categoría desactivada no aparece en el menú (3.1.1) y tampoco se puede pedir.
+		if (!producto.isActivo() || !producto.getCategoria().isActiva()) {
 			throw new IllegalStateException("El producto " + producto.getNombre() + " no está disponible");
 		}
 		// Mientras la comanda no se envía, el stock aún no se ha descontado: se suma lo ya pedido.
