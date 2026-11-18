@@ -70,6 +70,22 @@ class ClientesViewModelTest {
     }
 
     @Test
+    fun `registro rechaza si algun campo obligatorio esta en blanco`() {
+        viewModel.registrarCliente(
+            nombre = "Laura",
+            apellido = "",
+            documento = "987654",
+            celular = "3112223344",
+            aceptoTratamientoDatos = true,
+        )
+
+        val state = viewModel.uiState.value
+        assertNotNull(state.errorFormulario)
+        assertEquals("Todos los campos son obligatorios.", state.errorFormulario)
+        assertNull(repo.ultimoRegistrado)
+    }
+
+    @Test
     fun `registro con aceptacion explicita llama al repositorio y registra exitosamente`() {
         val nuevoCliente = Cliente(
             id = 2,
@@ -112,9 +128,15 @@ class ClientesViewModelTest {
     }
 
     @Test
-    fun `busqueda actualiza estado correctamente`() {
+    fun `busqueda actualiza estado correctamente y abrir registro activa dialogo`() {
         viewModel.onBusquedaCambio("100200")
         assertEquals("100200", viewModel.uiState.value.busqueda)
+
+        viewModel.abrirRegistro()
+        assertTrue(viewModel.uiState.value.mostrarDialogoRegistro)
+
+        viewModel.cerrarRegistro()
+        assertFalse(viewModel.uiState.value.mostrarDialogoRegistro)
     }
 
     private class RepositorioClientesFalso : ClientesRepository {

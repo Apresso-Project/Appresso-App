@@ -47,12 +47,13 @@ import com.appresso.app.ui.theme.Muted
 fun ClienteRegistroDialog(
     guardando: Boolean,
     error: String?,
+    documentoInicial: String = "",
     onDismiss: () -> Unit,
     onRegistrar: (nombre: String, apellido: String, documento: String, celular: String, acepto: Boolean) -> Unit,
 ) {
     var nombre by remember { mutableStateOf("") }
     var apellido by remember { mutableStateOf("") }
-    var documento by remember { mutableStateOf("") }
+    var documento by remember { mutableStateOf(documentoInicial) }
     var celular by remember { mutableStateOf("") }
     var aceptoTratamientoDatos by remember { mutableStateOf(false) }
 
@@ -173,9 +174,21 @@ fun ClienteRegistroDialog(
                 onClick = {
                     onRegistrar(nombre, apellido, documento, celular, aceptoTratamientoDatos)
                 },
-                enabled = !guardando && aceptoTratamientoDatos && nombre.isNotBlank() && documento.isNotBlank(),
+                enabled = !guardando && aceptoTratamientoDatos &&
+                    nombre.isNotBlank() && apellido.isNotBlank() &&
+                    documento.isNotBlank() && celular.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = Espresso),
             ) {
+                if (guardando) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.padding(end = 6.dp),
+                        color = Cream,
+                        strokeWidth = 2.dp,
+                    )
+                }
+                Text(stringResource(R.string.cliente_guardar))
+            }
+        },
                 if (guardando) {
                     CircularProgressIndicator(
                         modifier = Modifier.padding(end = 6.dp),

@@ -79,6 +79,7 @@ fun ClientesScreen(
         ClienteRegistroDialog(
             guardando = state.guardando,
             error = state.errorFormulario,
+            documentoInicial = state.busqueda.trim(),
             onDismiss = onCerrarRegistro,
             onRegistrar = onRegistrar,
         )
@@ -139,15 +140,42 @@ fun ClientesScreen(
 
                 filtrados.isEmpty() -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = if (state.busqueda.isNotBlank()) {
-                                stringResource(R.string.clientes_sin_resultados)
-                            } else {
-                                stringResource(R.string.clientes_vacio)
-                            },
-                            color = Muted,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        if (state.busqueda.isNotBlank()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(16.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.cliente_no_encontrado),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Espresso,
+                                )
+                                Text(
+                                    text = stringResource(R.string.clientes_sin_resultados),
+                                    color = Muted,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Button(
+                                    onClick = onAbrirRegistro,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Caramel),
+                                    shape = RoundedCornerShape(20.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.cliente_ofrecer_registro),
+                                        color = White,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = stringResource(R.string.clientes_vacio),
+                                color = Muted,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                 }
 

@@ -128,7 +128,9 @@
     <string name="clientes_buscar_hint">Buscar por documento…</string>
     <string name="clientes_nuevo">Registrar cliente</string>
     <string name="clientes_vacio">No hay clientes registrados.</string>
+    <string name="cliente_no_encontrado">Cliente no encontrado</string>
     <string name="clientes_sin_resultados">No se encontró ningún cliente con ese documento.</string>
+    <string name="cliente_ofrecer_registro">Registrar cliente</string>
     <string name="cliente_nombre_label">Nombres</string>
     <string name="cliente_apellido_label">Apellidos</string>
     <string name="cliente_documento_label">Documento de identidad</string>
