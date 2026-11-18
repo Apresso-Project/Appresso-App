@@ -6,7 +6,10 @@ import com.appresso.app.data.auth.AuthRepository
 import com.appresso.app.data.auth.AuthRepositoryRemoto
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.BusEventosRed
+import com.appresso.app.data.pagos.PagosRepository
+import com.appresso.app.data.pagos.PagosRepositoryRemoto
 import com.appresso.app.data.remote.ClienteHttp
+import com.appresso.app.data.remote.PagosApi
 import com.appresso.app.data.remote.UsuariosApi
 import com.appresso.app.data.usuarios.UsuariosRepository
 import com.appresso.app.data.usuarios.UsuariosRepositoryRemoto
@@ -37,5 +40,9 @@ class ContenedorApp(urlBase: String) {
 
     val usuariosRepository: UsuariosRepository by lazy {
         UsuariosRepositoryRemoto(retrofit.create(UsuariosApi::class.java))
+    }
+
+    val pagosRepository: PagosRepository by lazy {
+        PagosRepositoryRemoto(retrofit.create(PagosApi::class.java))
     }
 }
