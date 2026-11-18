@@ -44,7 +44,7 @@ erDiagram
 | `usuarios` | `Usuario` | Cuenta con correo, hash de contraseña, rol, bloqueo por intentos fallidos | RF-01 a RF-05, RNF-05, RNF-26 |
 | | `DispositivoPush` | Token FCM del dispositivo del administrador | RF-35 |
 | `inventario` | `Categoria` | Agrupa productos | RF-06 |
-| | `Producto` | Catálogo, precio, stock y umbral mínimo | RF-06, RF-08 a RF-13 |
+| | `Producto` | Catálogo, precio, imagen (`imagenUrl`, URL opcional ≤500), stock y umbral mínimo | RF-06, RF-08 a RF-13 |
 | | `MovimientoInventario` | Entradas, salidas, ventas y mermas con responsable | RF-07, RF-14 |
 | `comandas` | `Mesa` | Mapa de mesas y su estado | RF-15 |
 | | `Comanda` | Pedido de una mesa, con subtotal, descuento y total | RF-15 a RF-22 |
@@ -71,6 +71,7 @@ erDiagram
 - **Una comanda, un pago:** `Pago.comanda` es único en la base de datos (RF-28, RF-43).
 - **`identificadorOperacion` (UUID único)** en `Comanda` y `Pago`: permite reintentar sin duplicar después de una caída de red (RNF-11, RNF-22).
 - **`DetalleComanda.precioUnitario`** guarda el precio del momento; si el producto cambia de precio, las comandas viejas no cambian.
+- **Catálogo sin borrados (3.1.1):** productos y categorías solo se desactivan (`activo`/`activa`), nunca se eliminan, para no romper comandas, movimientos ni auditoría. Un producto está en el menú si está activo **y** su categoría está activa.
 - **Registros inmutables** (`@Immutable`): `HistorialComanda`, `MovimientoInventario`, `MovimientoCaja`, `RegistroAuditoria`. Falta reforzarlo en la base (permisos o triggers) más adelante.
 - **Mesa:** `DISPONIBLE` u `OCUPADA`, como en RF-15. Ese RF también habla de "En atención" como alternativa a "Ocupada"; se usa `OCUPADA`.
 - **Estados de la comanda según RF-COMANDA-ESTADO:** `PENDIENTE` (creada, no enviada) → `ENVIADA` → `EN_PREPARACION` → `LISTA` → `CERRADA` (el cajero confirma el pago). El enum solo lista los estados; quién puede hacer cada transición (y el error 400 si no puede) lo valida el servicio. Cada cambio queda en `HistorialComanda` (RF-27). **Lo que ve cocina** son tres de los cinco, con los nombres de RF-18 y RF-19: `ENVIADA` se muestra "Pendiente", `EN_PREPARACION` "En preparación" y `LISTA` "Lista". `PENDIENTE` (no enviada) y `CERRADA` no aparecen en cocina (RF-17).

@@ -169,6 +169,23 @@ class ServiciosTiempoRealTest {
 	}
 
 	@Test
+	void unProductoDeUnaCategoriaDesactivadaNoSePuedePedir() {
+		cafe.getCategoria().setActiva(false);
+		assertThatThrownBy(this::nuevaComanda).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void cambiarElPrecioNoAlteraLasComandasYaHechas() {
+		Comanda c = nuevaComanda();
+		assertThat(c.getDetalles().get(0).getPrecioUnitario()).isEqualByComparingTo("4500.00");
+
+		productoService.actualizar(cafe.getId(), "Café", "Americano", new BigDecimal("9999.00"), 3, true);
+
+		assertThat(c.getDetalles().get(0).getPrecioUnitario()).isEqualByComparingTo("4500.00");
+		assertThat(c.getTotal()).isEqualByComparingTo("9000.00");
+	}
+
+	@Test
 	void observacionesDeMasDe100CaracteresSeRechazan() {
 		assertThatThrownBy(() -> comandaService.crear(mesa.getId(), mesero.getId(),
 				List.of(new ItemSolicitado(cafe.getId(), 1, "x".repeat(101)))))
