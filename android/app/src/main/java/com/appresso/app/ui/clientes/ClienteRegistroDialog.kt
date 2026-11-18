@@ -189,16 +189,6 @@ fun ClienteRegistroDialog(
                 Text(stringResource(R.string.cliente_guardar))
             }
         },
-                if (guardando) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(end = 6.dp),
-                        color = Cream,
-                        strokeWidth = 2.dp,
-                    )
-                }
-                Text(stringResource(R.string.cliente_guardar))
-            }
-        },
         dismissButton = {
             OutlinedButton(
                 onClick = onDismiss,
