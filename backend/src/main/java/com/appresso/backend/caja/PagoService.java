@@ -32,6 +32,7 @@ import jakarta.persistence.EntityNotFoundException;
  * <li>Solo se paga una comanda {@code LISTA}. Una {@code CERRADA} ya está pagada, o fue cancelada
  * (cerrada sin pago, RF-63): en ambos casos no admite otro pago.</li>
  * <li>El valor es el total de la comanda, calculado por el servidor.</li>
+ * <li>Cada pago deja un movimiento {@code PAGO} en el libro de caja, del mismo medio y valor.</li>
  * <li>Al registrar el pago la comanda pasa a {@code CERRADA} y la mesa queda disponible.</li>
  * <li>Un solo pago por comanda: lo garantizan la validación y la restricción única de la base
  * (cubre dos solicitudes simultáneas).</li>
@@ -50,15 +51,17 @@ public class PagoService {
 	private final ComandaRepository comandas;
 	private final UsuarioRepository usuarios;
 	private final JornadaRepository jornadas;
+	private final MovimientoCajaRepository movimientos;
 	private final ComandaService comandaService;
 	private final RegistroAuditoriaRepository auditoria;
 
 	public PagoService(PagoRepository pagos, ComandaRepository comandas, UsuarioRepository usuarios,
-			JornadaRepository jornadas, ComandaService comandaService, RegistroAuditoriaRepository auditoria) {
+			JornadaRepository jornadas, MovimientoCajaRepository movimientos, ComandaService comandaService, RegistroAuditoriaRepository auditoria) {
 		this.pagos = pagos;
 		this.comandas = comandas;
 		this.usuarios = usuarios;
 		this.jornadas = jornadas;
+		this.movimientos = movimientos;
 		this.comandaService = comandaService;
 		this.auditoria = auditoria;
 	}
@@ -109,6 +112,18 @@ public class PagoService {
 			// Otra solicitud pagó la misma comanda (o reutilizó el identificador) un instante antes.
 			throw new ConflictoPagoException(YA_PAGADA);
 		}
+
+		// Libro de caja: el pago suma solo al saldo de su medio (RF-31).
+		MovimientoCaja movimiento = new MovimientoCaja();
+		movimiento.setJornada(pago.getJornada());
+		movimiento.setTipo(TipoMovimientoCaja.PAGO);
+		movimiento.setMedio(medio);
+		movimiento.setValor(valor);
+		movimiento.setConcepto("Pago de la comanda " + comanda.getId() + " (" + comanda.getMesa().getNombre() + ")");
+		movimiento.setFecha(pago.getFecha());
+		movimiento.setRegistradoPor(actor);
+		movimiento.setPago(pago);
+		movimientos.save(movimiento);
 
 		comandaService.cerrarPorPago(comanda, actor);
 		registrarAuditoria(actor, pago);
