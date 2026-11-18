@@ -67,6 +67,7 @@ public final class PoliticaPermisos {
 	private static final HttpMethod POST = HttpMethod.POST;
 	private static final HttpMethod PUT = HttpMethod.PUT;
 	private static final HttpMethod PATCH = HttpMethod.PATCH;
+	private static final HttpMethod DELETE = HttpMethod.DELETE;
 	private static final HttpMethod CUALQUIERA = null;
 
 	public static final List<Regla> REGLAS = List.of(
