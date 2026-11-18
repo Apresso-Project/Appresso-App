@@ -47,6 +47,11 @@ public class PublicadorTiempoReal {
 		eventos.publishEvent(new EventoPendiente(tipo, datos));
 	}
 
+	public void publicarCategoria(TipoEvento tipo, CategoriaEventoDatos datos) {
+		exigirDestino(tipo, Destinos.CATALOGO);
+		eventos.publishEvent(new EventoPendiente(tipo, datos));
+	}
+
 	/**
 	 * Envía el evento. Es {@code synchronized} para que el número de secuencia
 	 * coincida con el orden real de envío.

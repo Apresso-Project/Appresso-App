@@ -25,6 +25,10 @@ public class Producto {
 	@Column(length = 255)
 	private String descripcion;
 
+	/** Dirección (URL http/https) de la imagen del producto; null si no tiene. */
+	@Column(length = 500)
+	private String imagenUrl;
+
 	@Column(nullable = false, precision = 14, scale = 2)
 	private BigDecimal precio;
 
@@ -63,6 +67,14 @@ public class Producto {
 
 	public void setDescripcion(String descripcion) {
 		this.descripcion = descripcion;
+	}
+
+	public String getImagenUrl() {
+		return imagenUrl;
+	}
+
+	public void setImagenUrl(String imagenUrl) {
+		this.imagenUrl = imagenUrl;
 	}
 
 	public BigDecimal getPrecio() {

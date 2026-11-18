@@ -25,7 +25,11 @@ data class EventoTiempoReal(
     fun comanda(): DatosComanda? = if (tipo.startsWith("COMANDA_")) GSON.fromJson(datos, DatosComanda::class.java) else null
 
     /** Datos si el evento es del catálogo (`PRODUCTO_*`, `EXISTENCIAS_*`). */
-    fun producto(): DatosProducto? = if (tipo.startsWith("COMANDA_")) null else GSON.fromJson(datos, DatosProducto::class.java)
+    fun producto(): DatosProducto? =
+        if (tipo.startsWith("PRODUCTO_") || tipo.startsWith("EXISTENCIAS_")) GSON.fromJson(datos, DatosProducto::class.java) else null
+
+    /** Datos si el evento es de categorías (`CATEGORIA_*`). Si `activa` es false, ocultar sus productos. */
+    fun categoria(): DatosCategoria? = if (tipo.startsWith("CATEGORIA_")) GSON.fromJson(datos, DatosCategoria::class.java) else null
 
     companion object {
         private val GSON = Gson()
@@ -56,6 +60,12 @@ data class DatosComanda(
 )
 
 data class ItemAgregado(val productoId: Long?, val cantidad: Int, val observaciones: String?)
+
+data class DatosCategoria(
+    val categoriaId: Long,
+    val nombre: String,
+    val activa: Boolean,
+)
 
 data class DatosProducto(
     val productoId: Long?,
