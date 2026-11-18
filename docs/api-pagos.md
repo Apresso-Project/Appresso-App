@@ -110,3 +110,12 @@ curl -X POST http://localhost:8080/api/pagos/transferencia \
 # Administrador consulta los saldos
 curl http://localhost:8080/api/caja/saldos -H "Authorization: Bearer $TOKEN_ADMIN"
 ```
+
+## En la app Android
+
+- `PagosApi` y `PagosRepository` (`data/remote`, `data/pagos`): cada código de este contrato se traduce a un `ResultadoPago`. El valor se lee como `BigDecimal`, nunca como `Double`.
+- Pantalla de confirmación (`ui/pagos`): resumen de la comanda, elección del medio y una pregunta «¿Confirmar pago por …?» antes de enviar. Efectivo solo aparece para cajero y administrador; al mesero solo se le ofrece transferencia (ya elegida). El backend igual lo valida (403).
+- La pantalla genera **un** identificador de operación al abrirse y lo reenvía en cada intento. Si falla la red o el servidor, el mensaje pide volver a confirmar: es seguro, el servidor devuelve el pago ya registrado y no cobra dos veces.
+- Una doble pulsación no envía dos pagos (el botón se deshabilita y el ViewModel ignora la segunda llamada).
+- Entrada provisional: la sección «Cobros» pide el número de la comanda. Cuando exista la lista de comandas listas para pagar, esa lista abrirá `PagoRoute` con la comanda elegida (id, mesa y total) y la entrada manual se quita.
+- Pendiente (6.2.1): mostrar el código QR antes de confirmar una transferencia.
