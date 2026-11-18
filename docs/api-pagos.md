@@ -55,6 +55,7 @@ Respuesta **201** (pago registrado):
 | **400** | `La solicitud no tiene un formato válido.` | JSON roto, `comandaId` que no es número o UUID inválido |
 | **404** | `Comanda N no existe` | La comanda no existe |
 | **409** | `Esta comanda ya fue pagada.` | Ya tiene pago, por cualquier medio o usuario (RF-28, RF-43). También si dos solicitudes llegan a la vez |
+| **409** | `Ese identificador de operación ya se usó en otro pago.` | El `identificadorOperacion` pertenece al pago de otra comanda: genera uno nuevo por cada comanda |
 | **409** | `La comanda fue cancelada y no admite pagos.` | Está `CERRADA` sin pago: una comanda cerrada sin pago es una cancelada (RF-63) |
 | **409** | `La comanda aún no está lista para pagar.` | Su estado no es `LISTA` |
 | **409** | `La comanda no tiene un valor por cobrar.` | El total es 0 o menos |

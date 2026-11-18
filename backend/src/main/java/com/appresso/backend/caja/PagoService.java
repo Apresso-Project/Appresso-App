@@ -84,6 +84,11 @@ public class PagoService {
 			}
 			throw new ConflictoPagoException(YA_PAGADA);
 		}
+		// Se comprueba antes de guardar: un choque con la restricción única de la base deja la sesión
+		// de Hibernate inutilizable. El catch de abajo queda solo para solicitudes simultáneas.
+		if (identificadorOperacion != null && pagos.existsByIdentificadorOperacion(identificadorOperacion)) {
+			throw new ConflictoPagoException("Ese identificador de operación ya se usó en otro pago.");
+		}
 		if (comanda.getEstado() == EstadoComanda.CERRADA) {
 			throw new ConflictoPagoException("La comanda fue cancelada y no admite pagos.");
 		}
