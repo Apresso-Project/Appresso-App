@@ -120,8 +120,11 @@ public final class PoliticaPermisos {
 			// ---------------------------------------------------------------- Fidelización (módulo 6)
 			regla(GET, "/api/clientes/yo", "/api/clientes/yo", solo(CLIENTE), "RF-55"),
 			regla(POST, "/api/clientes", "/api/clientes", solo(ADMINISTRADOR, MESERO), "RF-50"),
+			regla(POST, "/api/clientes/*/solicitar-eliminacion", "/api/clientes/1/solicitar-eliminacion",
+					solo(ADMINISTRADOR, MESERO), "Ley 1581"),
+			regla(DELETE, "/api/clientes/*", "/api/clientes/1", solo(ADMINISTRADOR), "Ley 1581"),
 			regla(GET, "/api/clientes/**", "/api/clientes/1234567890", solo(ADMINISTRADOR, MESERO), "RF-51, RF-57"),
-			regla(CUALQUIERA, "/api/clientes/**", "/api/clientes/1", NADIE, "—"),
+			regla(CUALQUIERA, "/api/clientes/**", "/api/clientes/1/otra", NADIE, "—"),
 			regla(GET, "/api/recompensas/**", "/api/recompensas", solo(ADMINISTRADOR, MESERO, CLIENTE),
 					"RF-56, RF-57, RF-58"),
 			regla(CUALQUIERA, "/api/recompensas/**", "/api/recompensas/1", solo(ADMINISTRADOR), "RF-54, RF-60"),

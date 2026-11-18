@@ -85,6 +85,8 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 |---|---|:-:|:-:|:-:|:-:|:-:|---|
 | GET | `/api/clientes/yo` (mis puntos) | | | | | ✅ | RF-55 |
 | POST | `/api/clientes` | ✅ | | ✅ | | | RF-50 |
+| POST | `/api/clientes/*/solicitar-eliminacion` | ✅ | | ✅ | | | Ley 1581 |
+| DELETE | `/api/clientes/*` | ✅ | | | | | Ley 1581 |
 | GET | `/api/clientes/**` (buscar por documento) | ✅ | | ✅ | | | RF-51, RF-57 |
 | Otros | `/api/clientes/**` | | | | | | — |
 | GET | `/api/recompensas/**` | ✅ | | ✅ | | ✅ | RF-56, RF-57, RF-58 |

@@ -24,6 +24,8 @@ import com.appresso.app.R
 import com.appresso.app.data.auth.TokenSesion
 import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Opcion
+import com.appresso.app.ui.clientes.ClientesRoute
+import com.appresso.app.ui.clientes.ClientesViewModel
 import com.appresso.app.ui.inicio.InicioScreen
 import com.appresso.app.ui.inicio.SeccionProvisionalScreen
 import com.appresso.app.ui.login.LoginRoute
@@ -115,6 +117,17 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
                 viewModel = viewModel,
                 onVolver = onVolver,
                 miId = token?.let(TokenSesion::idDeUsuario),
+            )
+        }
+
+        Opcion.CLIENTES -> {
+            val viewModel: ClientesViewModel = viewModel(
+                key = "clientes-$token",
+                factory = ClientesViewModel.factory(contenedor.clientesRepository),
+            )
+            ClientesRoute(
+                viewModel = viewModel,
+                onVolver = onVolver,
             )
         }
 

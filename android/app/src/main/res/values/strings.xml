@@ -122,4 +122,28 @@
     <string name="opcion_recompensas_promociones_desc">Beneficios disponibles para los clientes.</string>
     <string name="opcion_mis_puntos">Mis puntos</string>
     <string name="opcion_mis_puntos_desc">Tus puntos de fidelidad acumulados.</string>
+
+    <!-- Clientes y Ley 1581 de 2012 -->
+    <string name="clientes_titulo">Clientes</string>
+    <string name="clientes_buscar_hint">Buscar por documento…</string>
+    <string name="clientes_nuevo">Registrar cliente</string>
+    <string name="clientes_vacio">No hay clientes registrados.</string>
+    <string name="clientes_sin_resultados">No se encontró ningún cliente con ese documento.</string>
+    <string name="cliente_nombre_label">Nombres</string>
+    <string name="cliente_apellido_label">Apellidos</string>
+    <string name="cliente_documento_label">Documento de identidad</string>
+    <string name="cliente_celular_label">Número de celular</string>
+    <string name="cliente_puntos_formato">%d puntos</string>
+    <string name="cliente_autorizacion_titulo">Autorización de Datos Personales (Ley 1581 de 2012)</string>
+    <string name="cliente_autorizacion_texto">De conformidad con la Ley Estatutaria 1581 de 2012 y el Decreto Reglamentario 1377 de 2013 de Colombia, autorizo de manera voluntaria, previa, explícita e informada a Cafetería CaffeBar (Appresso) para recolectar, almacenar, procesar y utilizar mis datos personales (nombre, apellidos, documento de identidad y número de celular) con la finalidad de gestionar mi registro en el programa de fidelización, registrar la acumulación y canje de puntos por compras, y remitir notificaciones sobre promociones y recompensas vigentes.\n\nComo titular de los datos, manifiesto que fui informado sobre mis derechos a conocer, actualizar, rectificar y solicitar la supresión de mis datos personales en cualquier momento mediante los mecanismos dispuestos en la aplicación o a través del canal oficial de atención (privacidad@appresso.com). El tiempo máximo legal de respuesta a solicitudes de supresión es de 15 días hábiles conforme al artículo 15 de la Ley 1581.</string>
+    <string name="cliente_checkbox_aceptacion">Acepto explícitamente el tratamiento de mis datos personales conforme a la Ley 1581 de 2012.</string>
+    <string name="cliente_error_aceptacion_requerida">Debes aceptar explícitamente la autorización de datos personales para continuar.</string>
+    <string name="cliente_guardar">Registrar</string>
+    <string name="cliente_cancelar">Cancelar</string>
+    <string name="cliente_consentimiento_otorgado">Consentimiento otorgado Ley 1581: %s</string>
+    <string name="cliente_solicitar_eliminacion">Solicitar eliminación de datos</string>
+    <string name="cliente_eliminacion_dialog_titulo">Eliminación de datos personales</string>
+    <string name="cliente_eliminacion_dialog_mensaje">Conforme al Artículo 15 de la Ley 1581 de 2012 (Habeas Data), puedes solicitar la supresión de tus datos personales del sistema. Al confirmar, se eliminarán o anonimizarán los datos identificables del cliente y se revocará la autorización de tratamiento, registrando la constancia en el log de auditoría.</string>
+    <string name="cliente_eliminacion_confirmar">Confirmar eliminación</string>
+    <string name="cliente_eliminacion_exito">Solicitud de supresión de datos personales procesada exitosamente.</string>
 </resources>

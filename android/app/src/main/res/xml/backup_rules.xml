@@ -6,8 +6,6 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Excluye el archivo de sesión cifrada de Android Keystore del backup en la nube -->
+    <exclude domain="sharedpref" path="appresso_sesion_segura.xml" />
 </full-backup-content>
