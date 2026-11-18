@@ -123,7 +123,7 @@ Dónde publicar:
 | Cuando… | Tipo de evento |
 |---|---|
 | se abre una comanda | `COMANDA_CREADA` |
-| el mesero la envía, cocina la prepara o la termina, o caja la cierra | `COMANDA_ESTADO_CAMBIADO` |
+| el mesero la envía, cocina la prepara o la termina, o se confirma su pago y se cierra (6.1.1, ver `api-pagos.md`) | `COMANDA_ESTADO_CAMBIADO` |
 | se agregan productos a una comanda ya enviada | `COMANDA_MODIFICADA` |
 | se crea un producto | `PRODUCTO_CREADO` |
 | cambia nombre, descripción, precio, umbral mínimo o activo | `PRODUCTO_ACTUALIZADO` |
