@@ -16,7 +16,7 @@ Después de conectar, el cliente se **suscribe** a los tópicos que necesite:
 | Tópico | Eventos | Quién lo usa |
 |---|---|---|
 | `/topic/comandas` | `COMANDA_CREADA`, `COMANDA_MODIFICADA`, `COMANDA_ESTADO_CAMBIADO` | cocina, meseros, administrador |
-| `/topic/catalogo` | `PRODUCTO_CREADO`, `PRODUCTO_ACTUALIZADO`, `EXISTENCIAS_ACTUALIZADAS` | meseros, administrador |
+| `/topic/catalogo` | `PRODUCTO_CREADO`, `PRODUCTO_ACTUALIZADO`, `EXISTENCIAS_ACTUALIZADAS`, `CATEGORIA_CREADA`, `CATEGORIA_ACTUALIZADA` | meseros, administrador |
 
 Los clientes solo **reciben**; no envían mensajes por el WebSocket. Los cambios se hacen por la API REST y el servidor los difunde.
 
@@ -126,12 +126,14 @@ Dónde publicar:
 | el mesero la envía, cocina la prepara o la termina, o caja la cierra | `COMANDA_ESTADO_CAMBIADO` |
 | se agregan productos a una comanda ya enviada | `COMANDA_MODIFICADA` |
 | se crea un producto | `PRODUCTO_CREADO` |
-| cambia nombre, descripción, precio, umbral mínimo o activo | `PRODUCTO_ACTUALIZADO` |
+| cambia nombre, descripción, precio, categoría, imagen, umbral mínimo o activo (3.1.1) | `PRODUCTO_ACTUALIZADO` |
+| se crea una categoría (3.1.1) | `CATEGORIA_CREADA` |
+| se renombra, desactiva o reactiva una categoría (3.1.1) | `CATEGORIA_ACTUALIZADA` (`datos`: `categoriaId`, `nombre`, `activa`) |
 | cambia el stock (venta o ajuste manual) | `EXISTENCIAS_ACTUALIZADAS` |
 
 ## Servicios que ya publican (SCRUM-28)
 
-Servicios base, sin controladores todavía (los endpoints y la validación de roles llegan con 3.1.1 / 4.1.1):
+Los endpoints del catálogo llegan con 3.1.1 (ver `api-catalogo.md`); los de inventario con 4.1.1:
 
 | Servicio | Método | Evento |
 |---|---|---|
@@ -150,7 +152,9 @@ Reglas tomadas de los requisitos:
 - **Productos (RF-12, RF-16):** no se piden cantidades mayores a las existencias ni productos desactivados; observaciones de hasta 100 caracteres.
 - **Al cerrar:** la mesa vuelve a `DISPONIBLE`.
 
-Pendiente para otras historias: controladores, convertir los errores en código 400, restringir `ajustarExistencias` al administrador (RF-07) y cancelación de comandas (la documentación no define ese estado).
+**Regla de cliente (3.1.1):** si llega `CATEGORIA_ACTUALIZADA` con `activa=false`, el cliente oculta de inmediato todos los productos de esa categoría; con `activa=true` vuelven a mostrarse. Una categoría desactivada no desactiva sus productos.
+
+Pendiente para otras historias: controladores de inventario, convertir los errores en código 400, restringir `ajustarExistencias` al administrador (RF-07) y cancelación de comandas (la documentación no define ese estado).
 
 ## Cómo probarlo
 
