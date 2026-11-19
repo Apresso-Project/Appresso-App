@@ -23,7 +23,11 @@ import com.appresso.app.ContenedorApp
 import com.appresso.app.R
 import com.appresso.app.data.auth.TokenSesion
 import com.appresso.app.data.remote.EventoRed
+import com.appresso.app.permisos.Accion
 import com.appresso.app.permisos.Opcion
+import com.appresso.app.permisos.puede
+import com.appresso.app.ui.catalogo.CategoriasRoute
+import com.appresso.app.ui.catalogo.CategoriasViewModel
 import com.appresso.app.ui.inicio.InicioScreen
 import com.appresso.app.ui.inicio.SeccionProvisionalScreen
 import com.appresso.app.ui.login.LoginRoute
@@ -105,6 +109,18 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
 @Composable
 private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     when (destino.opcion) {
+        // Solo el administrador gestiona el catálogo; el menú de solo lectura del mesero (3.3.1) aún
+        // no existe y queda en la pantalla provisional.
+        Opcion.PRODUCTOS_E_INVENTARIO -> if (puede(destino.rol, Accion.GESTIONAR_CATALOGO)) {
+            val viewModel: CategoriasViewModel = viewModel(
+                key = "categorias-$token",
+                factory = CategoriasViewModel.factory(contenedor.catalogoRepository),
+            )
+            CategoriasRoute(viewModel = viewModel, onVolver = onVolver)
+        } else {
+            SeccionProvisionalScreen(opcion = destino.opcion, onVolver = onVolver)
+        }
+
         Opcion.USUARIOS -> {
             // La clave evita que otra cuenta que inicie sesión después herede la lista anterior.
             val viewModel: UsuariosViewModel = viewModel(

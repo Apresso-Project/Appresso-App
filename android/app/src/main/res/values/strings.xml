@@ -122,4 +122,38 @@
     <string name="opcion_recompensas_promociones_desc">Beneficios disponibles para los clientes.</string>
     <string name="opcion_mis_puntos">Mis puntos</string>
     <string name="opcion_mis_puntos_desc">Tus puntos de fidelidad acumulados.</string>
+
+    <!-- Categorías del catálogo (3.1.1) -->
+    <string name="cat_titulo">Categorías</string>
+    <string name="cat_nueva">Nueva categoría</string>
+    <string name="cat_volver">Volver</string>
+    <string name="cat_cargando">Cargando categorías</string>
+    <string name="cat_vacio">Aún no hay categorías. Crea la primera con «Nueva categoría».</string>
+    <string name="cat_reintentar">Reintentar</string>
+    <string name="cat_renombrar">Renombrar</string>
+    <string name="cat_desactivar">Desactivar</string>
+    <string name="cat_activar">Activar</string>
+    <string name="cat_estado_activa">Activa</string>
+    <string name="cat_estado_inactiva">Desactivada</string>
+    <string name="cat_inactiva_aviso">Sus productos no aparecen en el menú mientras esté desactivada.</string>
+    <string name="cat_productos_ninguno">Sin productos</string>
+    <string name="cat_productos_uno">1 producto</string>
+    <string name="cat_productos_varios">%1$d productos</string>
+    <string name="cat_form_titulo_nueva">Nueva categoría</string>
+    <string name="cat_form_titulo_renombrar">Renombrar categoría</string>
+    <string name="cat_form_nombre">Nombre de la categoría</string>
+    <string name="cat_form_crear">Crear categoría</string>
+    <string name="cat_form_guardar_nombre">Guardar nombre</string>
+    <string name="cat_form_guardando">Guardando</string>
+    <string name="cat_form_cancelar">Cancelar</string>
+    <string name="cat_confirmar_titulo">¿Desactivar «%1$s»?</string>
+    <string name="cat_confirmar_con_productos">%1$s dejarán de aparecer en el menú. Podrás reactivar la categoría cuando quieras y sus productos volverán.</string>
+    <string name="cat_confirmar_sin_productos">La categoría no tiene productos. Podrás reactivarla cuando quieras.</string>
+    <string name="cat_confirmar_accion">Sí, desactivar</string>
+    <string name="cat_error_nombre_obligatorio">Escribe el nombre de la categoría.</string>
+    <string name="cat_error_nombre_largo">El nombre no puede superar %1$d caracteres.</string>
+    <string name="cat_error_nombre_repetido">Ya existe una categoría con ese nombre.</string>
+    <string name="cat_error_servidor">Algo salió mal. Intenta de nuevo en unos minutos.</string>
+    <string name="cat_error_no_encontrada">Esa categoría ya no existe. Se actualizó la lista.</string>
+    <string name="cat_error_datos">Revisa los datos ingresados.</string>
 </resources>

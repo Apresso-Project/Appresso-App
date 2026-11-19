@@ -66,3 +66,10 @@ curl -X POST http://localhost:8080/api/productos -H "Authorization: Bearer $TOKE
 ## Decisión: imágenes
 
 Se guarda solo la URL (`imagenUrl`); no se suben archivos. Subir archivos queda para una historia aparte.
+
+## Cliente Android (SCRUM-70 y SCRUM-71)
+
+- **API y repositorio** (`data/remote/CatalogoApi.kt`, `data/catalogo/`): un método por endpoint de este contrato. Cada llamada devuelve un `ResultadoCatalogo` (éxito, datos inválidos 400, conflicto 409, sesión inválida 401, sin permiso 403, no encontrado 404, sin conexión o error del servidor), sin lanzar excepciones. El precio se lee como `BigDecimal` (nunca `Double`) y se envía como texto.
+- **Pantalla de categorías** (`ui/catalogo/`): solo la ve el administrador (`Accion.GESTIONAR_CATALOGO`, opción «Productos e inventario»); los demás roles siguen en la pantalla provisional. Lista las categorías con las desactivadas (`?todas=true`), con su conteo de productos, y permite crear, renombrar, desactivar (con confirmación que indica cuántos productos salen del menú) y activar.
+- **Validación**: nombre obligatorio y de máximo 80 caracteres, y sin repetir (ignorando mayúsculas) se comprueban en el teléfono; el servidor las vuelve a validar y su error `campos.nombre` se muestra junto al campo sin borrar lo escrito.
+- **Tiempo real**: `CategoriasViewModel` acepta un flujo `cambios` (`cambiosDeCatalogo()` filtra los eventos `CATEGORIA_*`, `PRODUCTO_*` y `EXISTENCIAS_*`) y recarga la lista en silencio. Aún no hay conexión STOMP abierta desde la interfaz; mientras tanto la lista se actualiza al abrir, tras cada acción y con «Reintentar».
