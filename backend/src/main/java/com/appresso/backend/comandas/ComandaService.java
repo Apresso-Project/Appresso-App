@@ -130,6 +130,25 @@ public class ComandaService {
 	}
 
 	/**
+	 * Cierra una comanda {@code LISTA} porque se confirmó su pago (RF-28): pasa a {@code CERRADA},
+	 * la mesa queda disponible, se guarda en el historial y se publica COMANDA_ESTADO_CAMBIADO.
+	 * Quien confirma el pago (cajero, administrador o mesero en transferencias) ya fue validado por
+	 * {@code PagoService}; aquí no se revisa el rol.
+	 */
+	@Transactional
+	public Comanda cerrarPorPago(Comanda comanda, Usuario usuario) {
+		EstadoComanda anterior = comanda.getEstado();
+		if (anterior != EstadoComanda.LISTA) {
+			throw new IllegalStateException("Solo se cierra por pago una comanda LISTA, no una " + anterior);
+		}
+		comanda.setEstado(EstadoComanda.CERRADA);
+		comanda.getMesa().setEstado(EstadoMesa.DISPONIBLE);
+		registrar(comanda, anterior, EstadoComanda.CERRADA, "Pago confirmado", usuario);
+		publicador.publicarComanda(TipoEvento.COMANDA_ESTADO_CAMBIADO, datos(comanda, anterior, List.of()));
+		return comanda;
+	}
+
+	/**
 	 * Agrega un producto a una comanda que no esté pagada (RF-20). Si ya fue enviada, el detalle queda
 	 * marcado como agregado después del envío (RF-21) y se descuenta del inventario de inmediato.
 	 * Publica COMANDA_MODIFICADA.
