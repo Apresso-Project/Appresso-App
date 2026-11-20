@@ -336,4 +336,71 @@ class CatalogoRepositoryRemotoTest {
 
         assertEquals(ResultadoCatalogo.SinConexion, repositorio.listarCategorias())
     }
+
+    // ------------------------------------------------------------ casos adicionales (SCRUM-73)
+
+    @Test
+    fun `obtener un producto usa GET con el id y lo traduce`() = runTest {
+        servidor.enqueue(json(200, productoJson()))
+
+        val r = repositorio.obtenerProducto(9) as ResultadoCatalogo.Exito
+
+        val pedido = servidor.takeRequest()
+        assertEquals("GET", pedido.method)
+        assertEquals("/api/productos/9", pedido.path)
+        assertEquals("Latte", r.valor.nombre)
+        assertEquals(12, r.valor.stockActual)
+    }
+
+    @Test
+    fun `un producto que ya no existe devuelve NoEncontrado`() = runTest {
+        servidor.enqueue(json(404, """{"mensaje":"No existe ese producto."}"""))
+
+        assertEquals(ResultadoCatalogo.NoEncontrado, repositorio.obtenerProducto(404))
+    }
+
+    @Test
+    fun `un precio entero del servidor se lee exacto`() = runTest {
+        servidor.enqueue(json(200, productoJson(precio = "6500")))
+
+        val r = repositorio.obtenerProducto(9) as ResultadoCatalogo.Exito
+
+        assertEquals(0, BigDecimal("6500").compareTo(r.valor.precio))
+    }
+
+    @Test
+    fun `un precio invalido devuelve DatosInvalidos con el campo precio`() = runTest {
+        servidor.enqueue(json(400, """{"mensaje":"Revisa los datos ingresados.","campos":{"precio":"Debe ser mayor que cero"}}"""))
+
+        val r = repositorio.crearProducto(DatosProducto("Latte", BigDecimal("0"), 3))
+
+        assertEquals(
+            ResultadoCatalogo.DatosInvalidos("Revisa los datos ingresados.", mapOf("precio" to "Debe ser mayor que cero")),
+            r,
+        )
+    }
+
+    @Test
+    fun `pedir los productos fuera del menu sin ser administrador devuelve SinPermiso`() = runTest {
+        servidor.enqueue(json(403, """{"mensaje":"No tienes permiso para esta acción."}"""))
+
+        val r = repositorio.listarProductos(incluirFueraDelMenu = true)
+
+        assertEquals(ResultadoCatalogo.SinPermiso("No tienes permiso para esta acción."), r)
+        assertEquals("/api/productos?todos=true", servidor.takeRequest().path)
+    }
+
+    @Test
+    fun `desactivar una categoria que ya no existe devuelve NoEncontrado`() = runTest {
+        servidor.enqueue(json(404, """{"mensaje":"No existe esa categoría."}"""))
+
+        assertEquals(ResultadoCatalogo.NoEncontrado, repositorio.desactivarCategoria(77))
+    }
+
+    @Test
+    fun `un fallo de red al crear un producto no lanza excepcion`() = runTest {
+        servidor.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+
+        assertEquals(ResultadoCatalogo.SinConexion, repositorio.crearProducto(DatosProducto("Latte", BigDecimal("6500"), 3)))
+    }
 }
