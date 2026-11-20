@@ -2,19 +2,22 @@
     <string name="app_name">Appresso</string>
 
     <!-- Login -->
-    <string name="login_subtitle">Ingresa con tu correo y contraseña.</string>
+    <string name="login_subtitle">El personal ingresa con su correo; los clientes, con su número de documento.</string>
     <string name="login_title">Inicia sesión</string>
-    <string name="login_email_label">Correo electrónico</string>
-    <string name="login_email_placeholder">tu@correo.co</string>
+    <string name="login_identifier_label">Correo o número de documento</string>
+    <string name="login_identifier_placeholder">tu@correo.co o 1234567890</string>
     <string name="login_password_label">Contraseña</string>
     <string name="login_password_placeholder">Tu contraseña</string>
     <string name="login_show_password">Mostrar</string>
     <string name="login_hide_password">Ocultar</string>
     <string name="login_submit">Entrar</string>
     <string name="login_loading">Iniciando sesión</string>
+    <string name="login_forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="login_client_question">¿Eres cliente y aún no tienes cuenta?</string>
+    <string name="login_create_account">Crear cuenta</string>
 
     <!-- Login: errores. Sin datos técnicos y sin decir qué dato falló en las credenciales. -->
-    <string name="login_error_email_invalid">El correo no tiene un formato válido.</string>
+    <string name="login_error_identifier_invalid">Escribe tu correo (personal) o tu número de documento (clientes).</string>
     <string name="login_error_password_too_long">La contraseña no puede superar 72 caracteres.</string>
     <string name="login_error_credentials">Credenciales inválidas</string>
     <string name="login_error_locked">Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo más tarde.</string>
@@ -117,35 +120,80 @@
     <string name="opcion_solicitudes_retiro">Solicitudes de retiro</string>
     <string name="opcion_solicitudes_retiro_desc">Pide o aprueba retiros de dinero de la caja.</string>
     <string name="opcion_clientes">Clientes</string>
-    <string name="opcion_clientes_desc">Registra clientes y consulta sus puntos.</string>
+    <string name="opcion_clientes_desc">Busca clientes por documento y consulta sus puntos.</string>
     <string name="opcion_recompensas_promociones">Recompensas y promociones</string>
     <string name="opcion_recompensas_promociones_desc">Beneficios disponibles para los clientes.</string>
     <string name="opcion_mis_puntos">Mis puntos</string>
     <string name="opcion_mis_puntos_desc">Tus puntos de fidelidad acumulados.</string>
 
-    <!-- Clientes y Ley 1581 de 2012 -->
-    <string name="clientes_titulo">Clientes</string>
-    <string name="clientes_buscar_hint">Buscar por documento…</string>
-    <string name="clientes_nuevo">Registrar cliente</string>
-    <string name="clientes_vacio">No hay clientes registrados.</string>
-    <string name="cliente_no_encontrado">Cliente no encontrado</string>
-    <string name="clientes_sin_resultados">No se encontró ningún cliente con ese documento.</string>
-    <string name="cliente_ofrecer_registro">Registrar cliente</string>
-    <string name="cliente_nombre_label">Nombres</string>
-    <string name="cliente_apellido_label">Apellidos</string>
-    <string name="cliente_documento_label">Documento de identidad</string>
-    <string name="cliente_celular_label">Número de celular</string>
-    <string name="cliente_puntos_formato">%d puntos</string>
+    <!-- Cuenta del cliente: registro (RF-50) y recuperación de contraseña (RF-65) -->
+    <string name="cuenta_volver">Volver</string>
+    <string name="cuenta_ir_login">Iniciar sesión</string>
+    <string name="cuenta_enviando">Enviando</string>
+
+    <string name="registro_titulo">Crea tu cuenta</string>
+    <string name="registro_subtitulo">Suma puntos de fidelidad cada vez que pagues tu pedido.</string>
+    <string name="registro_nombre">Nombre</string>
+    <string name="registro_nombre_placeholder">Ana</string>
+    <string name="registro_apellido">Apellido</string>
+    <string name="registro_apellido_placeholder">Pérez</string>
+    <string name="registro_documento">Número de documento</string>
+    <string name="registro_documento_placeholder">1234567890</string>
+    <string name="registro_celular">Celular</string>
+    <string name="registro_celular_placeholder">300 123 4567</string>
+    <string name="registro_correo">Correo electrónico</string>
+    <string name="registro_correo_placeholder">tu@correo.co</string>
+    <string name="registro_correo_ayuda">Lo usamos para enviarte un código si olvidas tu contraseña.</string>
+    <string name="registro_contrasena">Contraseña</string>
+    <string name="registro_contrasena_placeholder">Entre 8 y 72 caracteres</string>
+    <string name="registro_enviar">Registrarme</string>
+    <string name="registro_enviando">Registrando</string>
+    <string name="registro_exito">Registro exitoso. ¡Ya puedes empezar a acumular tus puntos de fidelidad!</string>
+    <string name="registro_exito_ingreso">Inicia sesión con tu número de documento y tu contraseña.</string>
+
+    <string name="registro_error_incompleto">Completa todos los datos y acepta el tratamiento de datos personales.</string>
+    <string name="registro_error_requerido">Este campo es obligatorio.</string>
+    <string name="registro_error_nombre_largo">No puede superar 80 caracteres.</string>
+    <string name="registro_error_documento">El documento debe tener entre 5 y 20 letras o números.</string>
+    <string name="registro_error_celular">Ingresa un número de celular válido.</string>
+    <string name="registro_error_correo">Ingresa un correo electrónico válido.</string>
+    <string name="registro_error_contrasena">La contraseña debe tener entre 8 y 72 caracteres.</string>
+    <string name="registro_error_acepto">Debes aceptar el tratamiento de datos personales.</string>
+
     <string name="cliente_autorizacion_titulo">Autorización de Datos Personales (Ley 1581 de 2012)</string>
-    <string name="cliente_autorizacion_texto">De conformidad con la Ley Estatutaria 1581 de 2012 y el Decreto Reglamentario 1377 de 2013 de Colombia, autorizo de manera voluntaria, previa, explícita e informada a Cafetería CaffeBar (Appresso) para recolectar, almacenar, procesar y utilizar mis datos personales (nombre, apellidos, documento de identidad y número de celular) con la finalidad de gestionar mi registro en el programa de fidelización, registrar la acumulación y canje de puntos por compras, y remitir notificaciones sobre promociones y recompensas vigentes.\n\nComo titular de los datos, manifiesto que fui informado sobre mis derechos a conocer, actualizar, rectificar y solicitar la supresión de mis datos personales en cualquier momento mediante los mecanismos dispuestos en la aplicación o a través del canal oficial de atención (privacidad@appresso.com). El tiempo máximo legal de respuesta a solicitudes de supresión es de 15 días hábiles conforme al artículo 15 de la Ley 1581.</string>
+    <string name="cliente_autorizacion_texto">De conformidad con la Ley Estatutaria 1581 de 2012 y el Decreto Reglamentario 1377 de 2013 de Colombia, autorizo de manera voluntaria, previa, explícita e informada a Cafetería CaffeBar (Appresso) para recolectar, almacenar, procesar y utilizar mis datos personales (nombre, apellidos, documento de identidad, número de celular y correo electrónico) con la finalidad de gestionar mi registro en el programa de fidelización, registrar la acumulación y canje de puntos por compras, permitirme recuperar el acceso a mi cuenta y remitir notificaciones sobre promociones y recompensas vigentes.\n\nComo titular de los datos, manifiesto que fui informado sobre mis derechos a conocer, actualizar, rectificar y solicitar la supresión de mis datos personales en cualquier momento mediante los mecanismos dispuestos en la aplicación o a través del canal oficial de atención (privacidad@appresso.com). El tiempo máximo legal de respuesta a solicitudes de supresión es de 15 días hábiles conforme al artículo 15 de la Ley 1581.</string>
     <string name="cliente_checkbox_aceptacion">Acepto explícitamente el tratamiento de mis datos personales conforme a la Ley 1581 de 2012.</string>
-    <string name="cliente_error_aceptacion_requerida">Debes aceptar explícitamente la autorización de datos personales para continuar.</string>
-    <string name="cliente_guardar">Registrar</string>
-    <string name="cliente_cancelar">Cancelar</string>
-    <string name="cliente_consentimiento_otorgado">Consentimiento otorgado Ley 1581: %s</string>
-    <string name="cliente_solicitar_eliminacion">Solicitar eliminación de datos</string>
-    <string name="cliente_eliminacion_dialog_titulo">Eliminación de datos personales</string>
-    <string name="cliente_eliminacion_dialog_mensaje">Conforme al Artículo 15 de la Ley 1581 de 2012 (Habeas Data), puedes solicitar la supresión de tus datos personales del sistema. Al confirmar, se eliminarán o anonimizarán los datos identificables del cliente y se revocará la autorización de tratamiento, registrando la constancia en el log de auditoría.</string>
-    <string name="cliente_eliminacion_confirmar">Confirmar eliminación</string>
-    <string name="cliente_eliminacion_exito">Solicitud de supresión de datos personales procesada exitosamente.</string>
+
+    <string name="recuperar_titulo">Recupera tu contraseña</string>
+    <string name="recuperar_subtitulo_documento">Escribe tu número de documento y te enviaremos un código al correo de tu cuenta.</string>
+    <string name="recuperar_subtitulo_codigo">Escribe el código de 6 dígitos y tu contraseña nueva.</string>
+    <string name="recuperar_subtitulo_listo">Ya puedes entrar con tu contraseña nueva.</string>
+    <string name="recuperar_enviar_codigo">Enviar código</string>
+    <string name="recuperar_aviso">Si el documento está registrado, enviamos un código al correo asociado.</string>
+    <string name="recuperar_codigo">Código</string>
+    <string name="recuperar_codigo_placeholder">123456</string>
+    <string name="recuperar_nueva">Contraseña nueva</string>
+    <string name="recuperar_confirmar">Confirma la contraseña</string>
+    <string name="recuperar_confirmar_placeholder">Escríbela de nuevo</string>
+    <string name="recuperar_cambiar">Cambiar contraseña</string>
+    <string name="recuperar_reenviar">Reenviar código</string>
+    <string name="recuperar_otro_documento">Usar otro documento</string>
+    <string name="recuperar_exito">Tu contraseña se actualizó. Ya puedes iniciar sesión.</string>
+    <string name="recuperar_error_codigo">El código tiene 6 dígitos.</string>
+    <string name="recuperar_error_no_coinciden">Las contraseñas no coinciden.</string>
+    <string name="recuperar_error_codigo_servidor">El código no es válido o venció. Solicita uno nuevo.</string>
+
+    <!-- Búsqueda de clientes por el mesero y el administrador (RF-51) -->
+    <string name="clientes_titulo">Clientes</string>
+    <string name="clientes_descripcion">Busca al cliente por su número de documento para ver sus puntos.</string>
+    <string name="clientes_buscar">Buscar</string>
+    <string name="clientes_buscando">Buscando</string>
+    <string name="cliente_documento_formato">Documento: %1$s</string>
+    <plurals name="cliente_puntos">
+        <item quantity="one">%1$d punto</item>
+        <item quantity="many">%1$d puntos</item>
+        <item quantity="other">%1$d puntos</item>
+    </plurals>
+    <string name="cliente_no_encontrado">Cliente no encontrado</string>
+    <string name="cliente_no_encontrado_ayuda">El cliente puede crear su cuenta desde la app, con la opción «Crear cuenta» de la pantalla de inicio de sesión.</string>
 </resources>

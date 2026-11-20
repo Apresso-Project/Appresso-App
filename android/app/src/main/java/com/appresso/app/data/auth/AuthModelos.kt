@@ -34,7 +34,7 @@ sealed interface ResultadoLogin {
     /** 400: algún dato no es válido. [campos] asocia cada campo con su problema; puede venir vacío. */
     data class DatosInvalidos(val mensaje: String?, val campos: Map<String, String>) : ResultadoLogin
 
-    /** 401: correo inexistente, contraseña incorrecta o cuenta inactiva (no se puede distinguir cuál). */
+    /** 401: cuenta inexistente, contraseña incorrecta o cuenta inactiva (no se puede distinguir cuál). */
     data object CredencialesInvalidas : ResultadoLogin
 
     /** 423: demasiados intentos fallidos. [mensaje] es el del servidor e incluye los minutos que faltan. */

@@ -64,7 +64,9 @@ Con el perfil `dev` activo, al arrancar el backend crea ese administrador **si n
 DEV_USUARIOS_CONTRASENA=otra_clave_tuya
 ```
 
-Con el perfil `dev`, se crean (si no existen) `cajero@appresso.test`, `mesero@appresso.test`, `cocinero@appresso.test` y `cliente@appresso.test`, todos con esa contraseña. Si la variable está vacía, no se crean. La verificación completa con los cinco roles está en [`docs/verificacion-roles.md`](../docs/verificacion-roles.md).
+Con el perfil `dev`, se crean (si no existen) `cajero@appresso.test`, `mesero@appresso.test`, `cocinero@appresso.test` y `cliente@appresso.test`, todos con esa contraseña. El cliente de prueba también tiene su registro de cliente y **entra con el documento `1000000001`**, no con el correo (los clientes inician sesión con su documento). Si la variable está vacía, no se crean.
+
+**Correo para la recuperación de contraseña del cliente (opcional en local).** El código de recuperación se envía por SMTP con `CORREO_HOST`, `CORREO_PUERTO` (587), `CORREO_USUARIO`, `CORREO_CONTRASENA` y `CORREO_REMITENTE`. En local puedes dejarlas sin definir: con el perfil `dev` el código aparece en la consola del backend (ver [`docs/api-auth.md`](../docs/api-auth.md)). La verificación completa con los cinco roles está en [`docs/verificacion-roles.md`](../docs/verificacion-roles.md).
 ### Paso 2. Encender la base de datos
 
 Abre Docker Desktop, espera a que diga que está en ejecución y luego:
@@ -121,13 +123,13 @@ Con el administrador de prueba (ver el paso 1) puedes iniciar sesión a mano:
 # Git Bash, Linux o macOS
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"correo":"admin@appresso.test","contrasena":"una_clave_tuya"}'
+  -d '{"identificador":"admin@appresso.test","contrasena":"una_clave_tuya"}'
 
 # Windows cmd
-curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"correo\":\"admin@appresso.test\",\"contrasena\":\"una_clave_tuya\"}"
+curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d "{\"identificador\":\"admin@appresso.test\",\"contrasena\":\"una_clave_tuya\"}"
 ```
 
-Con las credenciales correctas responde `200` con `{"token":"...","rol":"ADMINISTRADOR","nombre":"Administrador de prueba"}`. Con unas incorrectas, `401` y `{"mensaje":"Credenciales inválidas"}`. Después de **5 fallos seguidos** la cuenta se bloquea 15 minutos (`423`), aunque escribas bien la contraseña.
+El personal entra con su correo y el cliente con su número de documento, ambos en el campo `identificador`. Con las credenciales correctas responde `200` con `{"token":"...","rol":"ADMINISTRADOR","nombre":"Administrador de prueba"}`. Con unas incorrectas, `401` y `{"mensaje":"Credenciales inválidas"}`. Después de **5 fallos seguidos** la cuenta se bloquea 15 minutos (`423`), aunque escribas bien la contraseña.
 
 ---
 
@@ -241,6 +243,7 @@ En un servidor no hay archivo `.env`: las variables las define el proveedor del 
 
 - Se pueden definir `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`, igual que en desarrollo.
 - Debe definirse `JWT_SECRET` (32 caracteres o más), **distinta a la de desarrollo** y guardada solo en las variables del servidor. Opcionalmente `JWT_EXPIRACION_MINUTOS` (por defecto 720, es decir, 12 horas).
+- Para que los clientes reciban el código de recuperación de contraseña, define `CORREO_HOST`, `CORREO_PUERTO`, `CORREO_USUARIO`, `CORREO_CONTRASENA` y `CORREO_REMITENTE` con los datos del servidor de correo (SMTP con STARTTLS). Sin ellas, el código no se envía.
 - **No definas `spring.profiles.active=dev` ni `DEV_ADMIN_*` en el servidor.** Son solo para tu computador: crearían una cuenta de administrador con una contraseña conocida por el equipo.
 - O, si el proveedor entrega una sola dirección de conexión, se puede usar `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` y `SPRING_DATASOURCE_PASSWORD`. Spring las usa en lugar de lo que diga `application.properties`.
 
@@ -352,19 +355,20 @@ backend/
     │   │   ├── AppressoBackendApplication.java   # punto de entrada
     │   │   ├── health/HealthController.java      # /api/health
     │   │   ├── config/ZonaHorariaConfig.java     # zona horaria del negocio (America/Bogota)
-    │   │   ├── auth/                             # inicio de sesión: AuthController, AuthService, JwtService, DTO
+    │   │   ├── auth/                             # inicio de sesión y recuperación de contraseña del cliente: AuthController, AuthService, RecuperacionContrasenaService, JwtService, DTO
+    │   │   ├── correo/                           # envío de correos por SMTP (código de recuperación)
     │   │   ├── usuarios/                         # Usuario, UsuarioRepository, AdminDePruebaInicializador (solo perfil dev), DispositivoPush, Rol
     │   │   ├── inventario/                       # Categoria, Producto, MovimientoInventario
     │   │   ├── comandas/                         # Mesa, Comanda, DetalleComanda, HistorialComanda
     │   │   ├── caja/                             # Jornada, Pago, MovimientoCaja, SolicitudRetiro, ...
-    │   │   ├── fidelizacion/                     # Cliente, Recompensa, Promocion, CanjeRecompensa, Notificacion
+    │   │   ├── fidelizacion/                     # Cliente (registro público, búsqueda, mi cuenta), Recompensa, Promocion, CanjeRecompensa, Notificacion
     │   │   └── auditoria/                        # RegistroAuditoria
     │   └── resources/
     │       ├── application.properties            # configuración
-    │       └── db/migration/V1__esquema_inicial.sql   # tablas (Flyway)
+    │       └── db/migration/V1__..., V2__..., V3__...  # tablas (Flyway), en orden
     └── test/
         ├── java/com/appresso/backend/            # pruebas
         └── resources/application.properties      # configuración SOLO de pruebas (H2)
 ```
 
-Paquete base: `com.appresso.backend`. Mapa del modelo de datos: [`docs/modelo-de-datos.md`](../docs/modelo-de-datos.md). Contrato del inicio de sesión (para quien lo consuma desde Android): [`docs/api-auth.md`](../docs/api-auth.md).
+Paquete base: `com.appresso.backend`. Mapa del modelo de datos: [`docs/modelo-de-datos.md`](../docs/modelo-de-datos.md). Contrato del inicio de sesión y la recuperación de contraseña (para quien lo consuma desde Android): [`docs/api-auth.md`](../docs/api-auth.md). Registro y búsqueda de clientes: [`docs/api-clientes.md`](../docs/api-clientes.md).

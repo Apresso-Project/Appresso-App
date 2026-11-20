@@ -49,7 +49,9 @@ Cuerpos y respuestas en JSON (`Content-Type: application/json`). Las respuestas 
 }
 ```
 
-`rol` es uno de `ADMINISTRADOR`, `CAJERO`, `MESERO`, `COCINERO`, `CLIENTE`. **Nunca** se devuelve la contraseña ni su hash.
+`rol` es uno de `ADMINISTRADOR`, `CAJERO`, `MESERO`, `COCINERO`. **Nunca** se devuelve la contraseña ni su hash.
+
+**Solo cuentas del personal.** Las cuentas de cliente las crea el propio cliente al registrarse desde la app ([`api-clientes.md`](api-clientes.md)) y no se gestionan aquí: no aparecen en la lista, consultarlas, editarlas, desactivarlas o activarlas responde `404` como si no existieran, y crear o editar una cuenta con `"rol": "CLIENTE"` responde `400` con `campos.rol` = "Las cuentas de cliente se crean desde el registro de la app.".
 
 ### Crear — `POST /api/usuarios`
 
@@ -113,7 +115,7 @@ Antes de **desactivar**, la app pide confirmación (SCRUM-58): es la acción que
 ## Límites actuales
 
 - La lista devuelve **todas** las cuentas sin paginar: el personal de una cafetería son pocas decenas.
-- Las cuentas de rol `CLIENTE` creadas aquí no crean el perfil de fidelización; eso lo gestiona el módulo de clientes.
+- Aquí no se crean cuentas de rol `CLIENTE`: cada cliente crea la suya, junto con su registro de fidelización, desde la app.
 - No hay "olvidé mi contraseña": el administrador la restablece editando la cuenta con una contraseña nueva.
 
 ## Probarlo a mano
@@ -123,7 +125,7 @@ Con el backend en marcha (`backend/README.md`) y el administrador de prueba crea
 ```bash
 # 1. Iniciar sesión y copiar el token
 curl -s -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" \
-  -d '{"correo":"admin@appresso.test","contrasena":"TU_CLAVE"}'
+  -d '{"identificador":"admin@appresso.test","contrasena":"TU_CLAVE"}'
 
 # 2. Listar (reemplaza TOKEN)
 curl -s http://localhost:8080/api/usuarios -H "Authorization: Bearer TOKEN"

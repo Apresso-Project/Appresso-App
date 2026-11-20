@@ -41,7 +41,8 @@ erDiagram
 
 | Módulo (paquete) | Entidad | Para qué sirve | Requisitos |
 |---|---|---|---|
-| `usuarios` | `Usuario` | Cuenta con correo, hash de contraseña, rol, bloqueo por intentos fallidos | RF-01 a RF-05, RNF-05, RNF-26 |
+| `usuarios` | `Usuario` | Cuenta con correo, hash de contraseña, rol, bloqueo por intentos fallidos. El cliente también tiene una (rol `CLIENTE`): la crea él mismo al registrarse y entra con el documento de su `Cliente` | RF-01 a RF-05, RF-50, RNF-05, RNF-26 |
+| `codigos_recuperacion` | `CodigoRecuperacion` | Código de un solo uso (solo su hash) para que el cliente cambie su contraseña: vencimiento, intentos y si ya se usó. Migración `V3` | RF-65 |
 | | `DispositivoPush` | Token FCM del dispositivo del administrador | RF-35 |
 | `inventario` | `Categoria` | Agrupa productos | RF-06 |
 | | `Producto` | Catálogo, precio, imagen (`imagenUrl`, URL opcional ≤500), stock y umbral mínimo | RF-06, RF-08 a RF-13 |
@@ -85,10 +86,9 @@ erDiagram
 
 ## Puntos abiertos (hay que decidirlos con el equipo y el cliente)
 
-1. **Login del cliente.** RF-01 pide correo y contraseña, pero RF-50 registra al cliente solo con nombre, apellido, documento y celular. Por eso `Cliente.usuario` es opcional: sirve con cualquiera de las dos decisiones.
-2. **Tipo de beneficio de las promociones.** `Promocion` guarda título, descripción y condiciones como texto libre más su costo en puntos. Si el sistema debe calcular solo el descuento (2x1, porcentaje, valor fijo), hace falta un tipo estructurado, como el de `Recompensa`.
-3. **QR de pago:** se guarda como URL (`qrPagoUrl`). Si se prefiere guardar la imagen en la base, cambia el campo.
-4. **Cancelación de comandas.** No está en ningún RF ni historia de usuario, y RF-COMANDA-ESTADO dice que el estado tiene "cinco valores" sin cancelada. Pero el entregable 4.2.2 de la EDT (y su diccionario, cronograma, presupuesto y RACI) sí la incluye: "el mesero o administrador anula una comanda activa, revirtiendo el descuento de stock y actualizando el estado en todos los dispositivos"; la comanda cancelada desaparece de cocina. El modelo todavía no la representa. Hay que decidir (a) si es un sexto estado `CANCELADA` (y se actualiza RF-COMANDA-ESTADO) o campos aparte (`cancelada`, quién, cuándo, motivo) que dejen los cinco estados intactos, (b) en qué estados se puede cancelar, y (c) qué pasa con los puntos si la comanda tenía un canje aplicado.
-5. **Recompensa solicitada (RF-56).** El cliente solicita una recompensa mientras se crea la comanda y esta la muestra como "Recompensa solicitada, pendiente de aplicar" hasta que el mesero la aplica (RF-58). `CanjeRecompensa` solo existe con el canje ya confirmado, así que no hay dónde guardar esa solicitud.
-6. **Recompensa "usada" (RF-59).** Hoy se deduce de la existencia de un `CanjeRecompensa` en una recompensa `usoUnico`. Falta decidir si basta o debe guardarse.
-7. **Texto de RF-COMANDA-ESTADO:** ya aclarado en el Documentation-Repo (cocina muestra `enviada` como "Pendiente"); queda por revisar con el equipo.
+1. **Tipo de beneficio de las promociones.** `Promocion` guarda título, descripción y condiciones como texto libre más su costo en puntos. Si el sistema debe calcular solo el descuento (2x1, porcentaje, valor fijo), hace falta un tipo estructurado, como el de `Recompensa`.
+2. **QR de pago:** se guarda como URL (`qrPagoUrl`). Si se prefiere guardar la imagen en la base, cambia el campo.
+3. **Cancelación de comandas.** No está en ningún RF ni historia de usuario, y RF-COMANDA-ESTADO dice que el estado tiene "cinco valores" sin cancelada. Pero el entregable 4.2.2 de la EDT (y su diccionario, cronograma, presupuesto y RACI) sí la incluye: "el mesero o administrador anula una comanda activa, revirtiendo el descuento de stock y actualizando el estado en todos los dispositivos"; la comanda cancelada desaparece de cocina. El modelo todavía no la representa. Hay que decidir (a) si es un sexto estado `CANCELADA` (y se actualiza RF-COMANDA-ESTADO) o campos aparte (`cancelada`, quién, cuándo, motivo) que dejen los cinco estados intactos, (b) en qué estados se puede cancelar, y (c) qué pasa con los puntos si la comanda tenía un canje aplicado.
+4. **Recompensa solicitada (RF-56).** El cliente solicita una recompensa mientras se crea la comanda y esta la muestra como "Recompensa solicitada, pendiente de aplicar" hasta que el mesero la aplica (RF-58). `CanjeRecompensa` solo existe con el canje ya confirmado, así que no hay dónde guardar esa solicitud.
+5. **Recompensa "usada" (RF-59).** Hoy se deduce de la existencia de un `CanjeRecompensa` en una recompensa `usoUnico`. Falta decidir si basta o debe guardarse.
+6. **Texto de RF-COMANDA-ESTADO:** ya aclarado en el Documentation-Repo (cocina muestra `enviada` como "Pendiente"); queda por revisar con el equipo.

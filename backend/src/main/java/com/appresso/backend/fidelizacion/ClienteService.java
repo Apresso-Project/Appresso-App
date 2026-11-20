@@ -1,146 +1,167 @@
 package com.appresso.backend.fidelizacion;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.appresso.backend.auditoria.RegistroAuditoria;
 import com.appresso.backend.auditoria.RegistroAuditoriaRepository;
+import com.appresso.backend.usuarios.Rol;
+import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
 
 /**
- * Gestión de clientes del programa de fidelización y cumplimiento de la Ley 1581 de 2012
- * (Protección de Datos Personales en Colombia).
+ * Clientes del programa de fidelización (7.1.1).
  *
- * Garantiza:
- * 1. Exigencia de aceptación explícita de tratamiento de datos en el registro.
- * 2. Trazabilidad del consentimiento con marca de tiempo y registro inmutable en auditoría.
- * 3. Mecanismo de supresión y eliminación de datos personales (Habeas Data).
+ * <p>Reglas:</p>
+ * <ul>
+ * <li>El propio cliente crea su cuenta desde la app (RF-50): una cuenta {@link Usuario} con rol
+ * {@code CLIENTE} (correo y contraseña con BCrypt) y su registro {@link Cliente} con 0 puntos, en la
+ * misma transacción. Inicia sesión con su documento (RF-01).</li>
+ * <li>Exige aceptar el tratamiento de datos personales (Ley 1581 de 2012) y guarda la fecha de la
+ * aceptación. La auditoría registra que se otorgó, sin copiar datos personales (RNF-09, RNF-12).</li>
+ * <li>Documento y correo son únicos. El correo no distingue mayúsculas y no puede repetir el de
+ * ninguna cuenta, tampoco del personal. Dos registros simultáneos con el mismo dato chocan con la
+ * restricción única de la base y responden igual que un duplicado (409).</li>
+ * <li>La búsqueda por documento devuelve solo nombre, apellido, documento y puntos (RF-51).</li>
+ * </ul>
  */
 @Service
 public class ClienteService {
 
-	private final ClienteRepository clientes;
-	private final RegistroAuditoriaRepository auditoria;
-	private final UsuarioRepository usuarios;
+	public static final String MENSAJE_REGISTRO_EXITOSO =
+			"Registro exitoso. ¡Ya puedes empezar a acumular tus puntos de fidelidad!";
+	public static final String MENSAJE_DOCUMENTO_DUPLICADO = "Este documento ya está registrado.";
+	public static final String MENSAJE_CORREO_DUPLICADO = "Este correo ya está registrado.";
+	public static final String MENSAJE_NO_ENCONTRADO = "Cliente no encontrado";
 
-	public ClienteService(ClienteRepository clientes, RegistroAuditoriaRepository auditoria, UsuarioRepository usuarios) {
+	private static final int MAX_BYTES_CONTRASENA = 72;
+
+	/** El documento o el correo ya pertenecen a otra cuenta (409). {@code campo} es null si no se sabe cuál. */
+	public static class DatoDuplicadoException extends RuntimeException {
+		private final String campo;
+
+		public DatoDuplicadoException(String campo, String mensaje) {
+			super(mensaje);
+			this.campo = campo;
+		}
+
+		public String getCampo() {
+			return campo;
+		}
+	}
+
+	/** Un campo no cumple una regla que solo se comprueba aquí (400). */
+	public static class DatoInvalidoException extends RuntimeException {
+		private final String campo;
+
+		public DatoInvalidoException(String campo, String mensaje) {
+			super(mensaje);
+			this.campo = campo;
+		}
+
+		public String getCampo() {
+			return campo;
+		}
+	}
+
+	/** No hay cliente con ese documento, o la cuenta no tiene registro de cliente (404). */
+	public static class ClienteNoEncontradoException extends RuntimeException {
+		public ClienteNoEncontradoException() {
+			super(MENSAJE_NO_ENCONTRADO);
+		}
+	}
+
+	private final ClienteRepository clientes;
+	private final UsuarioRepository usuarios;
+	private final RegistroAuditoriaRepository auditoria;
+	private final PasswordEncoder codificador;
+	private final Clock reloj;
+
+	public ClienteService(ClienteRepository clientes, UsuarioRepository usuarios, RegistroAuditoriaRepository auditoria,
+			PasswordEncoder codificador, Clock reloj) {
 		this.clientes = clientes;
-		this.auditoria = auditoria;
 		this.usuarios = usuarios;
+		this.auditoria = auditoria;
+		this.codificador = codificador;
+		this.reloj = reloj;
 	}
 
 	@Transactional
-	public ClienteRespuesta registrar(ClienteCrearRequest req, Long actorId) {
-		if (req.aceptoTratamientoDatos() == null || !req.aceptoTratamientoDatos()) {
-			throw new ConsentimientoRequeridoException(
-					"El registro de clientes exige la aceptación explícita de la política de tratamiento de datos personales conforme a la Ley 1581 de 2012.");
+	public RegistroClienteRespuesta registrar(RegistroClienteRequest datos) {
+		String documento = DocumentoIdentidad.normalizar(datos.documento());
+		if (!DocumentoIdentidad.esValido(documento)) {
+			throw new DatoInvalidoException("documento", DocumentoIdentidad.MENSAJE_INVALIDO);
+		}
+		if (datos.contrasena().getBytes(StandardCharsets.UTF_8).length > MAX_BYTES_CONTRASENA) {
+			throw new DatoInvalidoException("contrasena", RegistroClienteRequest.MENSAJE_CONTRASENA);
+		}
+		String correo = datos.correo().trim();
+		if (clientes.existsByDocumento(documento)) {
+			throw new DatoDuplicadoException("documento", MENSAJE_DOCUMENTO_DUPLICADO);
+		}
+		if (usuarios.findByCorreoIgnoreCase(correo).isPresent()) {
+			throw new DatoDuplicadoException("correo", MENSAJE_CORREO_DUPLICADO);
 		}
 
-		String documentoLimpio = req.documento().trim();
-		if (clientes.existsByDocumento(documentoLimpio)) {
-			throw new DocumentoDuplicadoException("Ya existe un cliente registrado con el documento " + documentoLimpio);
+		Instant ahora = reloj.instant();
+		Usuario cuenta = new Usuario();
+		cuenta.setNombre(datos.nombre().trim());
+		cuenta.setCorreo(correo);
+		cuenta.setContrasenaHash(codificador.encode(datos.contrasena()));
+		cuenta.setRol(Rol.CLIENTE);
+		cuenta.setActivo(true);
+		cuenta.setFechaCreacion(ahora);
+
+		Cliente cliente = new Cliente();
+		cliente.setNombre(datos.nombre().trim());
+		cliente.setApellido(datos.apellido().trim());
+		cliente.setDocumento(documento);
+		cliente.setCelular(datos.celular().replace(" ", ""));
+		cliente.setAceptoTratamientoDatos(true);
+		cliente.setFechaAceptacionDatos(ahora);
+		cliente.setFechaRegistro(ahora);
+		cliente.setPuntos(0);
+		cliente.setUsuario(cuenta);
+
+		try {
+			usuarios.saveAndFlush(cuenta);
+			clientes.saveAndFlush(cliente);
+		} catch (DataIntegrityViolationException e) {
+			// Otro registro con el mismo documento o correo se guardó entre la comprobación y aquí.
+			throw new DatoDuplicadoException(null, "Este documento o correo ya está registrado.");
 		}
 
-		Instant ahora = Instant.now();
-		Cliente c = new Cliente();
-		c.setNombre(req.nombre().trim());
-		c.setApellido(req.apellido().trim());
-		c.setDocumento(documentoLimpio);
-		c.setCelular(req.celular().trim());
-		c.setAceptoTratamientoDatos(true);
-		c.setFechaAceptacionDatos(ahora);
-		c.setFechaRegistro(ahora);
-		c.setPuntos(0);
+		RegistroAuditoria registro = new RegistroAuditoria();
+		registro.setUsuario(cuenta);
+		registro.setTipoOperacion("CONSENTIMIENTO_DATOS_1581");
+		registro.setEntidad("Cliente");
+		registro.setEntidadId(cliente.getId());
+		registro.setDetalle("El titular aceptó el tratamiento de sus datos personales (Ley 1581 de 2012) al registrarse desde la app.");
+		registro.setFecha(ahora);
+		auditoria.save(registro);
 
-		Cliente guardado = clientes.save(c);
-
-		// Trazabilidad del consentimiento en auditoría inmutable
-		RegistroAuditoria reg = new RegistroAuditoria();
-		reg.setTipoOperacion("CONSENTIMIENTO_DATOS_1581");
-		reg.setEntidad("Cliente");
-		reg.setEntidadId(guardado.getId());
-		reg.setDetalle("Autorización expresa otorgada para tratamiento de datos personales (Ley 1581/2012). Documento: "
-				+ guardado.getDocumento() + ", Titular: " + guardado.getNombre() + " " + guardado.getApellido());
-		if (actorId != null) {
-			reg.setUsuario(usuarios.getReferenceById(actorId));
-		}
-		reg.setFecha(ahora);
-		auditoria.save(reg);
-
-		return ClienteRespuesta.desde(guardado);
+		return new RegistroClienteRespuesta(MENSAJE_REGISTRO_EXITOSO, cliente.getNombre(), cliente.getPuntos());
 	}
 
 	@Transactional(readOnly = true)
 	public ClienteRespuesta buscarPorDocumento(String documento) {
-		return clientes.findByDocumento(documento.trim())
+		return clientes.findByDocumento(DocumentoIdentidad.normalizar(documento))
 				.map(ClienteRespuesta::desde)
-				.orElseThrow(() -> new ClienteNoEncontradoException(
-						"No se encontró ningún cliente con el documento " + documento.trim()));
+				.orElseThrow(ClienteNoEncontradoException::new);
 	}
 
+	/** El registro de cliente de la cuenta que inició sesión (RF-55). */
 	@Transactional(readOnly = true)
-	public List<ClienteRespuesta> listar() {
-		return clientes.findAll().stream()
+	public ClienteRespuesta miCuenta(Long usuarioId) {
+		return clientes.findByUsuarioId(usuarioId)
 				.map(ClienteRespuesta::desde)
-				.toList();
-	}
-
-	@Transactional
-	public void suprimirDatosPersonales(Long clienteId, String motivo, Long actorId) {
-		Cliente c = clientes.findById(clienteId)
-				.orElseThrow(() -> new ClienteNoEncontradoException("No se encontró el cliente con id " + clienteId));
-
-		Instant ahora = Instant.now();
-		String motivoTexto = (motivo != null && !motivo.isBlank()) ? motivo.trim() : "Solicitud del titular (Habeas Data)";
-
-		// Intento 1: eliminación física si no tiene comandas asociadas
-		try {
-			clientes.delete(c);
-			clientes.flush();
-		} catch (DataIntegrityViolationException ex) {
-			// Si tiene comandas o registros históricos relacionados, se anonimizan sus datos personales
-			// protegiendo la identidad y revocando el consentimiento conforme a la ley.
-			c.setNombre("[DATOS ELIMINADOS]");
-			c.setApellido("[LEY 1581]");
-			c.setCelular("[ELIMINADO]");
-			c.setAceptoTratamientoDatos(false);
-			clientes.save(c);
-		}
-
-		// Registro inmutable de la solicitud y ejecución de supresión de datos
-		RegistroAuditoria reg = new RegistroAuditoria();
-		reg.setTipoOperacion("SUPRESION_DATOS_LEY_1581");
-		reg.setEntidad("Cliente");
-		reg.setEntidadId(clienteId);
-		reg.setDetalle("Supresión de datos personales ejecutada conforme al Art. 15 de la Ley 1581 de 2012. Motivo: "
-				+ motivoTexto);
-		if (actorId != null) {
-			reg.setUsuario(usuarios.getReferenceById(actorId));
-		}
-		reg.setFecha(ahora);
-		auditoria.save(reg);
-	}
-
-	public static class ConsentimientoRequeridoException extends RuntimeException {
-		public ConsentimientoRequeridoException(String mensaje) {
-			super(mensaje);
-		}
-	}
-
-	public static class DocumentoDuplicadoException extends RuntimeException {
-		public DocumentoDuplicadoException(String mensaje) {
-			super(mensaje);
-		}
-	}
-
-	public static class ClienteNoEncontradoException extends RuntimeException {
-		public ClienteNoEncontradoException(String mensaje) {
-			super(mensaje);
-		}
+				.orElseThrow(ClienteNoEncontradoException::new);
 	}
 
 }

@@ -27,6 +27,8 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import com.appresso.backend.fidelizacion.Cliente;
+import com.appresso.backend.fidelizacion.ClienteRepository;
 import com.appresso.backend.usuarios.Rol;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
@@ -54,9 +56,12 @@ class AuthControllerTest {
 	private PasswordEncoder codificador;
 	@Autowired
 	private JwtService jwt;
+	@Autowired
+	private ClienteRepository clientes;
 
 	private MockMvc mvc;
 	private final List<Long> creados = new ArrayList<>();
+	private final List<Long> clientesCreados = new ArrayList<>();
 
 	@BeforeEach
 	void prepararMockMvc() {
@@ -65,6 +70,8 @@ class AuthControllerTest {
 
 	@AfterEach
 	void borrarUsuarios() {
+		clientesCreados.forEach(clientes::deleteById);
+		clientesCreados.clear();
 		creados.forEach(usuarios::deleteById);
 		creados.clear();
 	}
@@ -104,6 +111,61 @@ class AuthControllerTest {
 		assertTrue(hash.startsWith("$2"), "debe ser un hash BCrypt");
 		assertTrue(!hash.contains(CLAVE), "no debe contener la contraseña");
 		assertTrue(codificador.matches(CLAVE, hash));
+	}
+
+	// ---------------------------------------------------------------- cliente: documento y contraseña
+
+	@Test
+	void elClienteEntraConSuDocumentoYRecibeElRolCliente() throws Exception {
+		crearCliente("cliente.login@appresso.test", "1234567890", CLAVE);
+
+		login("1234567890", CLAVE)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.rol").value("CLIENTE"))
+				.andExpect(jsonPath("$.token").isNotEmpty());
+	}
+
+	@Test
+	void elDocumentoSeNormalizaAlIniciarSesion() throws Exception {
+		crearCliente("cliente.login@appresso.test", "1234567890", CLAVE);
+
+		login("1.234.567.890", CLAVE).andExpect(status().isOk());
+	}
+
+	@Test
+	void elClienteNoEntraConSuCorreo() throws Exception {
+		crearCliente("cliente.login@appresso.test", "1234567890", CLAVE);
+
+		login("cliente.login@appresso.test", CLAVE)
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.mensaje").value("Credenciales inválidas"));
+	}
+
+	@Test
+	void documentoNoRegistradoOContrasenaIncorrectaDan401() throws Exception {
+		Usuario cuenta = crearCliente("cliente.login@appresso.test", "1234567890", CLAVE);
+
+		login("9999999999", CLAVE).andExpect(status().isUnauthorized());
+		login("1234567890", "otra-clave").andExpect(status().isUnauthorized());
+
+		assertEquals(1, recargar(cuenta).getIntentosFallidos());
+	}
+
+	@Test
+	void elBloqueoPorIntentosTambienAplicaAlCliente() throws Exception {
+		crearCliente("cliente.login@appresso.test", "1234567890", CLAVE);
+		for (int i = 0; i < 5; i++) {
+			login("1234567890", "mala").andExpect(status().isUnauthorized());
+		}
+
+		login("1234567890", CLAVE).andExpect(status().isLocked());
+	}
+
+	@Test
+	void unaCuentaDelPersonalNoEntraConUnTextoSinArroba() throws Exception {
+		crearUsuario(CORREO, CLAVE, true);
+
+		login("login.prueba", CLAVE).andExpect(status().isUnauthorized());
 	}
 
 	// ---------------------------------------------------------------- credenciales inválidas
@@ -224,17 +286,17 @@ class AuthControllerTest {
 	@Test
 	void camposVaciosDan400IndicandoCadaCampo() throws Exception {
 		mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"correo\":\"\",\"contrasena\":\"\"}"))
+				.content("{\"identificador\":\"\",\"contrasena\":\"\"}"))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.campos.correo").isNotEmpty())
+				.andExpect(jsonPath("$.campos.identificador").isNotEmpty())
 				.andExpect(jsonPath("$.campos.contrasena").isNotEmpty());
 	}
 
 	@Test
-	void correoSinFormatoValidoDa400() throws Exception {
-		login("no-es-un-correo", CLAVE)
+	void identificadorDeMasDe150CaracteresDa400() throws Exception {
+		login("a".repeat(151), CLAVE)
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.campos.correo").value("El correo no tiene un formato válido"));
+				.andExpect(jsonPath("$.campos.identificador").isNotEmpty());
 	}
 
 	@Test
@@ -256,8 +318,8 @@ class AuthControllerTest {
 
 	// ---------------------------------------------------------------- apoyo
 
-	private ResultActions login(String correo, String contrasena) throws Exception {
-		String json = "{\"correo\":\"" + correo + "\",\"contrasena\":\"" + contrasena + "\"}";
+	private ResultActions login(String identificador, String contrasena) throws Exception {
+		String json = "{\"identificador\":\"" + identificador + "\",\"contrasena\":\"" + contrasena + "\"}";
 		return mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(json));
 	}
 
@@ -271,6 +333,29 @@ class AuthControllerTest {
 		Usuario guardado = usuarios.save(usuario);
 		creados.add(guardado.getId());
 		return guardado;
+	}
+
+	/** Una cuenta de cliente con su registro de cliente, como la deja el registro desde la app. */
+	private Usuario crearCliente(String correo, String documento, String contrasena) {
+		Usuario cuenta = new Usuario();
+		cuenta.setNombre("Cliente de prueba");
+		cuenta.setCorreo(correo);
+		cuenta.setContrasenaHash(codificador.encode(contrasena));
+		cuenta.setRol(Rol.CLIENTE);
+		cuenta.setActivo(true);
+		Usuario guardada = usuarios.save(cuenta);
+		creados.add(guardada.getId());
+
+		Cliente cliente = new Cliente();
+		cliente.setNombre("Cliente");
+		cliente.setApellido("de prueba");
+		cliente.setDocumento(documento);
+		cliente.setCelular("3000000000");
+		cliente.setAceptoTratamientoDatos(true);
+		cliente.setFechaAceptacionDatos(Instant.now());
+		cliente.setUsuario(guardada);
+		clientesCreados.add(clientes.save(cliente).getId());
+		return guardada;
 	}
 
 	private Usuario recargar(Usuario usuario) {

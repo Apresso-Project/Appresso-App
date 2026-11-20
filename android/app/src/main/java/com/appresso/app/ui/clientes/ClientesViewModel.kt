@@ -3,173 +3,78 @@ package com.appresso.app.ui.clientes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.appresso.app.data.clientes.Cliente
-import com.appresso.app.data.clientes.ClienteCrearRequest
 import com.appresso.app.data.clientes.ClientesRepository
-import com.appresso.app.data.clientes.ResultadoClientes
+import com.appresso.app.data.clientes.ResultadoBusqueda
+import com.appresso.app.data.cuenta.ReglasCuenta
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Qué mostrar bajo el buscador. */
+sealed interface ResultadoVista {
+    data class Encontrado(val cliente: Cliente) : ResultadoVista
+
+    /** "Cliente no encontrado", con la indicación de registrarse desde la app (RF-51). */
+    data object NoEncontrado : ResultadoVista
+}
+
+/** Por qué no se pudo buscar. La pantalla traduce cada caso; el 403 muestra el mensaje del servidor. */
+sealed interface ErrorBusqueda {
+    data object DocumentoInvalido : ErrorBusqueda
+    data class SinPermiso(val mensaje: String?) : ErrorBusqueda
+    data object SinConexion : ErrorBusqueda
+    data object ErrorDelServidor : ErrorBusqueda
+}
+
 data class ClientesUiState(
-    val cargando: Boolean = false,
-    val clientes: List<Cliente> = emptyList(),
-    val busqueda: String = "",
-    val mostrarDialogoRegistro: Boolean = false,
-    val clienteAEliminar: Cliente? = null,
-    val guardando: Boolean = false,
-    val errorFormulario: String? = null,
-    val mensajeExito: String? = null,
-    val errorGeneral: String? = null,
+    val documento: String = "",
+    val buscando: Boolean = false,
+    val resultado: ResultadoVista? = null,
+    val error: ErrorBusqueda? = null,
 )
 
-class ClientesViewModel(private val repository: ClientesRepository) : ViewModel() {
+/**
+ * Búsqueda de un cliente por su documento (RF-51, RF-57), para el mesero y el administrador.
+ * Pregunta al servidor cada vez: no descarga la lista de clientes.
+ */
+class ClientesViewModel(private val repositorio: ClientesRepository) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ClientesUiState())
-    val uiState: StateFlow<ClientesUiState> = _uiState.asStateFlow()
+    private val _estado = MutableStateFlow(ClientesUiState())
+    val estado: StateFlow<ClientesUiState> = _estado.asStateFlow()
 
-    init {
-        cargarClientes()
+    /** Al cambiar el documento, el resultado anterior ya no corresponde. */
+    fun onDocumentoChange(valor: String) = _estado.update {
+        if (it.buscando) it else it.copy(documento = valor, resultado = null, error = null)
     }
 
-    fun cargarClientes() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(cargando = true, errorGeneral = null) }
-            when (val r = repository.listar()) {
-                is ResultadoClientes.Exito -> _uiState.update { it.copy(cargando = false, clientes = r.datos) }
-                is ResultadoClientes.SinConexion -> _uiState.update {
-                    it.copy(cargando = false, errorGeneral = "Sin conexión con el servidor.")
-                }
-                is ResultadoClientes.SinPermiso -> _uiState.update {
-                    it.copy(cargando = false, errorGeneral = r.mensaje ?: "No tienes permiso para ver clientes.")
-                }
-                else -> _uiState.update {
-                    it.copy(cargando = false, errorGeneral = "No se pudieron cargar los clientes.")
-                }
-            }
-        }
-    }
-
-    fun onBusquedaCambio(nueva: String) {
-        _uiState.update { it.copy(busqueda = nueva) }
-    }
-
-    fun abrirRegistro() {
-        _uiState.update { it.copy(mostrarDialogoRegistro = true, errorFormulario = null) }
-    }
-
-    fun cerrarRegistro() {
-        _uiState.update { it.copy(mostrarDialogoRegistro = false, errorFormulario = null) }
-    }
-
-    fun abrirDialogoEliminacion(cliente: Cliente) {
-        _uiState.update { it.copy(clienteAEliminar = cliente) }
-    }
-
-    fun cerrarDialogoEliminacion() {
-        _uiState.update { it.copy(clienteAEliminar = null) }
-    }
-
-    fun registrarCliente(
-        nombre: String,
-        apellido: String,
-        documento: String,
-        celular: String,
-        aceptoTratamientoDatos: Boolean,
-    ) {
-        if (!aceptoTratamientoDatos) {
-            _uiState.update {
-                it.copy(errorFormulario = "Debes aceptar explícitamente la autorización de tratamiento de datos personales conforme a la Ley 1581 de 2012.")
-            }
+    fun buscar() {
+        val actual = _estado.value
+        if (actual.buscando) return
+        val documento = ReglasCuenta.normalizarDocumento(actual.documento.trim())
+        if (!ReglasCuenta.esDocumentoValido(documento)) {
+            _estado.update { it.copy(resultado = null, error = ErrorBusqueda.DocumentoInvalido) }
             return
         }
-
-        if (nombre.isBlank() || apellido.isBlank() || documento.isBlank() || celular.isBlank()) {
-            _uiState.update { it.copy(errorFormulario = "Todos los campos son obligatorios.") }
-            return
-        }
-
+        _estado.update { it.copy(buscando = true, resultado = null, error = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(guardando = true, errorFormulario = null) }
-            val req = ClienteCrearRequest(
-                nombre = nombre.trim(),
-                apellido = apellido.trim(),
-                documento = documento.trim(),
-                celular = celular.trim(),
-                aceptoTratamientoDatos = true,
-            )
-            when (val res = repository.registrar(req)) {
-                is ResultadoClientes.Exito -> {
-                    _uiState.update {
-                        it.copy(
-                            guardando = false,
-                            mostrarDialogoRegistro = false,
-                            mensajeExito = "Cliente registrado con consentimiento Ley 1581.",
-                        )
-                    }
-                    cargarClientes()
-                }
-                is ResultadoClientes.Conflicto -> {
-                    _uiState.update {
-                        it.copy(guardando = false, errorFormulario = res.mensaje ?: "Ya existe un cliente con ese documento.")
-                    }
-                }
-                is ResultadoClientes.DatosInvalidos -> {
-                    _uiState.update {
-                        it.copy(guardando = false, errorFormulario = res.mensaje ?: "Datos inválidos.")
-                    }
-                }
-                is ResultadoClientes.SinConexion -> {
-                    _uiState.update {
-                        it.copy(guardando = false, errorFormulario = "Sin conexión para registrar el cliente.")
-                    }
-                }
-                else -> {
-                    _uiState.update {
-                        it.copy(guardando = false, errorFormulario = "Error al registrar cliente.")
-                    }
-                }
+            val nuevo = when (val r = repositorio.buscarPorDocumento(documento)) {
+                is ResultadoBusqueda.Encontrado -> _estado.value.copy(resultado = ResultadoVista.Encontrado(r.cliente))
+                ResultadoBusqueda.NoEncontrado -> _estado.value.copy(resultado = ResultadoVista.NoEncontrado)
+                is ResultadoBusqueda.SinPermiso -> _estado.value.copy(error = ErrorBusqueda.SinPermiso(r.mensaje))
+                ResultadoBusqueda.SinConexion -> _estado.value.copy(error = ErrorBusqueda.SinConexion)
+                ResultadoBusqueda.ErrorDelServidor -> _estado.value.copy(error = ErrorBusqueda.ErrorDelServidor)
             }
+            _estado.value = nuevo.copy(buscando = false)
         }
-    }
-
-    fun confirmarEliminacionDatos(cliente: Cliente, motivo: String? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(guardando = true, clienteAEliminar = null) }
-            when (repository.solicitarEliminacion(cliente.id, motivo)) {
-                is ResultadoClientes.Exito -> {
-                    _uiState.update {
-                        it.copy(
-                            guardando = false,
-                            mensajeExito = "Datos personales suprimidos conforme a la Ley 1581.",
-                        )
-                    }
-                    cargarClientes()
-                }
-                else -> {
-                    _uiState.update {
-                        it.copy(
-                            guardando = false,
-                            errorGeneral = "No se pudo procesar la solicitud de supresión de datos.",
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    fun limpiarMensajes() {
-        _uiState.update { it.copy(mensajeExito = null, errorGeneral = null) }
     }
 
     companion object {
-        fun factory(repository: ClientesRepository): ViewModelProvider.Factory =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    ClientesViewModel(repository) as T
-            }
+        fun factory(repositorio: ClientesRepository): ViewModelProvider.Factory =
+            viewModelFactory { initializer { ClientesViewModel(repositorio) } }
     }
 }

@@ -9,4 +9,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
 	boolean existsByDocumento(String documento);
 
+	Optional<Cliente> findByUsuarioId(Long usuarioId);
+
 }

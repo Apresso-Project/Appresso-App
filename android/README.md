@@ -53,7 +53,7 @@ No hay que configurar nada: levanta el backend (ver `backend/README.md`) y ejecu
 4. Levanta el backend. La primera vez, Windows pregunta si permite que Java reciba conexiones: acepta para **redes privadas**. Si no preguntó o dijiste que no, habilita el puerto 8080 de entrada en el Firewall de Windows.
 5. Comprueba desde el **navegador del teléfono** que `http://<tu IP>:8080/api/health` responde `{"status":"ok"}`. Si no responde, el problema es la red o el firewall, no la app.
 
-6. Prueba de punta a punta: con el backend en marcha y el administrador de prueba creado (`backend/README.md`, paso 1), ejecuta la app e inicia sesión con ese correo y contraseña. Debe aparecer "Panel del administrador" con tu nombre. Con una contraseña equivocada debe decir "Credenciales inválidas", y con el backend apagado, "Sin conexión a Internet. Por favor, verifica tu red.".
+6. Prueba de punta a punta: con el backend en marcha y el administrador de prueba creado (`backend/README.md`, paso 1), ejecuta la app e inicia sesión con ese correo y contraseña. El cliente de prueba entra con el documento `1000000001`. Debe aparecer "Panel del administrador" con tu nombre. Con una contraseña equivocada debe decir "Credenciales inválidas", y con el backend apagado, "Sin conexión a Internet. Por favor, verifica tu red.".
 
 Si la red Wi-Fi aísla los dispositivos entre sí (pasa en redes de universidades o públicas), el paso 5 no funcionará. Alternativas: crear un punto de acceso desde otro teléfono, o usar el cable USB con `adb reverse tcp:8080 tcp:8080` y la URL `http://localhost:8080`.
 
@@ -68,14 +68,18 @@ app/src/main/java/com/appresso/app/
 ├── ContenedorApp.kt       # reúne los objetos compartidos (almacén de sesión, acceso al backend)
 ├── data/
 │   ├── auth/              # Rol, Sesion, ResultadoLogin, AuthRepository (+ remoto) y AlmacenSesion
-│   └── remote/            # AuthApi (Retrofit), los DTO, ClienteHttp (OkHttp, tiempos de espera) e InterceptorSesion (token y 401)
+│   ├── cuenta/            # registro y recuperación de contraseña del cliente (CuentaClienteRepository + remoto) y ReglasCuenta
+│   ├── clientes/          # búsqueda de clientes por documento (ClientesRepository + remoto)
+│   └── remote/            # AuthApi, CuentaApi, ClientesApi (Retrofit), los DTO, ClienteHttp (OkHttp, tiempos de espera) e InterceptorSesion (token y 401)
 ├── permisos/              # Permisos.kt: qué acciones y opciones tiene cada rol (con pruebas)
 └── ui/
     ├── AppressoRaiz.kt    # elige la pantalla según la sesión y la sección abierta
     ├── Destino.kt         # destinoPara(sesion): la regla de a dónde ir (con pruebas)
     ├── PantallaProvisional.kt   # marco de las secciones provisionales
     ├── theme/             # colores, tipografías y tema (guía de estilo de Figma)
-    ├── login/             # LoginScreen (dibuja), LoginRoute (la conecta) y LoginViewModel (decide)
+    ├── login/             # LoginScreen (dibuja), LoginRoute (la conecta), LoginViewModel (decide) y CampoTexto
+    ├── cuenta/            # pantallas públicas del cliente: registro y recuperación de contraseña
+    ├── clientes/          # búsqueda de clientes por documento (mesero y administrador)
     └── inicio/            # InicioScreen (menú de cada rol) y SeccionProvisionalScreen
 ```
 
@@ -85,9 +89,13 @@ El contrato del inicio de sesión que consume la app está en [`docs/api-auth.md
 
 **Cómo se reparte el trabajo en el login**
 - `LoginScreen` solo dibuja: recibe lo escrito y el error y avisa de lo que hace el usuario.
-- `LoginViewModel` es el dueño del estado: valida lo escrito con las mismas reglas del servidor (correo con formato y máx. 150 caracteres, contraseña de máx. 72), evita enviar dos veces seguidas, llama al repositorio y guarda la sesión. Si falla (por ejemplo sin conexión), **conserva lo escrito** para reintentar; si funciona, descarta la contraseña. La contraseña vive solo en el ViewModel, no en el estado guardado de Android.
+- `LoginViewModel` es el dueño del estado: valida lo escrito con las mismas reglas del servidor (si trae `@`, correo con formato y máx. 150 caracteres; si no, número de documento de 5 a 20 letras o números; contraseña de máx. 72), evita enviar dos veces seguidas, llama al repositorio y guarda la sesión. Si falla (por ejemplo sin conexión), **conserva lo escrito** para reintentar; si funciona, descarta la contraseña. La contraseña vive solo en el ViewModel, no en el estado guardado de Android.
 - `LoginRoute` traduce cada error a un texto de `strings.xml`. Los mensajes del servidor en 400 y 423 se muestran tal cual.
-- **Sesión y Android Keystore:** `AlmacenSesion` es la interfaz de sesión. La app utiliza `AlmacenSesionKeystore`, la cual genera y custodia una clave simétrica AES-256 en el hardware seguro del dispositivo (`AndroidKeyStore`) y cifra la sesión con AES/GCM/NoPadding antes de persistirla en `SharedPreferences` privadas. Nunca se guarda el token en texto plano. En pruebas unitarias se recurre a `AlmacenSesionEnMemoria`. Ver detalles legales y de seguridad en [`docs/seguridad-y-ley-1581.md`](../docs/seguridad-y-ley-1581.md).
+- **Sesión:** `AlmacenSesion` es una interfaz; hoy se usa `AlmacenSesionEnMemoria`, así que la sesión **se pierde al cerrar la app** y hay que volver a iniciar sesión. Es provisional a propósito: guardar el token en disco sin cifrar sería peor. El almacenamiento cifrado (Android Keystore) llega con 8.4.1 y bastará con otra implementación de la interfaz. Al implementarlo hay que revisar `android:allowBackup` del manifest, que hoy está activo.
+
+**Cuenta del cliente (7.1.1).** El personal entra con su correo y el cliente con su número de documento, en el mismo campo. Desde el login, el cliente abre «Crear cuenta» (`RegistroClienteRoute`: nombre, apellido, documento, celular, correo, contraseña y la autorización de la Ley 1581) y «¿Olvidaste tu contraseña?» (`RecuperarContrasenaRoute`: pide un código de 6 dígitos al correo y cambia la contraseña). Al terminar, vuelve al login con el documento ya escrito. `AppressoRaiz` elige entre las tres pantallas cuando no hay sesión. Contratos en [`docs/api-clientes.md`](../docs/api-clientes.md) y [`docs/api-auth.md`](../docs/api-auth.md).
+
+**Clientes (mesero y administrador).** La sección «Clientes» solo busca por documento (`GET /api/clientes/{documento}`) y muestra nombre y puntos, o «Cliente no encontrado» con la indicación de registrarse desde la app. El personal no registra clientes.
 
 Las pruebas unitarias (`app/src/test`) corren en la JVM, sin emulador ni backend: el repositorio se prueba contra un servidor HTTP simulado (MockWebServer) que responde lo que respondería el real.
 

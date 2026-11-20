@@ -50,7 +50,7 @@ class AuthRepositoryRemotoTest {
     }
 
     @Test
-    fun `la solicitud es un POST a api auth login con los campos correo y contrasena`() = runTest {
+    fun `la solicitud es un POST a api auth login con los campos identificador y contrasena`() = runTest {
         servidor.enqueue(json(200, """{"token":"t","rol":"CAJERO","nombre":"Ana"}"""))
 
         repositorio.iniciarSesion("ana@appresso.test", "clave-1")
@@ -60,9 +60,9 @@ class AuthRepositoryRemotoTest {
         assertEquals("/api/auth/login", solicitud.path)
         assertTrue(solicitud.getHeader("Content-Type").orEmpty().startsWith("application/json"))
         val cuerpo = Json.parseToJsonElement(solicitud.body.readUtf8()).jsonObject
-        assertEquals("ana@appresso.test", cuerpo["correo"]?.jsonPrimitive?.content)
+        assertEquals("ana@appresso.test", cuerpo["identificador"]?.jsonPrimitive?.content)
         assertEquals("clave-1", cuerpo["contrasena"]?.jsonPrimitive?.content)
-        assertEquals(setOf("correo", "contrasena"), cuerpo.keys)
+        assertEquals(setOf("identificador", "contrasena"), cuerpo.keys)
     }
 
     @Test

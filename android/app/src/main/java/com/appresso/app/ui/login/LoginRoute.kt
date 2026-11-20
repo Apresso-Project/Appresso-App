@@ -7,17 +7,27 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.appresso.app.R
 
-/** Conecta [LoginScreen] con su [LoginViewModel]: lee el estado y traduce los errores a texto. */
+/**
+ * Conecta [LoginScreen] con su [LoginViewModel]: lee el estado y traduce los errores a texto.
+ * [onCrearCuenta] y [onOlvideContrasena] abren las pantallas públicas del cliente.
+ */
 @Composable
-fun LoginRoute(viewModel: LoginViewModel, modifier: Modifier = Modifier) {
+fun LoginRoute(
+    viewModel: LoginViewModel,
+    onCrearCuenta: () -> Unit,
+    onOlvideContrasena: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
 
     LoginScreen(
-        correo = estado.correo,
+        identificador = estado.identificador,
         contrasena = estado.contrasena,
-        onCorreoChange = viewModel::onCorreoChange,
+        onIdentificadorChange = viewModel::onIdentificadorChange,
         onContrasenaChange = viewModel::onContrasenaChange,
         onEnviar = viewModel::enviar,
+        onCrearCuenta = onCrearCuenta,
+        onOlvideContrasena = onOlvideContrasena,
         modifier = modifier,
         errorMessage = estado.error?.let { textoDe(it) },
         isLoading = estado.cargando,
@@ -30,7 +40,7 @@ fun LoginRoute(viewModel: LoginViewModel, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun textoDe(error: ErrorLogin): String = when (error) {
-    ErrorLogin.CorreoInvalido -> stringResource(R.string.login_error_email_invalid)
+    ErrorLogin.IdentificadorInvalido -> stringResource(R.string.login_error_identifier_invalid)
     ErrorLogin.ContrasenaDemasiadoLarga -> stringResource(R.string.login_error_password_too_long)
     ErrorLogin.CredencialesInvalidas -> stringResource(R.string.login_error_credentials)
     is ErrorLogin.CuentaBloqueada -> error.mensajeServidor ?: stringResource(R.string.login_error_locked)

@@ -13,11 +13,14 @@ import com.appresso.backend.auditoria.RegistroAuditoria;
 import com.appresso.backend.auditoria.RegistroAuditoriaRepository;
 
 /**
- * Administración de cuentas (RF-02). Solo la usa el controlador de usuarios, que ya exige rol de
- * administrador.
+ * Administración de las cuentas del personal (RF-02). Solo la usa el controlador de usuarios, que
+ * ya exige rol de administrador.
  *
  * <p>Reglas de negocio:</p>
  * <ul>
+ * <li>Solo cuentas del personal: las de cliente las crea el propio cliente al registrarse (RF-50).
+ * No aparecen en la lista, no se pueden consultar, editar, desactivar ni activar (responden 404 como
+ * si no existieran) y no se puede crear ni pasar una cuenta al rol {@code CLIENTE}.</li>
  * <li>El correo es único sin importar mayúsculas (RNF-11) y se guarda sin espacios sobrantes.</li>
  * <li>La contraseña se guarda con BCrypt, nunca en texto plano (RNF-05).</li>
  * <li>Desactivar no borra: la cuenta conserva su historial y no puede iniciar sesión (RF-02).</li>
@@ -84,7 +87,7 @@ public class UsuarioService {
 
 	@Transactional(readOnly = true)
 	public List<UsuarioRespuesta> listar() {
-		return usuarios.findAll(Sort.by("nombre", "id")).stream().map(UsuarioRespuesta::de).toList();
+		return usuarios.findByRolNot(Rol.CLIENTE, Sort.by("nombre", "id")).stream().map(UsuarioRespuesta::de).toList();
 	}
 
 	@Transactional(readOnly = true)
@@ -94,6 +97,7 @@ public class UsuarioService {
 
 	@Transactional
 	public UsuarioRespuesta crear(UsuarioCrearRequest datos, Long actorId) {
+		exigirRolDePersonal(datos.rol());
 		String correo = datos.correo().trim();
 		exigirCorreoLibre(correo, null);
 		exigirContrasenaValida(datos.contrasena());
@@ -113,6 +117,7 @@ public class UsuarioService {
 	@Transactional
 	public UsuarioRespuesta editar(Long id, UsuarioEditarRequest datos, Long actorId) {
 		Usuario usuario = buscar(id);
+		exigirRolDePersonal(datos.rol());
 		String correo = datos.correo().trim();
 		exigirCorreoLibre(correo, id);
 		if (Objects.equals(id, actorId) && datos.rol() != usuario.getRol()) {
@@ -183,8 +188,17 @@ public class UsuarioService {
 		return UsuarioRespuesta.de(usuario);
 	}
 
+	/** La cuenta del personal con ese id. Una cuenta de cliente cuenta como inexistente. */
 	private Usuario buscar(Long id) {
-		return usuarios.findById(id).orElseThrow(() -> new UsuarioNoEncontradoException(id));
+		return usuarios.findById(id)
+				.filter(u -> u.getRol() != Rol.CLIENTE)
+				.orElseThrow(() -> new UsuarioNoEncontradoException(id));
+	}
+
+	private static void exigirRolDePersonal(Rol rol) {
+		if (rol == Rol.CLIENTE) {
+			throw new CampoInvalidoException("rol", "Las cuentas de cliente se crean desde el registro de la app.");
+		}
 	}
 
 	/**

@@ -19,9 +19,10 @@ interface AlmacenSesion {
 }
 
 /**
- * Implementación en memoria: la sesión vive solo mientras el proceso esté activo.
- * Útil para pruebas unitarias y entornos donde el proveedor Android Keystore no está disponible.
- * En producción se utiliza [AlmacenSesionKeystore] para almacenamiento seguro y cifrado por hardware.
+ * Implementación provisional: la sesión vive solo en memoria, así que se pierde al cerrar la app
+ * y hay que iniciar sesión de nuevo. Es a propósito: guardar el token en disco sin cifrar sería
+ * peor. El almacenamiento persistente y cifrado (Android Keystore) llega con el entregable 8.4.1,
+ * y bastará con otra implementación de [AlmacenSesion].
  */
 class AlmacenSesionEnMemoria : AlmacenSesion {
 

@@ -5,8 +5,10 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Excluye el archivo de sesión cifrada de Android Keystore del backup en la nube -->
-        <exclude domain="sharedpref" path="appresso_sesion_segura.xml" />
+        <!-- TODO: Use <include> and <exclude> to control what is backed up.
+        <include .../>
+        <exclude .../>
+        -->
     </cloud-backup>
     <!--
     <device-transfer>

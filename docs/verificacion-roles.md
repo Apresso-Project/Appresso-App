@@ -22,13 +22,13 @@ Evidencia del entregable 2.3.1 (control de acceso por rol), subtarea SCRUM-51. C
    ```
 2. Encender la base y el backend (`docker compose up -d`, `.\gradlew.bat bootRun`). En la consola deben aparecer los cinco usuarios de prueba (o "ya existe"):
 
-   | Rol | Correo | Contraseña |
+   | Rol | Correo (o documento) | Contraseña |
    |---|---|---|
    | Administrador | `admin@appresso.test` | `DEV_ADMIN_CONTRASENA` |
    | Cajero | `cajero@appresso.test` | `DEV_USUARIOS_CONTRASENA` |
    | Mesero | `mesero@appresso.test` | `DEV_USUARIOS_CONTRASENA` |
    | Cocinero | `cocinero@appresso.test` | `DEV_USUARIOS_CONTRASENA` |
-   | Cliente | `cliente@appresso.test` | `DEV_USUARIOS_CONTRASENA` |
+   | Cliente | documento `1000000001` (su cuenta es `cliente@appresso.test`, pero los clientes entran con el documento) | `DEV_USUARIOS_CONTRASENA` |
 
 3. Instalar la app en el teléfono conectado al backend (ver `android/README.md`).
 

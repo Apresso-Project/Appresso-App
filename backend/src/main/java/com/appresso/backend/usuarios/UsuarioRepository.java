@@ -3,6 +3,7 @@ package com.appresso.backend.usuarios;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +14,21 @@ import jakarta.persistence.LockModeType;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
 	Optional<Usuario> findByCorreoIgnoreCase(String correo);
+
+	/** Las cuentas de todos los roles menos uno. La administración de usuarios excluye las de cliente (RF-02). */
+	List<Usuario> findByRolNot(Rol rol, Sort orden);
+
+	/**
+	 * El id de la cuenta del cliente con ese documento, ya normalizado (ver
+	 * {@code DocumentoIdentidad}). Vacío si no hay cliente con ese documento o si no tiene cuenta.
+	 */
+	@Query("select c.usuario.id from Cliente c where c.documento = :documento")
+	Optional<Long> buscarIdDeCuentaPorDocumento(@Param("documento") String documento);
+
+	/** La cuenta con ese id, con su fila bloqueada hasta que termine la transacción (como al buscar por correo). */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select u from Usuario u where u.id = :id")
+	Optional<Usuario> buscarPorIdBloqueandoFila(@Param("id") Long id);
 
 	/**
 	 * Igual que {@link #findByCorreoIgnoreCase}, pero bloquea la fila hasta que termine la

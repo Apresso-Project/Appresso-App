@@ -82,7 +82,8 @@ fun UsuarioFormulario(
             style = MaterialTheme.typography.titleMedium,
             color = Espresso,
         )
-        Rol.entries.forEach { rol ->
+        // Solo roles del personal: las cuentas de cliente las crea el propio cliente al registrarse (RF-02).
+        ROLES_DEL_PERSONAL.forEach { rol ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -160,3 +161,6 @@ private fun CampoTexto(
         modifier = Modifier.fillMaxWidth(),
     )
 }
+
+/** Los roles que el administrador puede asignar: todos menos el de cliente. */
+private val ROLES_DEL_PERSONAL = Rol.entries.filter { it != Rol.CLIENTE }

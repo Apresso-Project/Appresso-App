@@ -1,9 +1,8 @@
 package com.appresso.app.ui.clientes
 
 import com.appresso.app.data.clientes.Cliente
-import com.appresso.app.data.clientes.ClienteCrearRequest
 import com.appresso.app.data.clientes.ClientesRepository
-import com.appresso.app.data.clientes.ResultadoClientes
+import com.appresso.app.data.clientes.ResultadoBusqueda
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -12,7 +11,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -21,152 +19,87 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ClientesViewModelTest {
 
-    private val cliente1 = Cliente(
-        id = 1,
-        nombre = "Carlos",
-        apellido = "Mora",
-        documento = "100200300",
-        celular = "3001112233",
-        puntos = 5,
-        aceptoTratamientoDatos = true,
-        fechaAceptacionDatos = "2026-11-17T20:00:00Z",
-    )
-
-    private val repo = RepositorioClientesFalso()
+    private val repositorio = RepositorioFalso()
     private lateinit var viewModel: ClientesViewModel
+
+    private val ana = Cliente(1, "Ana", "Pérez", "1234567890", 3)
 
     @Before
     fun iniciar() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        repo.respuestaListar = ResultadoClientes.Exito(listOf(cliente1))
-        viewModel = ClientesViewModel(repo)
+        viewModel = ClientesViewModel(repositorio)
     }
 
     @After
-    fun detener() = Dispatchers.resetMain()
-
-    @Test
-    fun `al iniciar carga la lista de clientes`() {
-        val state = viewModel.uiState.value
-        assertFalse(state.cargando)
-        assertEquals(1, state.clientes.size)
-        assertEquals("Carlos", state.clientes[0].nombre)
+    fun detener() {
+        Dispatchers.resetMain()
     }
 
     @Test
-    fun `registro exige aceptacion explicita de ley 1581 - rechaza si es falso sin llamar al repositorio`() {
-        viewModel.registrarCliente(
-            nombre = "Laura",
-            apellido = "Perez",
-            documento = "987654",
-            celular = "3112223344",
-            aceptoTratamientoDatos = false,
-        )
+    fun `buscar pregunta al servidor por el documento normalizado y muestra al cliente`() {
+        repositorio.resultado = ResultadoBusqueda.Encontrado(ana)
+        viewModel.onDocumentoChange(" 1.234.567.890 ")
 
-        val state = viewModel.uiState.value
-        assertNotNull(state.errorFormulario)
-        assertTrue(state.errorFormulario!!.contains("Ley 1581"))
-        assertNull(repo.ultimoRegistrado)
+        viewModel.buscar()
+
+        assertEquals(listOf("1234567890"), repositorio.buscados)
+        assertEquals(ResultadoVista.Encontrado(ana), viewModel.estado.value.resultado)
+        assertFalse(viewModel.estado.value.buscando)
     }
 
     @Test
-    fun `registro rechaza si algun campo obligatorio esta en blanco`() {
-        viewModel.registrarCliente(
-            nombre = "Laura",
-            apellido = "",
-            documento = "987654",
-            celular = "3112223344",
-            aceptoTratamientoDatos = true,
-        )
+    fun `un documento no registrado muestra cliente no encontrado`() {
+        repositorio.resultado = ResultadoBusqueda.NoEncontrado
+        viewModel.onDocumentoChange("5555555555")
 
-        val state = viewModel.uiState.value
-        assertNotNull(state.errorFormulario)
-        assertEquals("Todos los campos son obligatorios.", state.errorFormulario)
-        assertNull(repo.ultimoRegistrado)
+        viewModel.buscar()
+
+        assertEquals(ResultadoVista.NoEncontrado, viewModel.estado.value.resultado)
+        assertNull(viewModel.estado.value.error)
     }
 
     @Test
-    fun `registro con aceptacion explicita llama al repositorio y registra exitosamente`() {
-        val nuevoCliente = Cliente(
-            id = 2,
-            nombre = "Laura",
-            apellido = "Perez",
-            documento = "987654",
-            celular = "3112223344",
-            aceptoTratamientoDatos = true,
-            fechaAceptacionDatos = "2026-11-17T21:00:00Z",
-        )
-        repo.respuestaRegistrar = ResultadoClientes.Exito(nuevoCliente)
-        repo.respuestaListar = ResultadoClientes.Exito(listOf(cliente1, nuevoCliente))
+    fun `un documento con formato invalido no llega al servidor`() {
+        viewModel.onDocumentoChange("12")
 
-        viewModel.registrarCliente(
-            nombre = "Laura",
-            apellido = "Perez",
-            documento = "987654",
-            celular = "3112223344",
-            aceptoTratamientoDatos = true,
-        )
+        viewModel.buscar()
 
-        val state = viewModel.uiState.value
-        assertNull(state.errorFormulario)
-        assertFalse(state.mostrarDialogoRegistro)
-        assertEquals("Cliente registrado con consentimiento Ley 1581.", state.mensajeExito)
-        assertNotNull(repo.ultimoRegistrado)
-        assertTrue(repo.ultimoRegistrado!!.aceptoTratamientoDatos)
+        assertTrue(repositorio.buscados.isEmpty())
+        assertEquals(ErrorBusqueda.DocumentoInvalido, viewModel.estado.value.error)
     }
 
     @Test
-    fun `confirmar eliminacion de datos personales llama al repositorio`() {
-        repo.respuestaEliminar = ResultadoClientes.Exito(Unit)
+    fun `los errores del servidor se muestran como error y no como resultado`() {
+        viewModel.onDocumentoChange("1234567890")
 
-        viewModel.confirmarEliminacionDatos(cliente1, "Revocatoria de consentimiento")
+        repositorio.resultado = ResultadoBusqueda.SinPermiso("No tienes permiso para realizar esta acción.")
+        viewModel.buscar()
+        assertEquals(ErrorBusqueda.SinPermiso("No tienes permiso para realizar esta acción."), viewModel.estado.value.error)
+        assertNull(viewModel.estado.value.resultado)
 
-        val state = viewModel.uiState.value
-        assertEquals("Datos personales suprimidos conforme a la Ley 1581.", state.mensajeExito)
-        assertEquals(1L, repo.ultimoEliminadoId)
-        assertEquals("Revocatoria de consentimiento", repo.ultimoMotivoEliminacion)
+        repositorio.resultado = ResultadoBusqueda.SinConexion
+        viewModel.buscar()
+        assertEquals(ErrorBusqueda.SinConexion, viewModel.estado.value.error)
     }
 
     @Test
-    fun `busqueda actualiza estado correctamente y abrir registro activa dialogo`() {
-        viewModel.onBusquedaCambio("100200")
-        assertEquals("100200", viewModel.uiState.value.busqueda)
+    fun `cambiar el documento borra el resultado anterior`() {
+        repositorio.resultado = ResultadoBusqueda.Encontrado(ana)
+        viewModel.onDocumentoChange("1234567890")
+        viewModel.buscar()
 
-        viewModel.abrirRegistro()
-        assertTrue(viewModel.uiState.value.mostrarDialogoRegistro)
+        viewModel.onDocumentoChange("9876543210")
 
-        viewModel.cerrarRegistro()
-        assertFalse(viewModel.uiState.value.mostrarDialogoRegistro)
+        assertNull(viewModel.estado.value.resultado)
     }
 
-    private class RepositorioClientesFalso : ClientesRepository {
-        var respuestaListar: ResultadoClientes<List<Cliente>> = ResultadoClientes.Exito(emptyList())
-        var respuestaRegistrar: ResultadoClientes<Cliente>? = null
-        var respuestaEliminar: ResultadoClientes<Unit> = ResultadoClientes.Exito(Unit)
+    private class RepositorioFalso : ClientesRepository {
+        val buscados = mutableListOf<String>()
+        var resultado: ResultadoBusqueda = ResultadoBusqueda.ErrorDelServidor
 
-        var ultimoRegistrado: ClienteCrearRequest? = null
-        var ultimoEliminadoId: Long? = null
-        var ultimoMotivoEliminacion: String? = null
-
-        override suspend fun listar(): ResultadoClientes<List<Cliente>> = respuestaListar
-
-        override suspend fun registrar(solicitud: ClienteCrearRequest): ResultadoClientes<Cliente> {
-            ultimoRegistrado = solicitud
-            return respuestaRegistrar ?: ResultadoClientes.ErrorDelServidor
-        }
-
-        override suspend fun buscarPorDocumento(documento: String): ResultadoClientes<Cliente> =
-            ResultadoClientes.ErrorDelServidor
-
-        override suspend fun eliminar(id: Long): ResultadoClientes<Unit> {
-            ultimoEliminadoId = id
-            return respuestaEliminar
-        }
-
-        override suspend fun solicitarEliminacion(id: Long, motivo: String?): ResultadoClientes<Unit> {
-            ultimoEliminadoId = id
-            ultimoMotivoEliminacion = motivo
-            return respuestaEliminar
+        override suspend fun buscarPorDocumento(documento: String): ResultadoBusqueda {
+            buscados += documento
+            return resultado
         }
     }
 }
