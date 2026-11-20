@@ -1,13 +1,16 @@
 package com.appresso.app.ui.catalogo
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.appresso.app.R
 
 @Composable
 fun textoDe(error: ErrorNombre): String = when (error) {
     ErrorNombre.Obligatorio -> stringResource(R.string.cat_error_nombre_obligatorio)
-    ErrorNombre.DemasiadoLargo -> stringResource(R.string.cat_error_nombre_largo, CategoriasViewModel.MAX_NOMBRE)
+    ErrorNombre.DemasiadoLargo -> pluralStringResource(
+        R.plurals.cat_error_nombre_largo, CategoriasViewModel.MAX_NOMBRE, CategoriasViewModel.MAX_NOMBRE,
+    )
     ErrorNombre.Repetido -> stringResource(R.string.cat_error_nombre_repetido)
     is ErrorNombre.Servidor -> error.mensaje
 }
@@ -24,8 +27,8 @@ fun textoDe(error: ErrorCategorias): String = when (error) {
 
 /** «Sin productos», «1 producto» o «N productos». */
 @Composable
-fun textoProductos(total: Long): String = when (total) {
-    0L -> stringResource(R.string.cat_productos_ninguno)
-    1L -> stringResource(R.string.cat_productos_uno)
-    else -> stringResource(R.string.cat_productos_varios, total)
+fun textoProductos(total: Long): String {
+    if (total <= 0L) return stringResource(R.string.cat_productos_ninguno)
+    val cantidad = total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    return pluralStringResource(R.plurals.cat_productos, cantidad, cantidad)
 }

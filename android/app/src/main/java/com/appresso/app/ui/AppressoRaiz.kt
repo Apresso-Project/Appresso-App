@@ -9,14 +9,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appresso.app.ContenedorApp
@@ -36,6 +40,9 @@ import com.appresso.app.ui.login.LoginRoute
 import com.appresso.app.ui.login.LoginViewModel
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
+import com.appresso.app.tiemporeal.cambiosDeCatalogo
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 
 /**
  * Raíz de la app: elige la pantalla según la sesión y la sección abierta (ver [destinoPara]).
@@ -140,11 +147,30 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
  * Gestión del catálogo del administrador (3.1.1): categorías y productos, con un botón para pasar de
  * una a otra. Cada visita crea ViewModels nuevos (la clave cambia) para que los conteos de productos
  * y la lista se actualicen al volver.
+ *
+ * Tiempo real: mientras la sección está abierta y la app en primer plano, la conexión STOMP escucha
+ * `/topic/catalogo`; cada cambio hecho en otro dispositivo (o una reconexión, que pudo perder eventos)
+ * recarga en silencio la lista visible. Al salir de la sección la conexión se detiene.
  */
 @Composable
 private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     var enProductos by rememberSaveable(token) { mutableStateOf(false) }
-    var visita by rememberSaveable(token) { mutableStateOf(0) }
+    var visita by rememberSaveable(token) { mutableIntStateOf(0) }
+
+    val contexto = LocalContext.current
+    val ciclo = LocalLifecycleOwner.current.lifecycle
+    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto) }
+    DisposableEffect(tiempoReal, ciclo) {
+        ciclo.addObserver(tiempoReal) // conecta ya si la app está en primer plano
+        onDispose {
+            ciclo.removeObserver(tiempoReal)
+            tiempoReal.detener()
+        }
+    }
+    val cambios = remember(tiempoReal) {
+        merge(tiempoReal.eventos.cambiosDeCatalogo(), tiempoReal.resincronizar.map { })
+    }
+
     if (enProductos) {
         BackHandler {
             visita++
@@ -154,6 +180,7 @@ private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> 
             key = "productos-$token-$visita",
             factory = ProductosViewModel.factory(contenedor.catalogoRepository),
         )
+        LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
         ProductosRoute(
             viewModel = viewModel,
             onVerCategorias = {
@@ -166,6 +193,7 @@ private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> 
             key = "categorias-$token-$visita",
             factory = CategoriasViewModel.factory(contenedor.catalogoRepository),
         )
+        LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
         CategoriasRoute(viewModel = viewModel, onVerProductos = { enProductos = true }, onVolver = onVolver)
     }
 }

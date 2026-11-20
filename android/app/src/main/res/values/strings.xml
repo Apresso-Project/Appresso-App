@@ -137,8 +137,11 @@
     <string name="cat_estado_inactiva">Desactivada</string>
     <string name="cat_inactiva_aviso">Sus productos no aparecen en el menú mientras esté desactivada.</string>
     <string name="cat_productos_ninguno">Sin productos</string>
-    <string name="cat_productos_uno">1 producto</string>
-    <string name="cat_productos_varios">%1$d productos</string>
+    <plurals name="cat_productos">
+        <item quantity="one">%1$d producto</item>
+        <item quantity="many">%1$d productos</item>
+        <item quantity="other">%1$d productos</item>
+    </plurals>
     <string name="cat_form_titulo_nueva">Nueva categoría</string>
     <string name="cat_form_titulo_renombrar">Renombrar categoría</string>
     <string name="cat_form_nombre">Nombre de la categoría</string>
@@ -151,7 +154,11 @@
     <string name="cat_confirmar_sin_productos">La categoría no tiene productos. Podrás reactivarla cuando quieras.</string>
     <string name="cat_confirmar_accion">Sí, desactivar</string>
     <string name="cat_error_nombre_obligatorio">Escribe el nombre de la categoría.</string>
-    <string name="cat_error_nombre_largo">El nombre no puede superar %1$d caracteres.</string>
+    <plurals name="cat_error_nombre_largo">
+        <item quantity="one">El nombre no puede superar %1$d carácter.</item>
+        <item quantity="many">El nombre no puede superar %1$d caracteres.</item>
+        <item quantity="other">El nombre no puede superar %1$d caracteres.</item>
+    </plurals>
     <string name="cat_error_nombre_repetido">Ya existe una categoría con ese nombre.</string>
     <string name="cat_error_servidor">Algo salió mal. Intenta de nuevo en unos minutos.</string>
     <string name="cat_error_no_encontrada">Esa categoría ya no existe. Se actualizó la lista.</string>
@@ -197,7 +204,11 @@
     <string name="prod_error_obligatorio">Este dato es obligatorio.</string>
     <string name="prod_error_precio">Escribe el precio solo con números, mayor que cero y con hasta 2 decimales. Ejemplo: 6500 o 6500.50.</string>
     <string name="prod_error_url">El enlace debe empezar por http:// o https://.</string>
-    <string name="prod_error_largo">No puede superar %1$d caracteres.</string>
+    <plurals name="prod_error_largo">
+        <item quantity="one">No puede superar %1$d carácter.</item>
+        <item quantity="many">No puede superar %1$d caracteres.</item>
+        <item quantity="other">No puede superar %1$d caracteres.</item>
+    </plurals>
     <string name="prod_error_numero">Escribe un número entero entre 0 y %1$d.</string>
     <string name="prod_error_no_encontrado">Ese producto ya no existe. Se actualizó la lista.</string>
 </resources>

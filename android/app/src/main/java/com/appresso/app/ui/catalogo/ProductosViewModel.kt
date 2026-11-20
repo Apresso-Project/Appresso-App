@@ -107,6 +107,12 @@ class ProductosViewModel(
 
     fun cargar() = cargar(silencioso = false)
 
+    /**
+     * Vuelve a pedir la lista sin indicador de carga ni avisos de error. La pantalla lo llama con
+     * cada cambio de tiempo real mientras está visible (ver `AppressoRaiz`).
+     */
+    fun recargarEnSilencio() = cargar(silencioso = true)
+
     private fun cargar(silencioso: Boolean) {
         if (_estado.value.cargando) return
         if (!silencioso) _estado.update { it.copy(cargando = true, errorLista = null) }

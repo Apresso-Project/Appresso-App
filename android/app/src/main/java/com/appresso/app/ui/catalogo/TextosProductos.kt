@@ -1,6 +1,7 @@
 package com.appresso.app.ui.catalogo
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.appresso.app.R
 
@@ -9,7 +10,7 @@ fun textoDe(error: ErrorCampo): String = when (error) {
     ErrorCampo.Obligatorio -> stringResource(R.string.prod_error_obligatorio)
     ErrorCampo.PrecioInvalido -> stringResource(R.string.prod_error_precio)
     ErrorCampo.UrlInvalida -> stringResource(R.string.prod_error_url)
-    is ErrorCampo.DemasiadoLargo -> stringResource(R.string.prod_error_largo, error.maximo)
+    is ErrorCampo.DemasiadoLargo -> pluralStringResource(R.plurals.prod_error_largo, error.maximo, error.maximo)
     is ErrorCampo.NumeroInvalido -> stringResource(R.string.prod_error_numero, error.maximo)
     is ErrorCampo.Servidor -> error.mensaje
 }
