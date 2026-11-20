@@ -11,7 +11,7 @@ Aplicación móvil Android para la gestión integral de la cafetería **CaffeBar
 | Cliente | Cafetería CaffeBar (Patrocinador: Pepito Pérez) |
 | Gerente | Andrés Felipe Salcedo Buitrago |
 | Inicio | 28/10/2026 |
-| Entrega final (v1.0) | 17/12/2026 |
+| Entrega final (v1.0) | 15/12/2026 |
 | Universidad | Universidad del Valle, sede Tuluá |
 | Asignaturas | Introducción a la Gestión de Proyectos de Software + Desarrollo de Aplicaciones Móviles |
 
@@ -116,7 +116,7 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 | Inicio de desarrollo (Sprint 0) | 28/10/2026 |
 | Módulos admin, pedidos y cocina terminados | 15/11/2026 |
 | Módulo fidelización + pago QR terminados | 29/11/2026 |
-| Prueba piloto y entrega final v1.0 | 17/12/2026 |
+| Prueba piloto y entrega final v1.0 | 15/12/2026 |
 
 ---
 
