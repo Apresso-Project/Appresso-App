@@ -153,7 +153,7 @@
     <string name="producto_imagen_label">URL de la imagen (opcional)</string>
     <string name="producto_existencias_label">Existencias iniciales (opcional)</string>
     <string name="producto_umbral_label">Umbral mínimo de stock (opcional)</string>
-    <string name="producto_stock_formato">Stock: %d u. (Mín: %d)</string>
+    <string name="producto_stock_formato">Stock: %1$d u. (Mín: %2$d)</string>
     <string name="producto_fuera_de_menu">Fuera del menú</string>
     <string name="producto_en_menu">En el menú</string>
     <string name="producto_desactivar">Desactivar</string>

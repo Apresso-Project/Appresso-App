@@ -79,7 +79,7 @@ fun CatalogoScreen(
     onGuardarCrearProducto: (String, String?, Double, Long, String?, Int?, Int?) -> Unit,
     onAbrirEditarProducto: (Producto) -> Unit,
     onCerrarEditarProducto: () -> Unit,
-    onGuardarEditarProducto: (String, String?, Double, Long, String?, Int?) -> Unit,
+    onGuardarEditarProducto: (Long, String, String?, Double, Long, String?, Int?) -> Unit,
     onToggleEstadoProducto: (Producto) -> Unit,
     onLimpiarMensajes: () -> Unit,
     modifier: Modifier = Modifier,
@@ -135,7 +135,7 @@ fun CatalogoScreen(
             onDismiss = onCerrarEditarProducto,
             onGuardarCrear = { _, _, _, _, _, _, _ -> },
             onGuardarEditar = { nombre, desc, precio, catId, imgUrl, umbral ->
-                onGuardarEditarProducto(nombre, desc, precio, catId, imgUrl, umbral)
+                onGuardarEditarProducto(prod.id, nombre, desc, precio, catId, imgUrl, umbral)
             },
         )
     }
@@ -484,7 +484,7 @@ private fun TarjetaProducto(
                         onClick = onToggleEstado,
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (producto.activo) Error else Leaf,
+                            containerColor = if (producto.activo) Error else Success,
                         ),
                     ) {
                         Text(
@@ -569,7 +569,7 @@ private fun TarjetaCategoria(
                         onClick = onToggleEstado,
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (categoria.activa) Error else Leaf,
+                            containerColor = if (categoria.activa) Error else Success,
                         ),
                     ) {
                         Text(
