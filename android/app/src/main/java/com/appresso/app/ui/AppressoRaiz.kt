@@ -21,9 +21,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appresso.app.ContenedorApp
 import com.appresso.app.R
+import com.appresso.app.data.auth.Rol
 import com.appresso.app.data.auth.TokenSesion
 import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Opcion
+import com.appresso.app.ui.catalogo.CatalogoRoute
+import com.appresso.app.ui.catalogo.CatalogoViewModel
 import com.appresso.app.ui.inicio.InicioScreen
 import com.appresso.app.ui.inicio.SeccionProvisionalScreen
 import com.appresso.app.ui.login.LoginRoute
@@ -115,6 +118,18 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
                 viewModel = viewModel,
                 onVolver = onVolver,
                 miId = token?.let(TokenSesion::idDeUsuario),
+            )
+        }
+
+        Opcion.PRODUCTOS_E_INVENTARIO -> {
+            val esAdmin = destino.rol == Rol.ADMINISTRADOR
+            val viewModel: CatalogoViewModel = viewModel(
+                key = "catalogo-$token",
+                factory = CatalogoViewModel.factory(contenedor.catalogoRepository, esAdmin),
+            )
+            CatalogoRoute(
+                viewModel = viewModel,
+                onVolver = onVolver,
             )
         }
 

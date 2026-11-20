@@ -1,11 +1,16 @@
 package com.appresso.app
 
+import android.content.Context
 import com.appresso.app.data.auth.AlmacenSesion
 import com.appresso.app.data.auth.AlmacenSesionEnMemoria
+import com.appresso.app.data.auth.AlmacenSesionKeystore
 import com.appresso.app.data.auth.AuthRepository
 import com.appresso.app.data.auth.AuthRepositoryRemoto
+import com.appresso.app.data.catalogo.CatalogoRepository
+import com.appresso.app.data.catalogo.CatalogoRepositoryRemoto
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.BusEventosRed
+import com.appresso.app.data.remote.CatalogoApi
 import com.appresso.app.data.remote.ClienteHttp
 import com.appresso.app.data.remote.UsuariosApi
 import com.appresso.app.data.usuarios.UsuariosRepository
@@ -16,9 +21,10 @@ import retrofit2.Retrofit
  * Crea y reúne los objetos que comparte toda la app (el almacén de sesión y el acceso al backend).
  * Es una inyección de dependencias manual: suficiente por ahora y sin librerías extra.
  */
-class ContenedorApp(urlBase: String) {
+class ContenedorApp(urlBase: String, context: Context? = null) {
 
-    val almacenSesion: AlmacenSesion = AlmacenSesionEnMemoria()
+    val almacenSesion: AlmacenSesion =
+        if (context != null) AlmacenSesionKeystore.crear(context) else AlmacenSesionEnMemoria()
 
     /** Canal por el que el cliente HTTP avisa de los 403 y de la pérdida de conexión. */
     val busEventosRed = BusEventosRed()
@@ -37,5 +43,9 @@ class ContenedorApp(urlBase: String) {
 
     val usuariosRepository: UsuariosRepository by lazy {
         UsuariosRepositoryRemoto(retrofit.create(UsuariosApi::class.java))
+    }
+
+    val catalogoRepository: CatalogoRepository by lazy {
+        CatalogoRepositoryRemoto(retrofit.create(CatalogoApi::class.java))
     }
 }

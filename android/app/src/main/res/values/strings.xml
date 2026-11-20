@@ -122,4 +122,44 @@
     <string name="opcion_recompensas_promociones_desc">Beneficios disponibles para los clientes.</string>
     <string name="opcion_mis_puntos">Mis puntos</string>
     <string name="opcion_mis_puntos_desc">Tus puntos de fidelidad acumulados.</string>
+
+    <!-- Catálogo, Productos y Categorías -->
+    <string name="catalogo_titulo">Catálogo de Productos</string>
+    <string name="catalogo_tab_productos">Productos</string>
+    <string name="catalogo_tab_categorias">Categorías</string>
+    <string name="catalogo_buscar_hint">Buscar producto o categoría…</string>
+    <string name="catalogo_filtro_todas_categorias">Todas las categorías</string>
+    <string name="catalogo_nuevo_producto">+ Producto</string>
+    <string name="catalogo_nueva_categoria">+ Categoría</string>
+
+    <!-- Categorías -->
+    <string name="categoria_nueva_titulo">Nueva Categoría</string>
+    <string name="categoria_editar_titulo">Renombrar Categoría</string>
+    <string name="categoria_nombre_label">Nombre de la categoría</string>
+    <string name="categoria_desactivada">Desactivada</string>
+    <string name="categoria_activa">Activa</string>
+    <string name="categoria_desactivar">Desactivar</string>
+    <string name="categoria_activar">Activar</string>
+    <string name="categoria_productos_conteo">%d productos</string>
+    <string name="categoria_sin_resultados">No hay categorías registradas.</string>
+
+    <!-- Productos -->
+    <string name="producto_nuevo_titulo">Nuevo Producto</string>
+    <string name="producto_editar_titulo">Editar Producto</string>
+    <string name="producto_nombre_label">Nombre del producto</string>
+    <string name="producto_descripcion_label">Descripción (opcional)</string>
+    <string name="producto_precio_label">Precio ($)</string>
+    <string name="producto_categoria_label">Categoría</string>
+    <string name="producto_imagen_label">URL de la imagen (opcional)</string>
+    <string name="producto_existencias_label">Existencias iniciales (opcional)</string>
+    <string name="producto_umbral_label">Umbral mínimo de stock (opcional)</string>
+    <string name="producto_stock_formato">Stock: %d u. (Mín: %d)</string>
+    <string name="producto_fuera_de_menu">Fuera del menú</string>
+    <string name="producto_en_menu">En el menú</string>
+    <string name="producto_desactivar">Desactivar</string>
+    <string name="producto_activar">Activar</string>
+    <string name="producto_sin_resultados">No se encontraron productos.</string>
+
+    <string name="catalogo_guardar">Guardar</string>
+    <string name="catalogo_cancelar">Cancelar</string>
 </resources>
