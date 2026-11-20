@@ -471,4 +471,44 @@ class UsuarioControllerTest {
 		enviar(conSesion(post("/api/usuarios/999999999/activar"), admin)).andExpect(status().isNotFound());
 	}
 
+	// ------------------------------------------------------------------ cuentas de cliente (RF-02)
+
+	@Test
+	void laListaNoIncluyeLasCuentasDeCliente() throws Exception {
+		Usuario cliente = crearCuenta(Rol.CLIENTE, true);
+
+		enviar(conSesion(get("/api/usuarios"), admin))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[*].correo", hasItem(admin.getCorreo())))
+				.andExpect(jsonPath("$[*].correo", not(hasItem(cliente.getCorreo()))));
+	}
+
+	@Test
+	void unaCuentaDeClienteNoSePuedeConsultarEditarNiDesactivar() throws Exception {
+		Usuario cliente = crearCuenta(Rol.CLIENTE, true);
+		String cuerpo = cuerpoEditar("Otro nombre", cliente.getCorreo(), null, "CLIENTE");
+
+		enviar(conSesion(get("/api/usuarios/" + cliente.getId()), admin)).andExpect(status().isNotFound());
+		enviar(conSesion(json(put("/api/usuarios/" + cliente.getId()), cuerpo), admin)).andExpect(status().isNotFound());
+		enviar(conSesion(post("/api/usuarios/" + cliente.getId() + "/desactivar"), admin)).andExpect(status().isNotFound());
+		enviar(conSesion(post("/api/usuarios/" + cliente.getId() + "/activar"), admin)).andExpect(status().isNotFound());
+
+		assertThat(usuarios.findById(cliente.getId()).orElseThrow().isActivo()).isTrue();
+	}
+
+	@Test
+	void noSeCreaNiSePasaUnaCuentaAlRolCliente() throws Exception {
+		String correo = correoNuevo();
+		enviar(conSesion(json(post("/api/usuarios"), cuerpoCrear("Alguien", correo, CLAVE, "CLIENTE")), admin))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.campos.rol").value("Las cuentas de cliente se crean desde el registro de la app."));
+		assertThat(usuarios.findByCorreoIgnoreCase(correo)).isEmpty();
+
+		Usuario mesero = crearCuenta(Rol.MESERO, true);
+		enviar(conSesion(json(put("/api/usuarios/" + mesero.getId()),
+				cuerpoEditar(mesero.getNombre(), mesero.getCorreo(), null, "CLIENTE")), admin))
+				.andExpect(status().isBadRequest());
+		assertThat(usuarios.findById(mesero.getId()).orElseThrow().getRol()).isEqualTo(Rol.MESERO);
+	}
+
 }

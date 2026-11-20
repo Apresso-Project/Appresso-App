@@ -12,7 +12,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 - El rol se lee de la **base de datos** en cada solicitud, no del token: si el administrador desactiva una cuenta o le cambia el rol, aplica de inmediato.
 - **Sin token, o con token vencido, alterado o de una cuenta desactivada → `401`** `{"mensaje": "Tu sesión no es válida o expiró. Inicia sesión de nuevo."}`. La app debe volver al login.
 - **Con token válido pero sin el rol necesario → `403`** `{"mensaje": "No tienes permiso para realizar esta acción."}`. La app muestra el mensaje y se queda donde está.
-- **Públicos (sin token):** `POST /api/auth/login`, `GET /api/health`, `GET /actuator/health`.
+- **Públicos (sin token):** `POST /api/auth/login`, `POST /api/auth/registro` (el cliente crea su cuenta), `POST /api/auth/recuperar` y `POST /api/auth/restablecer` (recuperación de la contraseña del cliente), `GET /api/health`, `GET /actuator/health`. Contratos en [`api-auth.md`](api-auth.md) y [`api-clientes.md`](api-clientes.md).
 - **WebSocket de tiempo real (`/ws/**`):** el apretón de manos HTTP es público, pero el marco `CONNECT` de STOMP debe llevar `Authorization: Bearer <token>`; sin token válido el servidor responde `ERROR` y cierra la conexión (`AutenticacionStomp`). Hoy cualquier rol autenticado puede suscribirse a los tópicos.
 - **Emisor de pruebas (`/api/dev/**`, solo perfil `dev`):** solo el administrador (`@PreAuthorize`).
 - Las reglas se evalúan **en orden** y gana la primera que coincide.
@@ -84,9 +84,8 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 | Método | Ruta | Admin | Cajero | Mesero | Cocinero | Cliente | RF |
 |---|---|:-:|:-:|:-:|:-:|:-:|---|
 | GET | `/api/clientes/yo` (mis puntos) | | | | | ✅ | RF-55 |
-| POST | `/api/clientes` | ✅ | | ✅ | | | RF-50 |
 | GET | `/api/clientes/**` (buscar por documento) | ✅ | | ✅ | | | RF-51, RF-57 |
-| Otros | `/api/clientes/**` | | | | | | — |
+| Otros | `/api/clientes/**` (el personal no registra, edita ni elimina clientes) | | | | | | — |
 | GET | `/api/recompensas/**` | ✅ | | ✅ | | ✅ | RF-56, RF-57, RF-58 |
 | Otros | `/api/recompensas/**` | ✅ | | | | | RF-54, RF-60 |
 | GET | `/api/promociones/**` | ✅ | | | | ✅ | RF-62 |
@@ -97,7 +96,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 La matriz sigue los requerimientos, con la decisión del punto 1 (el administrador entra a todo). Estos puntos no están claros en los RF y hay que confirmarlos:
 
 1. ~~¿El administrador puede hacer las tareas operativas de otros roles?~~ **Resuelta:** sí. El administrador puede hacer lo que hace cualquier otro rol (crear comandas, cobrar en efectivo, cambiar el estado de preparación…). Única excepción: `GET /api/clientes/yo` (los puntos de un cliente), porque su cuenta no tiene registro de cliente. Ojo: el RF-29 ("exclusivamente a los cajeros") y el RF-25 quedan **desactualizados** frente a esta decisión; conviene corregirlos en el documento de requerimientos.
-2. **Registro de clientes (RF-50):** el criterio habla de que el propio cliente presiona "Registrarme". Si se registra solo desde la app, `POST /api/clientes` debe ser **público**. Hoy lo hacen el administrador y el mesero.
+2. ~~Registro de clientes (RF-50)~~ **Resuelta:** el cliente crea su cuenta desde la app con `POST /api/auth/registro`, que es público. El personal (incluido el administrador) no registra, edita ni elimina clientes; el mesero y el administrador solo los buscan por documento. Las cuentas de cliente tampoco se gestionan en `/api/usuarios`.
 3. **¿Quién abre la jornada (RF-49)?** Hoy: administrador y cajero.
 4. **¿El cajero y el cocinero necesitan ver el catálogo de productos?** Hoy solo administrador y mesero.
 5. **Endpoints no declarados:** fuera de los módulos de la tabla, hoy basta con iniciar sesión. Se podría cambiar a "denegar todo lo no declarado" para que nada quede abierto por olvido.

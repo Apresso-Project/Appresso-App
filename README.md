@@ -51,18 +51,18 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 ## Roles del sistema (5 roles)
 
 1. **Administrador** — gestión de productos, inventario, usuarios, caja, recompensas; acceso remoto
-2. **Mesero** — crear comandas por mesa, enviar a cocina, cobrar, buscar clientes
+2. **Mesero** — crear comandas por mesa, enviar a cocina, cobrar, buscar clientes por documento
 3. **Cajero** — registrar pagos en efectivo, solicitar retiros, cierre de caja
 4. **Cocinero** — ver comandas en tiempo real, cambiar estado (pendiente → en preparación → listo)
-5. **Cliente** — registrarse, acumular puntos de fidelidad, canjear recompensas, ver promociones
+5. **Cliente** — crear su cuenta desde la app, iniciar sesión con su documento, recuperar su contraseña por correo, acumular puntos de fidelidad, canjear recompensas, ver promociones
 
 ---
 
 ## Módulos principales
 
 ### Módulo 1 — Usuarios y permisos (RF-01 a RF-05)
-- Login con email/contraseña
-- CRUD de usuarios + asignación de roles (solo admin)
+- Login: el personal con correo y contraseña; el cliente con su número de documento y contraseña
+- CRUD de las cuentas del personal + asignación de roles (solo admin); las cuentas de cliente las crea el propio cliente
 - Control de acceso: 403 en API + mensaje en UI para acciones no autorizadas
 - Acceso remoto del admin desde cualquier red
 
@@ -98,11 +98,12 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 - Apertura de nueva jornada con base del cierre anterior
 
 ### Módulo 6 — Fidelización (RF-50 a RF-62)
-- Registro de clientes: nombre, apellido, documento, celular + aceptación Ley 1581
+- Registro del cliente desde la app: nombre, apellido, documento, celular, correo y contraseña + aceptación Ley 1581
+- Recuperación de la contraseña del cliente con un código enviado a su correo
 - 1 punto por pedido pagado (RF-52); el saldo se guarda en el cliente y los puntos no vencen
 - Descuento de puntos al canjear una recompensa o una promoción
 - Admin configura recompensas (puntos mínimos, costo en puntos, beneficio) y promociones temporales con costo en puntos (p. ej. 2x1, 50 % de descuento); puede crearlas y desactivarlas
-- Búsqueda de cliente por documento en ≤ 2 s
+- Búsqueda de cliente por documento en ≤ 2 s (mesero y administrador)
 - Recompensas de un solo uso marcadas como usadas para evitar doble canje
 - Notificaciones push al cliente sobre nuevas recompensas y promociones vigentes
 

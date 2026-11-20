@@ -8,6 +8,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.appresso.backend.fidelizacion.DocumentoIdentidad;
+import com.appresso.backend.usuarios.Rol;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
 
@@ -15,6 +17,11 @@ import com.appresso.backend.usuarios.UsuarioRepository;
  * Inicio de sesión (RF-01) con bloqueo temporal tras demasiados intentos fallidos (RNF-26):
  * a los 5 fallos consecutivos la cuenta queda bloqueada 15 minutos, y el sexto intento ya es
  * rechazado aunque la contraseña sea correcta.
+ * <p>
+ * El personal entra con su correo y el cliente con su número de documento. Si el identificador
+ * trae {@code @} es un correo; si no, un documento. Un cliente que intenta entrar con su correo, o
+ * un integrante del personal con un documento, recibe la misma respuesta que unas credenciales
+ * inválidas.
  */
 @Service
 public class AuthService {
@@ -28,8 +35,8 @@ public class AuthService {
 	private final Clock reloj;
 
 	/**
-	 * Se compara contra este hash cuando el correo no existe o la cuenta está inactiva, para que
-	 * esas respuestas tarden lo mismo que una contraseña incorrecta y no delaten qué correos existen.
+	 * Se compara contra este hash cuando la cuenta no existe o está inactiva, para que esas
+	 * respuestas tarden lo mismo que una contraseña incorrecta y no delaten qué cuentas existen.
 	 */
 	private final String hashFicticio;
 
@@ -46,10 +53,10 @@ public class AuthService {
 	 * igual: por eso la transacción no se revierte con {@link CredencialesInvalidasException}.
 	 */
 	@Transactional(noRollbackFor = CredencialesInvalidasException.class)
-	public LoginResponse iniciarSesion(String correo, String contrasena) {
+	public LoginResponse iniciarSesion(String identificador, String contrasena) {
 		Instant ahora = reloj.instant();
 
-		Usuario usuario = usuarios.buscarPorCorreoBloqueandoFila(correo.trim()).orElse(null);
+		Usuario usuario = buscarCuenta(identificador.trim());
 		if (usuario == null || !usuario.isActivo()) {
 			coincide(contrasena, hashFicticio);
 			throw new CredencialesInvalidasException();
@@ -78,6 +85,21 @@ public class AuthService {
 		usuario.setIntentosFallidos(0);
 		usuarios.save(usuario);
 		return new LoginResponse(jwt.generar(usuario), usuario.getRol(), usuario.getNombre());
+	}
+
+	/** La cuenta que corresponde al identificador, con su fila bloqueada, o {@code null}. */
+	private Usuario buscarCuenta(String identificador) {
+		if (identificador.contains("@")) {
+			// Personal: correo. Las cuentas de cliente no entran con correo.
+			return usuarios.buscarPorCorreoBloqueandoFila(identificador)
+					.filter(u -> u.getRol() != Rol.CLIENTE)
+					.orElse(null);
+		}
+		// Cliente: número de documento. Solo los clientes tienen documento.
+		return usuarios.buscarIdDeCuentaPorDocumento(DocumentoIdentidad.normalizar(identificador))
+				.flatMap(usuarios::buscarPorIdBloqueandoFila)
+				.filter(u -> u.getRol() == Rol.CLIENTE)
+				.orElse(null);
 	}
 
 	private boolean coincide(String contrasena, String hash) {

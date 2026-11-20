@@ -29,6 +29,12 @@ import com.appresso.app.data.auth.TokenSesion
 import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Accion
 import com.appresso.app.permisos.Opcion
+import com.appresso.app.ui.clientes.ClientesRoute
+import com.appresso.app.ui.clientes.ClientesViewModel
+import com.appresso.app.ui.cuenta.RecuperarContrasenaRoute
+import com.appresso.app.ui.cuenta.RecuperarContrasenaViewModel
+import com.appresso.app.ui.cuenta.RegistroClienteRoute
+import com.appresso.app.ui.cuenta.RegistroClienteViewModel
 import com.appresso.app.permisos.puede
 import com.appresso.app.ui.catalogo.CategoriasRoute
 import com.appresso.app.ui.catalogo.CategoriasViewModel
@@ -53,6 +59,9 @@ import kotlinx.coroutines.flow.merge
  *
  * También muestra, sobre cualquier pantalla, los avisos de pérdida de conexión y de acceso
  * denegado (403) que publica el cliente HTTP.
+ *
+ * Sin sesión, además del login están las pantallas públicas del cliente: crear su cuenta y
+ * recuperar su contraseña ([PantallaPublica]).
  *
  * Para conectar la pantalla real de un módulo, reemplaza su caso en [Seccion] (abajo).
  */
@@ -87,12 +96,7 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (val destino = destinoPara(sesion, abierta)) {
-                Destino.Login -> {
-                    val viewModel: LoginViewModel = viewModel(
-                        factory = LoginViewModel.factory(contenedor.authRepository, contenedor.almacenSesion),
-                    )
-                    LoginRoute(viewModel)
-                }
+                Destino.Login -> PantallasPublicas(contenedor)
 
                 is Destino.Inicio -> InicioScreen(
                     nombre = destino.nombre,
@@ -107,6 +111,57 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
                     Seccion(destino, contenedor, token = sesion?.token, onVolver = { abierta = null })
                 }
             }
+        }
+    }
+}
+
+/** Las pantallas a las que se llega sin sesión. */
+private enum class PantallaPublica { LOGIN, REGISTRO, RECUPERAR }
+
+/**
+ * El login y las pantallas públicas del cliente. Al terminar el registro o la recuperación se vuelve
+ * al login con el documento ya escrito. Cada visita al registro o a la recuperación empieza de cero.
+ */
+@Composable
+private fun PantallasPublicas(contenedor: ContenedorApp) {
+    var pantalla by rememberSaveable { mutableStateOf(PantallaPublica.LOGIN) }
+    // Cambia en cada visita, para que el formulario anterior no reaparezca al volver a entrar.
+    var visita by rememberSaveable { mutableIntStateOf(0) }
+    val login: LoginViewModel = viewModel(
+        factory = LoginViewModel.factory(contenedor.authRepository, contenedor.almacenSesion),
+    )
+    val alLogin: (String?) -> Unit = { documento ->
+        if (!documento.isNullOrBlank()) login.onIdentificadorChange(documento)
+        pantalla = PantallaPublica.LOGIN
+    }
+    val abrir: (PantallaPublica) -> Unit = {
+        visita++
+        pantalla = it
+    }
+
+    when (pantalla) {
+        PantallaPublica.LOGIN -> LoginRoute(
+            viewModel = login,
+            onCrearCuenta = { abrir(PantallaPublica.REGISTRO) },
+            onOlvideContrasena = { abrir(PantallaPublica.RECUPERAR) },
+        )
+
+        PantallaPublica.REGISTRO -> {
+            BackHandler { alLogin(null) }
+            val viewModel: RegistroClienteViewModel = viewModel(
+                key = "registro-$visita",
+                factory = RegistroClienteViewModel.factory(contenedor.cuentaClienteRepository),
+            )
+            RegistroClienteRoute(viewModel = viewModel, onVolver = { alLogin(null) }, onIrAlLogin = alLogin)
+        }
+
+        PantallaPublica.RECUPERAR -> {
+            BackHandler { alLogin(null) }
+            val viewModel: RecuperarContrasenaViewModel = viewModel(
+                key = "recuperar-$visita",
+                factory = RecuperarContrasenaViewModel.factory(contenedor.cuentaClienteRepository),
+            )
+            RecuperarContrasenaRoute(viewModel = viewModel, onVolver = { alLogin(null) }, onIrAlLogin = alLogin)
         }
     }
 }
@@ -136,6 +191,17 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
                 viewModel = viewModel,
                 onVolver = onVolver,
                 miId = token?.let(TokenSesion::idDeUsuario),
+            )
+        }
+
+        Opcion.CLIENTES -> {
+            val viewModel: ClientesViewModel = viewModel(
+                key = "clientes-$token",
+                factory = ClientesViewModel.factory(contenedor.clientesRepository),
+            )
+            ClientesRoute(
+                viewModel = viewModel,
+                onVolver = onVolver,
             )
         }
 

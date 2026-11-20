@@ -24,11 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,8 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -58,31 +54,33 @@ import com.appresso.app.ui.theme.AppressoTheme
 import com.appresso.app.ui.theme.Caramel
 import com.appresso.app.ui.theme.Cream
 import com.appresso.app.ui.theme.Espresso
-import com.appresso.app.ui.theme.Ink
 import com.appresso.app.ui.theme.Muted
-import com.appresso.app.ui.theme.White
 
 /**
- * Pantalla de inicio de sesión con correo y contraseña. No registra cuentas nuevas.
+ * Pantalla de inicio de sesión: el personal entra con su correo y el cliente con su número de
+ * documento, ambos con su contraseña (RF-01). Desde aquí el cliente abre su registro
+ * ([onCrearCuenta]) o la recuperación de su contraseña ([onOlvideContrasena]).
  *
- * No guarda lo que se escribe ni decide nada: recibe el estado ([correo], [contrasena],
+ * No guarda lo que se escribe ni decide nada: recibe el estado ([identificador], [contrasena],
  * [errorMessage], [isLoading]) y avisa de lo que hace el usuario. Quien la usa ([LoginRoute],
  * con su ViewModel) es el dueño del estado, así la contraseña no queda en el estado guardado de
  * Android y lo escrito sobrevive a rotar la pantalla o a un fallo de conexión.
  */
 @Composable
 fun LoginScreen(
-    correo: String,
+    identificador: String,
     contrasena: String,
-    onCorreoChange: (String) -> Unit,
+    onIdentificadorChange: (String) -> Unit,
     onContrasenaChange: (String) -> Unit,
     onEnviar: () -> Unit,
     modifier: Modifier = Modifier,
+    onCrearCuenta: () -> Unit = {},
+    onOlvideContrasena: () -> Unit = {},
     errorMessage: String? = null,
     isLoading: Boolean = false,
 ) {
     var mostrar by rememberSaveable { mutableStateOf(false) }
-    val camposLlenos = correo.isNotBlank() && contrasena.isNotBlank()
+    val camposLlenos = identificador.isNotBlank() && contrasena.isNotBlank()
     val enviar = { if (camposLlenos && !isLoading) onEnviar() }
 
     Box(
@@ -157,14 +155,16 @@ fun LoginScreen(
                     )
 
                     CampoTexto(
-                        etiqueta = stringResource(R.string.login_email_label),
-                        placeholder = stringResource(R.string.login_email_placeholder),
-                        valor = correo,
-                        onValorChange = onCorreoChange,
+                        etiqueta = stringResource(R.string.login_identifier_label),
+                        placeholder = stringResource(R.string.login_identifier_placeholder),
+                        valor = identificador,
+                        onValorChange = onIdentificadorChange,
                         icono = R.drawable.ic_mail,
                         soloLectura = isLoading,
                         teclado = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
+                            // Texto y no Email: el cliente escribe su documento (números) y el
+                            // personal su correo; el teclado de correo esconde los números.
+                            keyboardType = KeyboardType.Text,
                             imeAction = ImeAction.Next,
                         ),
                     )
@@ -238,61 +238,39 @@ fun LoginScreen(
                             )
                         }
                     }
+
+                    TextButton(
+                        onClick = onOlvideContrasena,
+                        enabled = !isLoading,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.login_forgot_password),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Caramel,
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.login_client_question),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Muted,
+                        )
+                        TextButton(onClick = onCrearCuenta, enabled = !isLoading) {
+                            Text(
+                                text = stringResource(R.string.login_create_account),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Caramel,
+                            )
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun CampoTexto(
-    etiqueta: String,
-    placeholder: String,
-    valor: String,
-    onValorChange: (String) -> Unit,
-    icono: Int,
-    teclado: KeyboardOptions,
-    modifier: Modifier = Modifier,
-    soloLectura: Boolean = false,
-    transformacion: VisualTransformation = VisualTransformation.None,
-    acciones: KeyboardActions = KeyboardActions.Default,
-    trailing: (@Composable () -> Unit)? = null,
-) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = etiqueta,
-            style = MaterialTheme.typography.labelLarge,
-            color = Ink,
-        )
-        OutlinedTextField(
-            value = valor,
-            onValueChange = onValorChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            // Mientras se espera la respuesta no se puede editar, pero el campo se ve igual.
-            readOnly = soloLectura,
-            shape = RoundedCornerShape(12.dp),
-            textStyle = MaterialTheme.typography.bodyLarge,
-            placeholder = {
-                Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = Muted)
-            },
-            leadingIcon = {
-                Icon(painterResource(icono), contentDescription = null, tint = Color.Unspecified)
-            },
-            trailingIcon = trailing,
-            visualTransformation = transformacion,
-            keyboardOptions = teclado,
-            keyboardActions = acciones,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = White,
-                unfocusedContainerColor = White,
-                focusedTextColor = Ink,
-                unfocusedTextColor = Ink,
-                focusedBorderColor = Caramel,
-                unfocusedBorderColor = Espresso.copy(alpha = 0.2f),
-                cursorColor = Caramel,
-            ),
-        )
     }
 }
 
@@ -301,8 +279,8 @@ private fun CampoTexto(
 private fun LoginScreenPreview() {
     AppressoTheme {
         LoginScreen(
-            correo = "", contrasena = "",
-            onCorreoChange = {}, onContrasenaChange = {}, onEnviar = {},
+            identificador = "", contrasena = "",
+            onIdentificadorChange = {}, onContrasenaChange = {}, onEnviar = {},
         )
     }
 }
@@ -312,8 +290,8 @@ private fun LoginScreenPreview() {
 private fun LoginScreenErrorPreview() {
     AppressoTheme {
         LoginScreen(
-            correo = "ana@appresso.test", contrasena = "secreta",
-            onCorreoChange = {}, onContrasenaChange = {}, onEnviar = {},
+            identificador = "ana@appresso.test", contrasena = "secreta",
+            onIdentificadorChange = {}, onContrasenaChange = {}, onEnviar = {},
             errorMessage = "Credenciales inválidas",
         )
     }
@@ -324,8 +302,8 @@ private fun LoginScreenErrorPreview() {
 private fun LoginScreenLoadingPreview() {
     AppressoTheme {
         LoginScreen(
-            correo = "ana@appresso.test", contrasena = "secreta",
-            onCorreoChange = {}, onContrasenaChange = {}, onEnviar = {},
+            identificador = "ana@appresso.test", contrasena = "secreta",
+            onIdentificadorChange = {}, onContrasenaChange = {}, onEnviar = {},
             isLoading = true,
         )
     }

@@ -5,12 +5,18 @@ import com.appresso.app.data.auth.AlmacenSesion
 import com.appresso.app.data.auth.AlmacenSesionEnMemoria
 import com.appresso.app.data.auth.AuthRepository
 import com.appresso.app.data.auth.AuthRepositoryRemoto
+import com.appresso.app.data.clientes.ClientesRepository
+import com.appresso.app.data.clientes.ClientesRepositoryRemoto
+import com.appresso.app.data.cuenta.CuentaClienteRepository
+import com.appresso.app.data.cuenta.CuentaClienteRepositoryRemoto
 import com.appresso.app.data.catalogo.CatalogoRepository
 import com.appresso.app.data.catalogo.CatalogoRepositoryRemoto
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.CatalogoApi
 import com.appresso.app.data.remote.BusEventosRed
 import com.appresso.app.data.remote.ClienteHttp
+import com.appresso.app.data.remote.ClientesApi
+import com.appresso.app.data.remote.CuentaApi
 import com.appresso.app.data.remote.UsuariosApi
 import com.appresso.app.data.usuarios.UsuariosRepository
 import com.appresso.app.data.usuarios.UsuariosRepositoryRemoto
@@ -41,12 +47,21 @@ class ContenedorApp(private val urlBase: String) {
         AuthRepositoryRemoto(retrofit.create(AuthApi::class.java))
     }
 
+    /** Registro y recuperación de contraseña del cliente: rutas públicas, sin token. */
+    val cuentaClienteRepository: CuentaClienteRepository by lazy {
+        CuentaClienteRepositoryRemoto(retrofit.create(CuentaApi::class.java))
+    }
+
     val catalogoRepository: CatalogoRepository by lazy {
         CatalogoRepositoryRemoto(retrofit.create(CatalogoApi::class.java))
     }
 
     val usuariosRepository: UsuariosRepository by lazy {
         UsuariosRepositoryRemoto(retrofit.create(UsuariosApi::class.java))
+    }
+
+    val clientesRepository: ClientesRepository by lazy {
+        ClientesRepositoryRemoto(retrofit.create(ClientesApi::class.java))
     }
 
     private var tiempoReal: ConexionTiempoReal? = null
