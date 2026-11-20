@@ -60,6 +60,7 @@ fun CategoriasScreen(
     onDesactivar: (Categoria) -> Unit,
     onActivar: (Categoria) -> Unit,
     onReintentar: () -> Unit,
+    onVerProductos: () -> Unit,
     onVolver: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -81,6 +82,16 @@ fun CategoriasScreen(
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text(stringResource(R.string.cat_volver), style = MaterialTheme.typography.titleMedium) }
         }
+
+        OutlinedButton(
+            onClick = onVerProductos,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.5.dp, Espresso),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = White, contentColor = Espresso),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+        ) { Text(stringResource(R.string.cat_ver_productos), style = MaterialTheme.typography.titleMedium) }
 
         estado.errorAccion?.let { MensajeConBorde(textoDe(it)) }
 

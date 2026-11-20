@@ -21,6 +21,7 @@ import com.appresso.app.ui.theme.Ink
 @Composable
 fun CategoriasRoute(
     viewModel: CategoriasViewModel,
+    onVerProductos: () -> Unit,
     onVolver: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -33,6 +34,7 @@ fun CategoriasRoute(
         onDesactivar = viewModel::pedirDesactivar,
         onActivar = viewModel::activar,
         onReintentar = viewModel::cargar,
+        onVerProductos = onVerProductos,
         onVolver = onVolver,
         modifier = modifier,
     )

@@ -28,6 +28,8 @@ import com.appresso.app.permisos.Opcion
 import com.appresso.app.permisos.puede
 import com.appresso.app.ui.catalogo.CategoriasRoute
 import com.appresso.app.ui.catalogo.CategoriasViewModel
+import com.appresso.app.ui.catalogo.ProductosRoute
+import com.appresso.app.ui.catalogo.ProductosViewModel
 import com.appresso.app.ui.inicio.InicioScreen
 import com.appresso.app.ui.inicio.SeccionProvisionalScreen
 import com.appresso.app.ui.login.LoginRoute
@@ -112,11 +114,7 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
         // Solo el administrador gestiona el catálogo; el menú de solo lectura del mesero (3.3.1) aún
         // no existe y queda en la pantalla provisional.
         Opcion.PRODUCTOS_E_INVENTARIO -> if (puede(destino.rol, Accion.GESTIONAR_CATALOGO)) {
-            val viewModel: CategoriasViewModel = viewModel(
-                key = "categorias-$token",
-                factory = CategoriasViewModel.factory(contenedor.catalogoRepository),
-            )
-            CategoriasRoute(viewModel = viewModel, onVolver = onVolver)
+            Catalogo(contenedor, token, onVolver)
         } else {
             SeccionProvisionalScreen(opcion = destino.opcion, onVolver = onVolver)
         }
@@ -135,5 +133,39 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
         }
 
         else -> SeccionProvisionalScreen(opcion = destino.opcion, onVolver = onVolver)
+    }
+}
+
+/**
+ * Gestión del catálogo del administrador (3.1.1): categorías y productos, con un botón para pasar de
+ * una a otra. Cada visita crea ViewModels nuevos (la clave cambia) para que los conteos de productos
+ * y la lista se actualicen al volver.
+ */
+@Composable
+private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
+    var enProductos by rememberSaveable(token) { mutableStateOf(false) }
+    var visita by rememberSaveable(token) { mutableStateOf(0) }
+    if (enProductos) {
+        BackHandler {
+            visita++
+            enProductos = false
+        }
+        val viewModel: ProductosViewModel = viewModel(
+            key = "productos-$token-$visita",
+            factory = ProductosViewModel.factory(contenedor.catalogoRepository),
+        )
+        ProductosRoute(
+            viewModel = viewModel,
+            onVerCategorias = {
+                visita++
+                enProductos = false
+            },
+        )
+    } else {
+        val viewModel: CategoriasViewModel = viewModel(
+            key = "categorias-$token-$visita",
+            factory = CategoriasViewModel.factory(contenedor.catalogoRepository),
+        )
+        CategoriasRoute(viewModel = viewModel, onVerProductos = { enProductos = true }, onVolver = onVolver)
     }
 }
