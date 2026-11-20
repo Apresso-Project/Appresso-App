@@ -122,4 +122,93 @@
     <string name="opcion_recompensas_promociones_desc">Beneficios disponibles para los clientes.</string>
     <string name="opcion_mis_puntos">Mis puntos</string>
     <string name="opcion_mis_puntos_desc">Tus puntos de fidelidad acumulados.</string>
+
+    <!-- Categorías del catálogo (3.1.1) -->
+    <string name="cat_titulo">Categorías</string>
+    <string name="cat_nueva">Nueva categoría</string>
+    <string name="cat_volver">Volver</string>
+    <string name="cat_cargando">Cargando categorías</string>
+    <string name="cat_vacio">Aún no hay categorías. Crea la primera con «Nueva categoría».</string>
+    <string name="cat_reintentar">Reintentar</string>
+    <string name="cat_renombrar">Renombrar</string>
+    <string name="cat_desactivar">Desactivar</string>
+    <string name="cat_activar">Activar</string>
+    <string name="cat_estado_activa">Activa</string>
+    <string name="cat_estado_inactiva">Desactivada</string>
+    <string name="cat_inactiva_aviso">Sus productos no aparecen en el menú mientras esté desactivada.</string>
+    <string name="cat_productos_ninguno">Sin productos</string>
+    <plurals name="cat_productos">
+        <item quantity="one">%1$d producto</item>
+        <item quantity="many">%1$d productos</item>
+        <item quantity="other">%1$d productos</item>
+    </plurals>
+    <string name="cat_form_titulo_nueva">Nueva categoría</string>
+    <string name="cat_form_titulo_renombrar">Renombrar categoría</string>
+    <string name="cat_form_nombre">Nombre de la categoría</string>
+    <string name="cat_form_crear">Crear categoría</string>
+    <string name="cat_form_guardar_nombre">Guardar nombre</string>
+    <string name="cat_form_guardando">Guardando</string>
+    <string name="cat_form_cancelar">Cancelar</string>
+    <string name="cat_confirmar_titulo">¿Desactivar «%1$s»?</string>
+    <string name="cat_confirmar_con_productos">%1$s dejarán de aparecer en el menú. Podrás reactivar la categoría cuando quieras y sus productos volverán.</string>
+    <string name="cat_confirmar_sin_productos">La categoría no tiene productos. Podrás reactivarla cuando quieras.</string>
+    <string name="cat_confirmar_accion">Sí, desactivar</string>
+    <string name="cat_error_nombre_obligatorio">Escribe el nombre de la categoría.</string>
+    <plurals name="cat_error_nombre_largo">
+        <item quantity="one">El nombre no puede superar %1$d carácter.</item>
+        <item quantity="many">El nombre no puede superar %1$d caracteres.</item>
+        <item quantity="other">El nombre no puede superar %1$d caracteres.</item>
+    </plurals>
+    <string name="cat_error_nombre_repetido">Ya existe una categoría con ese nombre.</string>
+    <string name="cat_error_servidor">Algo salió mal. Intenta de nuevo en unos minutos.</string>
+    <string name="cat_error_no_encontrada">Esa categoría ya no existe. Se actualizó la lista.</string>
+    <string name="cat_error_datos">Revisa los datos ingresados.</string>
+
+    <!-- Productos del catálogo (3.1.1) -->
+    <string name="cat_ver_productos">Ver productos</string>
+    <string name="prod_titulo">Productos</string>
+    <string name="prod_nuevo">Nuevo producto</string>
+    <string name="prod_ver_categorias">Categorías</string>
+    <string name="prod_cargando">Cargando productos</string>
+    <string name="prod_vacio">Aún no hay productos. Crea el primero con «Nuevo producto».</string>
+    <string name="prod_vacio_categoria">Esta categoría no tiene productos.</string>
+    <string name="prod_filtro_todas">Todas</string>
+    <string name="prod_precio_categoria">%1$s · %2$s</string>
+    <string name="prod_imagen_ninguna">Sin imagen</string>
+    <string name="prod_imagen_fallo">No se pudo cargar</string>
+    <string name="prod_stock_agotado">Agotado: 0 unidades</string>
+    <string name="prod_stock_pocas">Pocas unidades: %1$d</string>
+    <string name="prod_stock_disponible">Disponible: %1$d</string>
+    <string name="prod_en_menu">En el menú</string>
+    <string name="prod_fuera_desactivado">Fuera del menú: producto desactivado</string>
+    <string name="prod_fuera_categoria">Fuera del menú: su categoría está desactivada</string>
+    <string name="prod_editar">Editar</string>
+    <string name="prod_desactivar">Desactivar</string>
+    <string name="prod_activar">Activar</string>
+    <string name="prod_confirmar_titulo">¿Desactivar «%1$s»?</string>
+    <string name="prod_confirmar_texto">El producto dejará de aparecer en el menú. Podrás reactivarlo cuando quieras.</string>
+    <string name="prod_confirmar_accion">Sí, desactivar</string>
+    <string name="prod_form_titulo_nuevo">Nuevo producto</string>
+    <string name="prod_form_titulo_editar">Editar producto</string>
+    <string name="prod_form_nombre">Nombre del producto</string>
+    <string name="prod_form_descripcion">Descripción (opcional)</string>
+    <string name="prod_form_precio">Precio en pesos</string>
+    <string name="prod_form_categoria_elegir">Elige una categoría</string>
+    <string name="prod_form_sin_categorias">No hay categorías activas. Crea o activa una primero.</string>
+    <string name="prod_form_imagen">Enlace de la imagen (opcional)</string>
+    <string name="prod_form_existencias">Existencias iniciales (opcional)</string>
+    <string name="prod_form_existencias_fijas">Existencias actuales: %1$d. Se cambian con un ajuste de inventario, no aquí.</string>
+    <string name="prod_form_umbral">Aviso de pocas unidades (opcional)</string>
+    <string name="prod_form_crear">Crear producto</string>
+    <string name="prod_form_guardar">Guardar cambios</string>
+    <string name="prod_error_obligatorio">Este dato es obligatorio.</string>
+    <string name="prod_error_precio">Escribe el precio solo con números, mayor que cero y con hasta 2 decimales. Ejemplo: 6500 o 6500.50.</string>
+    <string name="prod_error_url">El enlace debe empezar por http:// o https://.</string>
+    <plurals name="prod_error_largo">
+        <item quantity="one">No puede superar %1$d carácter.</item>
+        <item quantity="many">No puede superar %1$d caracteres.</item>
+        <item quantity="other">No puede superar %1$d caracteres.</item>
+    </plurals>
+    <string name="prod_error_numero">Escribe un número entero entre 0 y %1$d.</string>
+    <string name="prod_error_no_encontrado">Ese producto ya no existe. Se actualizó la lista.</string>
 </resources>
