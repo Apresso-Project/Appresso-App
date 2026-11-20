@@ -2,6 +2,7 @@ package com.appresso.backend.seguridad;
 
 import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -29,6 +30,9 @@ import jakarta.servlet.http.HttpServletResponse;
  * <li>Por rol: cada módulo, según {@link PoliticaPermisos} (SCRUM-47).</li>
  * <li>Todo lo demás: basta con haber iniciado sesión.</li>
  * </ol>
+ * En producción ({@code EXIGIR_HTTPS=true}) toda solicitud sin cifrar responde 426 antes de todo lo
+ * demás ({@link FiltroExigirHttps}, 8.4.1).
+ * <p>
  * Sin token válido responde 401; con token válido pero sin el rol necesario, 403. Ambos con el
  * mismo cuerpo que el resto de la API: {@code {"mensaje": "..."}}.
  * <p>
@@ -43,8 +47,8 @@ public class SeguridadConfig {
 	static final String MENSAJE_403 = "No tienes permiso para realizar esta acción.";
 
 	@Bean
-	public SecurityFilterChain cadenaDeSeguridad(HttpSecurity http, JwtService jwt, UsuarioRepository usuarios)
-			throws Exception {
+	public SecurityFilterChain cadenaDeSeguridad(HttpSecurity http, JwtService jwt, UsuarioRepository usuarios,
+			@Value("${appresso.seguridad.exigir-https:false}") boolean exigirHttps) throws Exception {
 		http
 				// API sin sesiones ni formularios: cada solicitud trae su token.
 				.csrf(AbstractHttpConfigurer::disable)
@@ -52,6 +56,8 @@ public class SeguridadConfig {
 				.formLogin(AbstractHttpConfigurer::disable)
 				.logout(AbstractHttpConfigurer::disable)
 				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				// HSTS: en respuestas HTTPS, el cliente queda obligado a usar solo HTTPS por un año
+				// (Spring solo lo envía en solicitudes seguras, como exige el estándar).
 				.headers(headers -> headers
 						.httpStrictTransportSecurity(hsts -> hsts
 								.includeSubDomains(true)
@@ -89,6 +95,8 @@ public class SeguridadConfig {
 						.accessDeniedHandler((solicitud, respuesta, ex) ->
 								escribirError(respuesta, HttpServletResponse.SC_FORBIDDEN, MENSAJE_403)))
 
+				// Primero se exige HTTPS (8.4.1, SCRUM-100): sin cifrado no se lee ni el token.
+				.addFilterBefore(new FiltroExigirHttps(exigirHttps), UsernamePasswordAuthenticationFilter.class)
 				.addFilterBefore(new FiltroJwt(jwt, usuarios), UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();

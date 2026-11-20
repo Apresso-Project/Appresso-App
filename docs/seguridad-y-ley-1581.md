@@ -17,7 +17,27 @@ Este documento especifica e instruye las medidas de seguridad informática imple
   - URLs HTTP base en producción: `https://...`
   - URLs WebSocket en producción: `wss://...` (mapeadas automáticamente por `ClienteHttp.urlWebSocket`).
 - **Android Network Security Configuration:** Archivo `android/app/src/main/res/xml/network_security_config.xml` configurado con `<base-config cleartextTrafficPermitted="false">`, impidiendo de forma estricta cualquier tráfico en claro (HTTP sin cifrar) en compilaciones de producción.
-- **HSTS (HTTP Strict Transport Security):** En el backend Spring Boot (`SeguridadConfig.java`), se emite la cabecera `Strict-Transport-Security: max-age=31536000; includeSubDomains` para forzar a navegadores y clientes a utilizar exclusivamente HTTPS.
+- **HSTS (HTTP Strict Transport Security):** En el backend Spring Boot (`SeguridadConfig.java`), se emite la cabecera `Strict-Transport-Security: max-age=31536000; includeSubDomains` para forzar a navegadores y clientes a utilizar exclusivamente HTTPS. Solo se envía en respuestas HTTPS, como exige el estándar.
+
+#### Backend: cómo se exige HTTPS (SCRUM-100)
+
+En producción el backend corre detrás de un proxy o balanceador que termina TLS (`https://` y `wss://`) y le reenvía las solicitudes por la red interna.
+
+| Variable / propiedad | Valor en producción | Efecto |
+|---|---|---|
+| `EXIGIR_HTTPS` (`appresso.seguridad.exigir-https`) | `true` | `FiltroExigirHttps` rechaza con **`426 Upgrade Required`** y `{"mensaje": "Esta API solo acepta conexiones cifradas (HTTPS)."}` toda solicitud sin cifrar, incluido el WebSocket. Va **antes** de leer el token. No redirige: una redirección llegaría tarde, porque el token o la contraseña ya habrían viajado en claro. |
+| `server.forward-headers-strategy` | `native` (ya configurado) | Tomcat toma `X-Forwarded-Proto: https` del proxy para saber que la solicitud original fue cifrada. Solo confía en proxies de la red interna, así que un cliente externo no puede falsificarlo. |
+
+Excepción: `/actuator/health` responde por HTTP para que el balanceador revise la salud del servicio; no expone datos. En desarrollo local `EXIGIR_HTTPS` queda en `false` y el backend responde por `http://localhost:8080`. Pruebas: `ExigirHttpsTest` y `SinExigirHttpsTest`.
+
+**Probar HTTPS real en local (opcional).** Desde `backend/`, genera un certificado de prueba (no se sube al repositorio, `certs/` está en `.gitignore`):
+
+```
+mkdir certs
+keytool -genkeypair -alias appresso -keyalg RSA -keysize 2048 -validity 365 -storetype PKCS12 -keystore certs/appresso-local.p12 -dname "CN=localhost" -ext "SAN=dns:localhost,ip:127.0.0.1" -storepass una_clave_local
+```
+
+En `backend/.env`: `spring.profiles.active=dev,https` y `HTTPS_KEYSTORE_CLAVE=una_clave_local`. El backend arranca en `https://localhost:8443` con HTTPS exigido. Prueba con `curl -k https://localhost:8443/api/health` (`-k` porque el certificado es autofirmado) y comprueba que `http://` no responde. La app Android no confía en certificados autofirmados: para la app sigue usando el backend local por HTTP en compilaciones debug.
 
 ### 1.3. Almacenamiento seguro de tokens en Android Keystore
 - **Custodia por hardware:** El token JWT de sesión y la información sensible de la sesión activa se gestionan mediante `AlmacenSesionKeystore`.
@@ -46,16 +66,17 @@ Todo cliente registrado en el programa de fidelización (módulo 6, RF-50) visua
 - **Validación en cliente:** El botón "Registrar" permanece deshabilitado hasta que el usuario marque activamente la casilla de consentimiento. Intentar registrar sin aceptación genera un mensaje de error y no realiza ninguna petición de red.
 - **Validación en backend:** El servicio `ClienteService` valida estrictamente `aceptoTratamientoDatos == true`. Si el valor es nulo o falso, responde `400 Bad Request` con mensaje *"El registro de clientes exige la aceptación explícita de la política de tratamiento de datos personales conforme a la Ley 1581 de 2012"*.
 
-### 2.3. Trazabilidad del consentimiento
+### 2.3. Trazabilidad del consentimiento (SCRUM-101)
 Para garantizar el principio de responsabilidad demostrada (*Accountability*):
-1. **Timestamp en base de datos:** Cada registro de cliente almacena `fecha_aceptacion_datos` con precisión de milisegundos (`Instant` en UTC).
-2. **Pista de auditoría inmutable:** Se genera un registro automático en la tabla `registros_auditoria` (`RegistroAuditoria`) con:
+1. **Fecha en el cliente:** cada registro guarda `fecha_aceptacion_datos` (`Instant` en UTC) y `acepto_tratamiento_datos`.
+2. **Registro inmutable en auditoría** (`registros_auditoria`, no se edita ni se borra):
    - `tipoOperacion`: `CONSENTIMIENTO_DATOS_1581`
-   - `entidad`: `Cliente`
-   - `entidadId`: Identificador del cliente.
-   - `usuario`: Operador (mesero o administrador) que facilitó el registro.
-   - `fecha`: Marca temporal exacta del otorgamiento del consentimiento.
-   - `detalle`: Constancia del documento y titular que otorgó la autorización.
+   - `entidad` / `entidadId`: `Cliente` y el id del cliente.
+   - `usuario`: el mesero o administrador que hizo el registro.
+   - `fecha`: momento exacto del consentimiento.
+   - `detalle`: constancia de la autorización y **versión del texto aceptado** (`ClienteService.VERSION_TEXTO_AUTORIZACION`, hoy `1581-v1-2026-11`). Si el texto de `strings.xml` (`cliente_autorizacion_texto`) cambia, se sube esa versión.
+3. **Sin datos personales en la auditoría:** el detalle identifica al cliente solo por su id, nunca por nombre, documento o celular. Como la auditoría es inmutable, si los guardara sobrevivirían a una supresión.
+4. **Consulta de la evidencia:** `GET /api/clientes/{id}/consentimiento` (solo administrador) devuelve el historial del cliente: cuándo se otorgó el consentimiento, quién lo registró y, si aplica, cuándo se suprimieron sus datos. Funciona aunque el cliente ya haya sido eliminado.
 
 ---
 
@@ -76,22 +97,21 @@ Conforme al **Artículo 15 de la Ley 1581 de 2012**, los titulares o sus causaha
    - Manifestación verbal o escrita en el punto de atención de la cafetería **CaffeBar**, atendida por el administrador en turno.
 
 ### 3.2. Procedimiento técnico y ciclo de vida de la supresión
-Al procesar una solicitud de eliminación de datos personales:
-1. **Verificación de dependencias comerciales/fiscales:**
-   - Si el cliente **no tiene comandas ni pagos históricos asociados**, se realiza la eliminación física (`DELETE`) del registro de la base de datos.
-   - Si el cliente **posee historial de comandas o pagos** (los cuales deben conservarse por exigencia legal del Código de Comercio y normas tributarias por mínimo 5 a 10 años):
-     - Se ejecuta una **anonimización irreversible** de los datos de carácter personal:
-       - `nombre` pasa a `"[DATOS ELIMINADOS]"`
-       - `apellido` pasa a `"[LEY 1581]"`
-       - `celular` pasa a `"[ELIMINADO]"`
-       - `aceptoTratamientoDatos` pasa a `false` (revocación formal de la autorización)
-2. **Registro de trazabilidad de supresión:**
-   - Se crea una entrada inmutable en la tabla de auditoría:
-     - `tipoOperacion`: `SUPRESION_DATOS_LEY_1581`
-     - `entidad`: `Cliente`
-     - `entidadId`: Id del registro afectado.
-     - `detalle`: Detalle de la supresión ejecutada y motivo de la solicitud.
-     - `fecha`: Fecha y hora de atención.
+Quién la ejecuta: `POST /api/clientes/{id}/solicitar-eliminacion` (administrador o mesero, con un `motivo` opcional de hasta 500 caracteres) o `DELETE /api/clientes/{id}` (solo administrador). El motivo no debe incluir datos personales: queda en la auditoría. Al procesar la solicitud (`ClienteService.suprimirDatosPersonales`, en una sola transacción):
+
+1. **Notificaciones:** se borran siempre (son solo mensajes para el cliente).
+2. **Cuenta de usuario del cliente** (si tiene una para entrar a la app): se desactiva y se anonimiza (`nombre` → `[DATOS ELIMINADOS]`, `correo` → `eliminado-<id>@appresso.invalid`).
+3. **Se revisa el historial comercial antes de borrar** (comandas y canjes de recompensas):
+   - **Sin historial:** eliminación física del cliente.
+   - **Con historial** (se conserva por exigencia del Código de Comercio y normas tributarias): **anonimización irreversible**:
+     - `nombre` → `[DATOS ELIMINADOS]`
+     - `apellido` → `[LEY 1581]`
+     - `documento` → `ELIM-<id>` (el documento real desaparece; el valor sigue siendo único)
+     - `celular` → `[ELIMINADO]`
+     - `aceptoTratamientoDatos` → `false` (revocación de la autorización)
+4. **Registro de la supresión** en auditoría: `tipoOperacion` `SUPRESION_DATOS_LEY_1581`, id del cliente, quién la atendió, fecha, si los datos se eliminaron o se anonimizaron y el motivo.
+
+Responde `204` si se ejecutó y `404` si el cliente no existe. Pruebas: `ClienteSupresionTest`.
 
 ### 3.3. Tiempos máximos legales de respuesta
 - **Término ordinario:** Quince (**15**) días hábiles contados a partir del día siguiente a la recepción de la solicitud (Art. 15, Ley 1581).

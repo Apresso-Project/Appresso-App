@@ -35,3 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Certificados locales de HTTPS (perfil "https", 8.4.1) ###
+certs/
+*.p12

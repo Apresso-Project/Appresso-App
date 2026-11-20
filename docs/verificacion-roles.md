@@ -7,7 +7,7 @@ Evidencia del entregable 2.3.1 (control de acceso por rol), subtarea SCRUM-51. C
 | Todo endpoint protegido rechaza a los roles no autorizados con 403 | Parte A (script) |
 | Cada rol ve solo las opciones que le corresponden, con los cinco roles | Parte B (app) |
 | La app muestra "Sin conexión a Internet. Por favor, verifica tu red." y no se cierra | Parte C (app) |
-| Las pruebas automatizadas cubren cada rol contra cada endpoint restringido | `PoliticaPermisosTest` (backend, 42 reglas × 5 roles) y `PermisosTest` (app) |
+| Las pruebas automatizadas cubren cada rol contra cada endpoint restringido | `PoliticaPermisosTest` (backend, cada regla × 5 roles) y `PermisosTest` (app) |
 
 **Fecha:** ____ · **Quién verificó:** ____ · **Commit:** ____ · **Dispositivo:** ____ (Android __)
 
@@ -40,7 +40,7 @@ Desde `backend/`, en PowerShell:
 .\scripts\verificar-roles.ps1 -ClaveAdmin "una_clave" -ClaveUsuarios "otra_clave"
 ```
 
-Inicia sesión con los cinco roles y prueba las 42 reglas de [`permisos-por-rol.md`](permisos-por-rol.md) con cada uno y sin token (252 verificaciones). Guarda el detalle en `verificacion-roles.csv`.
+Inicia sesión con los cinco roles y prueba cada regla de [`permisos-por-rol.md`](permisos-por-rol.md) con cada uno y sin token (6 verificaciones por regla). Guarda el detalle en `verificacion-roles.csv`.
 
 | Resultado | |
 |---|---|

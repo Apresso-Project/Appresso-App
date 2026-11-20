@@ -45,6 +45,12 @@ public class ClienteController {
 		return servicio.listar();
 	}
 
+	/** Trazabilidad del consentimiento (Ley 1581): cuándo se otorgó, quién lo atendió y si se suprimió. */
+	@GetMapping("/{id}/consentimiento")
+	public List<ConsentimientoRespuesta> historialConsentimiento(@PathVariable Long id) {
+		return servicio.historialConsentimiento(id);
+	}
+
 	@GetMapping("/{documento}")
 	public ClienteRespuesta buscarPorDocumento(@PathVariable String documento) {
 		return servicio.buscarPorDocumento(documento);
@@ -62,7 +68,7 @@ public class ClienteController {
 	@PostMapping("/{id}/solicitar-eliminacion")
 	public ResponseEntity<Void> solicitarEliminacion(
 			@PathVariable Long id,
-			@RequestBody(required = false) SolicitudEliminacionRequest solicitud,
+			@Valid @RequestBody(required = false) SolicitudEliminacionRequest solicitud,
 			@AuthenticationPrincipal UsuarioAutenticado actor) {
 		Long actorId = actor != null ? actor.id() : null;
 		String motivo = solicitud != null ? solicitud.motivo() : null;

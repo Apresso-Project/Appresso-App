@@ -124,6 +124,8 @@ public final class PoliticaPermisos {
 			regla(POST, "/api/clientes/*/solicitar-eliminacion", "/api/clientes/1/solicitar-eliminacion",
 					solo(ADMINISTRADOR, MESERO), "Ley 1581"),
 			regla(DELETE, "/api/clientes/*", "/api/clientes/1", solo(ADMINISTRADOR), "Ley 1581"),
+			regla(GET, "/api/clientes/*/consentimiento", "/api/clientes/1/consentimiento", solo(ADMINISTRADOR),
+					"Ley 1581"),
 			regla(GET, "/api/clientes/**", "/api/clientes/1234567890", solo(ADMINISTRADOR, MESERO), "RF-51, RF-57"),
 			regla(CUALQUIERA, "/api/clientes/**", "/api/clientes/1/otra", NADIE, "—"),
 			regla(GET, "/api/recompensas/**", "/api/recompensas", solo(ADMINISTRADOR, MESERO, CLIENTE),

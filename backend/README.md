@@ -241,10 +241,11 @@ En un servidor no hay archivo `.env`: las variables las define el proveedor del 
 
 - Se pueden definir `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`, igual que en desarrollo.
 - Debe definirse `JWT_SECRET` (32 caracteres o más), **distinta a la de desarrollo** y guardada solo en las variables del servidor. Opcionalmente `JWT_EXPIRACION_MINUTOS` (por defecto 720, es decir, 12 horas).
+- Debe definirse **`EXIGIR_HTTPS=true`**: el backend rechaza con `426` toda solicitud sin cifrar (8.4.1). El TLS (`https://` y `wss://`) lo termina el proxy o balanceador del servidor, que le indica al backend `X-Forwarded-Proto: https`. Detalle en [`docs/seguridad-y-ley-1581.md`](../docs/seguridad-y-ley-1581.md), sección 1.2.
 - **No definas `spring.profiles.active=dev` ni `DEV_ADMIN_*` en el servidor.** Son solo para tu computador: crearían una cuenta de administrador con una contraseña conocida por el equipo.
 - O, si el proveedor entrega una sola dirección de conexión, se puede usar `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` y `SPRING_DATASOURCE_PASSWORD`. Spring las usa en lugar de lo que diga `application.properties`.
 
-El despliegue (servidor, HTTPS, copias de seguridad) es el entregable 8.5.1 y no está resuelto aquí.
+El despliegue (servidor, certificado TLS, copias de seguridad) es el entregable 8.5.1 y no está resuelto aquí.
 
 ---
 
