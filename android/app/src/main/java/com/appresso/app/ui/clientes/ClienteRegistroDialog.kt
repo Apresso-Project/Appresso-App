@@ -174,9 +174,7 @@ fun ClienteRegistroDialog(
                 onClick = {
                     onRegistrar(nombre, apellido, documento, celular, aceptoTratamientoDatos)
                 },
-                enabled = !guardando && aceptoTratamientoDatos &&
-                    nombre.isNotBlank() && apellido.isNotBlank() &&
-                    documento.isNotBlank() && celular.isNotBlank(),
+                enabled = !guardando,
                 colors = ButtonDefaults.buttonColors(containerColor = Espresso),
             ) {
                 if (guardando) {
