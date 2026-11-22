@@ -106,8 +106,21 @@ Los eventos de comanda ya los publica `ComandaService` en `/topic/comandas` (8.2
 
 El evento es una foto resumida (`comandaId`, `mesaId`, `estado`…); el detalle completo siempre sale de la lista REST. Además, al conectar, al reconectar y cuando la `secuencia` salta (`tiempo-real.md`), la pantalla pide la lista por REST: así recupera lo que pasó mientras estuvo desconectada.
 
-**Plazo:** la comanda aparece en cocina y los cambios de estado se propagan en menos de 3 segundos (RF-18, RF-21, RF-26). `ComandaCocinaTest` lo comprueba con un cliente WebSocket real: mide desde que se envía la comanda hasta que el evento llega y la lista REST ya la muestra. Es una prueba en una sola máquina (mide el servidor, no la red del local).
+**Plazo:** la comanda aparece en cocina y los cambios de estado se propagan en menos de 3 segundos (RF-18, RF-21, RF-26). `CocinaTiempoRealTest` lo comprueba con un cliente WebSocket real y commits reales: mide desde que se pide el cambio hasta que el evento llega y la lista REST ya lo muestra (envío, producto agregado, preparación, lista y cierre), e imprime los tiempos. Es una prueba en una sola máquina (mide el servidor, no la red del local).
 
 ## Rendimiento del menú (SCRUM-89)
 
 La consulta del menú es una sola consulta a la base (`ProductoRepository.findDelMenu`, con la categoría cargada junto al producto, sin consultas por fila). `MenuTest` comprueba con un catálogo grande (10 categorías × 100 productos, más de 50 veces el tamaño esperado de una cafetería) que la respuesta completa tarda **2 segundos o menos**, y que esa cifra incluye seguridad, consulta y conversión a JSON.
+
+## Pruebas (SCRUM-89)
+
+`cd backend && ./gradlew test` incluye:
+
+| Clase | Qué comprueba |
+|---|---|
+| `MenuTest` | Solo salen productos activos, de categoría activa y con stock; agrupación y orden; precio y existencias vigentes (ingreso manual reaparece, venta que agota lo quita, cambio de precio); `DISPONIBLE` y `POCAS_UNIDADES` (igual al umbral cuenta como pocas); el umbral no se envía; roles (admin, mesero y cliente 200; cajero y cocinero 403; sin sesión 401); solo lectura; **rendimiento ≤ 2 s** con 1000 productos. |
+| `ComandaCocinaTest` | Pendientes y cerradas no salen; los tres estados con su nombre; orden por hora de envío (no por creación ni por estado); mesa, productos, cantidades y observaciones sin recortar; producto agregado marcado; sin precios; roles (cliente 403, sin sesión 401). |
+| `CocinaTiempoRealTest` | De punta a punta con WebSocket real: la comanda aparece en cocina y cada cambio de estado se propaga en **menos de 3 s**. |
+| `PoliticaPermisosTest` | La regla nueva de `/api/menu/**`, con los cinco roles. |
+
+Los tiempos son de una sola máquina (miden el servidor, no la red del local). La medición bajo condiciones normales de red se repite con los teléfonos en la prueba piloto (`tiempo-real.md`, mediciones en dispositivo real).
