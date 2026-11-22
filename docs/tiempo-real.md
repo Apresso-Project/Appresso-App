@@ -64,7 +64,7 @@ El servidor **no guarda** los eventos que se envían mientras un dispositivo est
 3. **Al reconectar:** volver a suscribirse a los tópicos y **volver a consultar el estado por REST** (comandas del día y catálogo) antes de seguir con los eventos nuevos.
 4. **Vigilar la `secuencia`:** si llega un número que no es el anterior + 1, o uno menor al último (el servidor se reinició), también hay que reconsultar por REST.
 
-> Las consultas REST de comandas y catálogo las construyen otras tareas; esta capa solo define cuándo usarlas.
+> Las consultas REST de **menú** y de **comandas para cocina** ya existen (3.3.1, `api-menu-cocina.md`): `GET /api/menu` y `GET /api/comandas/cocina`. El listado general de comandas lo construye 4.2.1.
 
 ## Cliente Android (SCRUM-29 y SCRUM-30)
 
@@ -224,7 +224,7 @@ La prueba de carga corre en una sola máquina, así que mide el servidor, no la 
 
 ## Límites actuales
 
-- **Cliente sin REST de resincronización:** el cliente avisa cuándo consultar por REST, pero las consultas de comandas y catálogo las construyen otras tareas.
+- **Resincronización parcial:** el cliente avisa cuándo consultar por REST. Ya existen las consultas del menú y de cocina (3.3.1); falta el listado general de comandas (4.2.1).
 - **Autenticación solo al conectar:** el `CONNECT` exige `Authorization: Bearer <token>` (2.3.1, `AutenticacionStomp`); sin token válido, o con una cuenta desactivada, el servidor responde `ERROR` y cierra. El token se valida una sola vez: una conexión abierta sigue viva aunque después se desactive la cuenta o venza el token (12 h); al reconectar se vuelve a validar. Tampoco hay permisos por tópico: cualquier rol autenticado puede suscribirse a `/topic/comandas` y `/topic/catalogo`. Decidir si el cliente debe verlos (RNF-07).
 - **Broker en memoria:** sirve con un solo servidor. Con varios habría que usar un broker externo.
 - **Los eventos no se guardan:** la recuperación depende de reconsultar por REST.
