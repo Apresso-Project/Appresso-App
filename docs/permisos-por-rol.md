@@ -41,6 +41,13 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 | Otros | `/api/productos/**` (incluye umbral mínimo) | ✅ | | | | | RF-06, RF-09 |
 | Cualquiera | `/api/inventario/**` (movimientos, alertas, historial) | ✅ | | | | | RF-07, RF-10, RF-14 |
 
+### Menú
+
+| Método | Ruta | Admin | Cajero | Mesero | Cocinero | Cliente | RF |
+|---|---|:-:|:-:|:-:|:-:|:-:|---|
+| GET | `/api/menu/**` | ✅ | | ✅ | | ✅ | RF-11, RF-13 |
+| Otros | `/api/menu/**` | | | | | | — |
+
 ### Comandas y cocina
 
 | Método | Ruta | Admin | Cajero | Mesero | Cocinero | Cliente | RF |

@@ -86,6 +86,10 @@ public final class PoliticaPermisos {
 			regla(CUALQUIERA, "/api/inventario/**", "/api/inventario/movimientos", solo(ADMINISTRADOR),
 					"RF-07, RF-10, RF-14"),
 
+			// ---------------------------------------------------------------- Menú (módulo 3)
+			regla(GET, "/api/menu/**", "/api/menu", solo(ADMINISTRADOR, MESERO, CLIENTE), "RF-11, RF-13"),
+			regla(CUALQUIERA, "/api/menu/**", "/api/menu/1", NADIE, "—"),
+
 			// ---------------------------------------------------------------- Comandas y cocina (módulos 3 y 4)
 			regla(GET, "/api/mesas/**", "/api/mesas", solo(ADMINISTRADOR, MESERO), "RF-15"),
 			regla(PATCH, "/api/comandas/*/estado", "/api/comandas/1/estado", solo(ADMINISTRADOR, COCINERO), "RF-25"),
