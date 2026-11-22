@@ -124,3 +124,18 @@ La consulta del menú es una sola consulta a la base (`ProductoRepository.findDe
 | `PoliticaPermisosTest` | La regla nueva de `/api/menu/**`, con los cinco roles. |
 
 Los tiempos son de una sola máquina (miden el servidor, no la red del local). La medición bajo condiciones normales de red se repite con los teléfonos en la prueba piloto (`tiempo-real.md`, mediciones en dispositivo real).
+
+### Mediciones (22 de noviembre de 2026)
+
+Medidas por las pruebas en el computador de desarrollo (una sola máquina, sin red de por medio), con `./gradlew test --tests "*MenuTest" --tests "*CocinaTiempoRealTest" -i`:
+
+| Qué se mide | Tiempo | Plazo |
+|---|---|---|
+| Menú con 1000 productos (respuesta completa) | 90 ms | ≤ 2000 ms |
+| Cocina: comanda enviada visible en la lista | 121 ms | < 3000 ms |
+| Cocina: producto agregado a una comanda enviada | 69 ms | < 3000 ms |
+| Cocina: paso a «En preparación» | 34 ms | < 3000 ms |
+| Cocina: paso a «Lista» | 30 ms | < 3000 ms |
+| Cocina: cierre (desaparece de la lista) | 32 ms | < 3000 ms |
+
+Es una medición por prueba, no un percentil: sirve para detectar problemas del servidor, no mide la red del local. La medición con teléfonos reales, bajo condiciones normales de red, se hace en la prueba piloto (`tiempo-real.md`, mediciones en dispositivo real).
