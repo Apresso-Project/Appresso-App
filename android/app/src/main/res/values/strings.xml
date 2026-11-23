@@ -105,6 +105,8 @@
     <!-- Opciones del menú (ver permisos/Permisos.kt) -->
     <string name="opcion_usuarios">Usuarios</string>
     <string name="opcion_usuarios_desc">Crea, edita y desactiva las cuentas del equipo.</string>
+    <string name="opcion_menu">Menú</string>
+    <string name="opcion_menu_desc">Productos disponibles con su precio y existencias.</string>
     <string name="opcion_productos_inventario">Productos e inventario</string>
     <string name="opcion_productos_inventario_desc">Catálogo, existencias, alertas y movimientos.</string>
     <string name="opcion_mesas_comandas">Mesas y comandas</string>
@@ -285,4 +287,13 @@
     </plurals>
     <string name="prod_error_numero">Escribe un número entero entre 0 y %1$d.</string>
     <string name="prod_error_no_encontrado">Ese producto ya no existe. Se actualizó la lista.</string>
+
+    <!-- Menú de solo lectura (3.3.1, SCRUM-91) -->
+    <string name="menu_titulo">Menú</string>
+    <string name="menu_volver">Volver al inicio</string>
+    <string name="menu_cargando">Cargando el menú</string>
+    <string name="menu_vacio">Por ahora no hay productos disponibles.</string>
+    <string name="menu_filtro_todas">Todas</string>
+    <string name="menu_stock_disponible">Disponible: %1$d</string>
+    <string name="menu_stock_pocas">Pocas unidades: %1$d</string>
 </resources>

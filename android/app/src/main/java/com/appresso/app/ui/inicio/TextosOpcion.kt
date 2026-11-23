@@ -9,6 +9,7 @@ import com.appresso.app.permisos.Opcion
 @StringRes
 fun Opcion.titulo(): Int = when (this) {
     Opcion.USUARIOS -> R.string.opcion_usuarios
+    Opcion.MENU -> R.string.opcion_menu
     Opcion.PRODUCTOS_E_INVENTARIO -> R.string.opcion_productos_inventario
     Opcion.MESAS_Y_COMANDAS -> R.string.opcion_mesas_comandas
     Opcion.PEDIDOS -> R.string.opcion_pedidos
@@ -24,6 +25,7 @@ fun Opcion.titulo(): Int = when (this) {
 @StringRes
 fun Opcion.descripcion(): Int = when (this) {
     Opcion.USUARIOS -> R.string.opcion_usuarios_desc
+    Opcion.MENU -> R.string.opcion_menu_desc
     Opcion.PRODUCTOS_E_INVENTARIO -> R.string.opcion_productos_inventario_desc
     Opcion.MESAS_Y_COMANDAS -> R.string.opcion_mesas_comandas_desc
     Opcion.PEDIDOS -> R.string.opcion_pedidos_desc

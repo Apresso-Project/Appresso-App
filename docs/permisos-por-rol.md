@@ -4,7 +4,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 
 > **Fuente de verdad:** `backend/src/main/java/com/appresso/backend/seguridad/PoliticaPermisos.java`. Este documento es su versión legible: si cambias una regla allá, actualízala aquí en el mismo Pull Request. `PoliticaPermisosTest` prueba cada fila con los cinco roles (SCRUM-45).
 >
-> **En la app Android** la misma política está en `android/app/src/main/java/com/appresso/app/permisos/Permisos.kt` (SCRUM-48): decide qué opciones ve cada rol en su inicio y qué botones mostrar. Si cambias una regla aquí, cámbiala también allá.
+> **En la app Android** la misma política está en `android/app/src/main/java/com/appresso/app/permisos/Permisos.kt` (SCRUM-48): decide qué opciones ve cada rol en su inicio y qué botones mostrar. Si cambias una regla aquí, cámbiala también allá. La acción `VER_MENU` / opción `MENU` (administrador, mesero y cliente) corresponde a `GET /api/menu`.
 
 ## Cómo funciona
 

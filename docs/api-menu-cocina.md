@@ -55,6 +55,14 @@ El umbral mínimo no se envía (es un dato del administrador, `/api/productos`).
 
 Para mantener la pantalla al día sin recargar, el cliente escucha `/topic/catalogo` (`PRODUCTO_*`, `EXISTENCIAS_ACTUALIZADAS`, `CATEGORIA_*`; ver `tiempo-real.md`) y, ante cualquiera, vuelve a pedir `GET /api/menu`. El evento es una foto resumida; el menú completo siempre se lee por REST.
 
+## App Android: menú de solo lectura (SCRUM-90 y SCRUM-91)
+
+- **Datos:** `MenuApi` (`GET api/menu`) → `MenuRepositoryRemoto` → `MenuRepository.consultar()`, que devuelve el mismo `ResultadoCatalogo` del catálogo (éxito, 401, 403, sin conexión, error del servidor). El precio se lee exacto (`PrecioSerializer`, sin pasar por `Double`). Una descripción o imagen en blanco llega como `null`; una categoría sin productos no se muestra.
+- **Pantalla:** `MenuScreen`/`MenuViewModel` (`ui/menu`). Lista vertical de productos agrupados por categoría, con imagen, descripción, precio en pesos y existencias en texto («Disponible: N» o «Pocas unidades: N», RNF-17), más un filtro por categoría. No tiene botones de edición. Lo agotado o desactivado no llega del backend, así que la app no lo filtra.
+- **Quién la ve:** `Opcion.MENU` / `Accion.VER_MENU` para administrador, mesero y cliente (igual que `GET /api/menu`, ver `permisos-por-rol.md`); cajero y cocinero no la tienen.
+- **Tiempo real:** con la sección abierta y la app en primer plano, la app escucha `/topic/catalogo` y, ante cualquier evento o una reconexión, vuelve a pedir el menú **en silencio** (sin indicador de carga ni mensajes de error; si falla, se conserva lo que ya se veía).
+- **Errores:** 401 cierra la sesión (lo hace el cliente HTTP); 403 y sin conexión los avisa el cliente HTTP con su mensaje y la pantalla además deja el botón «Reintentar» cuando no hay nada que mostrar.
+
 ## Comandas activas para cocina (SCRUM-88)
 
 `GET /api/comandas/cocina`: las comandas que la pantalla de cocina debe mostrar (RF-23, RF-24).

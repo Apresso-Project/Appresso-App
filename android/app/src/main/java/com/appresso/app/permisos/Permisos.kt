@@ -27,6 +27,9 @@ enum class Accion(vararg permitidos: Rol) {
     // Usuarios
     GESTIONAR_USUARIOS(ADMINISTRADOR),
 
+    // Menú
+    VER_MENU(ADMINISTRADOR, MESERO, CLIENTE),
+
     // Inventario
     VER_CATALOGO(ADMINISTRADOR, MESERO),
     GESTIONAR_CATALOGO(ADMINISTRADOR),
@@ -73,6 +76,7 @@ enum class Accion(vararg permitidos: Rol) {
  */
 enum class Opcion(vararg incluidas: Accion) {
     USUARIOS(Accion.GESTIONAR_USUARIOS),
+    MENU(Accion.VER_MENU),
     PRODUCTOS_E_INVENTARIO(Accion.VER_CATALOGO, Accion.GESTIONAR_CATALOGO, Accion.GESTIONAR_INVENTARIO),
     MESAS_Y_COMANDAS(
         Accion.VER_MESAS, Accion.CREAR_COMANDA, Accion.VER_COMANDAS, Accion.VER_CATALOGO,
@@ -106,6 +110,7 @@ fun opcionesPara(rol: Rol): List<Opcion> = when (rol) {
     ADMINISTRADOR -> listOf(
         Opcion.USUARIOS,
         Opcion.PRODUCTOS_E_INVENTARIO,
+        Opcion.MENU,
         Opcion.MESAS_Y_COMANDAS,
         Opcion.COCINA,
         Opcion.COBROS,
@@ -115,9 +120,9 @@ fun opcionesPara(rol: Rol): List<Opcion> = when (rol) {
         Opcion.RECOMPENSAS_Y_PROMOCIONES,
     )
     CAJERO -> listOf(Opcion.COBROS, Opcion.PEDIDOS, Opcion.CAJA, Opcion.SOLICITUDES_RETIRO)
-    MESERO -> listOf(Opcion.MESAS_Y_COMANDAS, Opcion.COBROS, Opcion.CLIENTES)
+    MESERO -> listOf(Opcion.MESAS_Y_COMANDAS, Opcion.MENU, Opcion.COBROS, Opcion.CLIENTES)
     COCINERO -> listOf(Opcion.COCINA)
-    CLIENTE -> listOf(Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES)
+    CLIENTE -> listOf(Opcion.MENU, Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES)
 }
 
 /** ¿El rol puede abrir esta sección? */

@@ -44,6 +44,8 @@ import com.appresso.app.ui.inicio.InicioScreen
 import com.appresso.app.ui.inicio.SeccionProvisionalScreen
 import com.appresso.app.ui.login.LoginRoute
 import com.appresso.app.ui.login.LoginViewModel
+import com.appresso.app.ui.menu.MenuRoute
+import com.appresso.app.ui.menu.MenuViewModel
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
 import com.appresso.app.tiemporeal.cambiosDeCatalogo
@@ -173,13 +175,15 @@ private fun PantallasPublicas(contenedor: ContenedorApp) {
 @Composable
 private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     when (destino.opcion) {
-        // Solo el administrador gestiona el catálogo; el menú de solo lectura del mesero (3.3.1) aún
-        // no existe y queda en la pantalla provisional.
+        // Solo el administrador gestiona el catálogo; el mesero y el cliente ven el menú de solo
+        // lectura desde su propia opción (Opcion.MENU).
         Opcion.PRODUCTOS_E_INVENTARIO -> if (puede(destino.rol, Accion.GESTIONAR_CATALOGO)) {
             Catalogo(contenedor, token, onVolver)
         } else {
             SeccionProvisionalScreen(opcion = destino.opcion, onVolver = onVolver)
         }
+
+        Opcion.MENU -> MenuSeccion(contenedor, token, onVolver)
 
         Opcion.USUARIOS -> {
             // La clave evita que otra cuenta que inicie sesión después herede la lista anterior.
@@ -262,4 +266,33 @@ private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> 
         LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
         CategoriasRoute(viewModel = viewModel, onVerProductos = { enProductos = true }, onVolver = onVolver)
     }
+}
+
+/**
+ * Menú de solo lectura (3.3.1) del administrador, el mesero y el cliente. Con la sección abierta y la
+ * app en primer plano escucha `/topic/catalogo`: un cambio de precio, de stock o de disponibilidad en
+ * otro dispositivo (o una reconexión, que pudo perder eventos) vuelve a pedir el menú en silencio.
+ */
+@Composable
+private fun MenuSeccion(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
+    val contexto = LocalContext.current
+    val ciclo = LocalLifecycleOwner.current.lifecycle
+    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto) }
+    DisposableEffect(tiempoReal, ciclo) {
+        ciclo.addObserver(tiempoReal)
+        onDispose {
+            ciclo.removeObserver(tiempoReal)
+            tiempoReal.detener()
+        }
+    }
+    val cambios = remember(tiempoReal) {
+        merge(tiempoReal.eventos.cambiosDeCatalogo(), tiempoReal.resincronizar.map { })
+    }
+    // La clave evita que otra cuenta que inicie sesión después herede el menú anterior.
+    val viewModel: MenuViewModel = viewModel(
+        key = "menu-$token",
+        factory = MenuViewModel.factory(contenedor.menuRepository),
+    )
+    LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
+    MenuRoute(viewModel = viewModel, onVolver = onVolver)
 }
