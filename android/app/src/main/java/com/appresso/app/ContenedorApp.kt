@@ -11,8 +11,11 @@ import com.appresso.app.data.cuenta.CuentaClienteRepository
 import com.appresso.app.data.cuenta.CuentaClienteRepositoryRemoto
 import com.appresso.app.data.catalogo.CatalogoRepository
 import com.appresso.app.data.catalogo.CatalogoRepositoryRemoto
+import com.appresso.app.data.cocina.CocinaRepository
+import com.appresso.app.data.cocina.CocinaRepositoryRemoto
 import com.appresso.app.data.menu.MenuRepository
 import com.appresso.app.data.menu.MenuRepositoryRemoto
+import com.appresso.app.data.remote.CocinaApi
 import com.appresso.app.data.remote.MenuApi
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.CatalogoApi
@@ -62,6 +65,11 @@ class ContenedorApp(private val urlBase: String) {
     /** Menú de solo lectura para mesero y cliente (3.3.1). */
     val menuRepository: MenuRepository by lazy {
         MenuRepositoryRemoto(retrofit.create(MenuApi::class.java))
+    }
+
+    /** Comandas activas para la pantalla de cocina (3.3.1). */
+    val cocinaRepository: CocinaRepository by lazy {
+        CocinaRepositoryRemoto(retrofit.create(CocinaApi::class.java))
     }
 
     val usuariosRepository: UsuariosRepository by lazy {

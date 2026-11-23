@@ -116,6 +116,14 @@ El evento es una foto resumida (`comandaId`, `mesaId`, `estado`…); el detalle 
 
 **Plazo:** la comanda aparece en cocina y los cambios de estado se propagan en menos de 3 segundos (RF-18, RF-21, RF-26). `CocinaTiempoRealTest` lo comprueba con un cliente WebSocket real y commits reales: mide desde que se pide el cambio hasta que el evento llega y la lista REST ya lo muestra (envío, producto agregado, preparación, lista y cierre), e imprime los tiempos. Es una prueba en una sola máquina (mide el servidor, no la red del local).
 
+## App Android: pantalla de cocina (SCRUM-92)
+
+- **Datos:** `CocinaApi` (`GET api/comandas/cocina`) → `CocinaRepositoryRemoto` → `CocinaRepository.consultar()` (mismo `ResultadoCatalogo`). `ENVIADA` se traduce a `PENDIENTE`; las observaciones llegan completas (en blanco = ninguna); una fecha de envío ilegible no tumba la comanda; un estado desconocido deja fuera esa comanda.
+- **Pantalla:** `CocinaScreen`/`CocinaViewModel` (`ui/cocina`). Tarjetas grandes de la más antigua a la más reciente (el orden lo da el servidor): mesa, estado en texto («Pendiente», «En preparación», «Lista»), hora de envío, y cada producto como «2 × Latte» con sus observaciones destacadas y la marca **Agregado** (RF-21). Es de solo lectura: cambiar el estado de preparación es otra historia (RF-25). Una rejilla adaptable muestra varias columnas en una tableta y una en el teléfono.
+- **Tiempo real (RF-26):** con la sección abierta y la app en primer plano, la conexión STOMP escucha `/topic/comandas`. `COMANDA_ESTADO_CAMBIADO` y `COMANDA_MODIFICADA` (y cada reconexión o salto de secuencia) vuelven a pedir la lista en silencio; `COMANDA_CREADA` se ignora. Si llega un cambio **mientras** se está pidiendo la lista, la consulta se repite al terminar, para no dejar una comanda en un estado viejo.
+- **Sin conexión (RNF-21):** un aviso sobre la lista dice «Conectando…» o «Sin conexión… reintentando en N s» mientras no haya conexión en vivo. Si una actualización falla, se conserva lo que ya se veía.
+- **Quién la ve:** `Opcion.COCINA` (administrador y cocinero). El backend deja leer la lista también a mesero y cajero.
+
 ## Rendimiento del menú (SCRUM-89)
 
 La consulta del menú es una sola consulta a la base (`ProductoRepository.findDelMenu`, con la categoría cargada junto al producto, sin consultas por fila). `MenuTest` comprueba con un catálogo grande (10 categorías × 100 productos, más de 50 veces el tamaño esperado de una cafetería) que la respuesta completa tarda **2 segundos o menos**, y que esa cifra incluye seguridad, consulta y conversión a JSON.

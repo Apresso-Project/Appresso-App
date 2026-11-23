@@ -30,6 +30,8 @@ import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Accion
 import com.appresso.app.permisos.Opcion
 import com.appresso.app.ui.clientes.ClientesRoute
+import com.appresso.app.ui.cocina.CocinaRoute
+import com.appresso.app.ui.cocina.CocinaViewModel
 import com.appresso.app.ui.clientes.ClientesViewModel
 import com.appresso.app.ui.cuenta.RecuperarContrasenaRoute
 import com.appresso.app.ui.cuenta.RecuperarContrasenaViewModel
@@ -49,8 +51,11 @@ import com.appresso.app.ui.menu.MenuViewModel
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
 import com.appresso.app.tiemporeal.cambiosDeCatalogo
+import com.appresso.app.tiemporeal.cambiosDeCocina
+import com.appresso.app.tiemporeal.comoResincronizacion
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import java.util.UUID
 
 /**
  * Raíz de la app: elige la pantalla según la sesión y la sección abierta (ver [destinoPara]).
@@ -185,6 +190,8 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
 
         Opcion.MENU -> MenuSeccion(contenedor, token, onVolver)
 
+        Opcion.COCINA -> CocinaSeccion(contenedor, token, onVolver)
+
         Opcion.USUARIOS -> {
             // La clave evita que otra cuenta que inicie sesión después herede la lista anterior.
             val viewModel: UsuariosViewModel = viewModel(
@@ -288,11 +295,43 @@ private fun MenuSeccion(contenedor: ContenedorApp, token: String?, onVolver: () 
     val cambios = remember(tiempoReal) {
         merge(tiempoReal.eventos.cambiosDeCatalogo(), tiempoReal.resincronizar.map { })
     }
-    // La clave evita que otra cuenta que inicie sesión después herede el menú anterior.
+    // La clave evita que otra cuenta, o una visita posterior, herede el menú anterior.
+    val visita = rememberSaveable { UUID.randomUUID().toString() }
     val viewModel: MenuViewModel = viewModel(
-        key = "menu-$token",
+        key = "menu-$token-$visita",
         factory = MenuViewModel.factory(contenedor.menuRepository),
     )
     LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
     MenuRoute(viewModel = viewModel, onVolver = onVolver)
+}
+
+/**
+ * Pantalla de cocina (3.3.1, RF-26): las comandas activas, que se actualizan solas. Mientras la
+ * sección está abierta y la app en primer plano, la conexión STOMP escucha `/topic/comandas`; cada
+ * cambio de estado o producto agregado vuelve a pedir la lista, y una reconexión (que pudo perder
+ * eventos) también. El indicador de la pantalla avisa cuando no hay conexión en vivo (RNF-21).
+ */
+@Composable
+private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
+    val contexto = LocalContext.current
+    val ciclo = LocalLifecycleOwner.current.lifecycle
+    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto) }
+    DisposableEffect(tiempoReal, ciclo) {
+        ciclo.addObserver(tiempoReal)
+        onDispose {
+            ciclo.removeObserver(tiempoReal)
+            tiempoReal.detener()
+        }
+    }
+    val cambios = remember(tiempoReal) {
+        merge(tiempoReal.eventos.cambiosDeCocina(), tiempoReal.resincronizar.comoResincronizacion())
+    }
+    // La clave evita que otra cuenta, o una visita posterior, herede la lista anterior.
+    val visita = rememberSaveable { UUID.randomUUID().toString() }
+    val viewModel: CocinaViewModel = viewModel(
+        key = "cocina-$token-$visita",
+        factory = CocinaViewModel.factory(contenedor.cocinaRepository),
+    )
+    LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.alCambiar(it) } }
+    CocinaRoute(viewModel = viewModel, conexion = tiempoReal.estado, onVolver = onVolver)
 }
