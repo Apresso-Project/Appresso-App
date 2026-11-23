@@ -181,6 +181,7 @@ class MenuViewModelTest {
 
         assertEquals(antes, repo.consultas)
         espera.complete(ResultadoCatalogo.Exito(emptyList()))
+        Unit
     }
 
     private class RepositorioFalso : MenuRepository {
