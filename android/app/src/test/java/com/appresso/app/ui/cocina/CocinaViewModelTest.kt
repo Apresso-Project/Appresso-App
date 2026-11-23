@@ -6,6 +6,8 @@ import com.appresso.app.data.cocina.ComandaCocina
 import com.appresso.app.data.cocina.EstadoCocina
 import com.appresso.app.data.cocina.ItemCocina
 import com.appresso.app.tiemporeal.CambioCocina
+import com.appresso.app.tiemporeal.MedidorCocina
+import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,7 +28,7 @@ class CocinaViewModelTest {
     private fun comanda(id: Long, estado: EstadoCocina = EstadoCocina.PENDIENTE, mesa: String = "Mesa $id") =
         ComandaCocina(id, mesa, estado, null, listOf(ItemCocina("Latte", 1, null, agregado = false)))
 
-    private val cambio = CambioCocina("COMANDA_ESTADO_CAMBIADO", null)
+    private val cambio = CambioCocina("COMANDA_ESTADO_CAMBIADO", null, Instant.parse("2026-11-22T20:15:03Z"))
 
     private val repo = RepositorioFalso()
     private lateinit var vm: CocinaViewModel
@@ -151,6 +153,63 @@ class CocinaViewModelTest {
 
         assertTrue(estado.comandas.isEmpty())
         assertNull(estado.error)
+    }
+
+    // ------------------------------------------------------------ medición (SCRUM-93)
+
+    private fun t(ms: Long) = Instant.ofEpochMilli(1_000_000L + ms)
+
+    @Test
+    fun `con medidor cada cambio se mide cuando la lista nueva esta en pantalla`() {
+        var ahora = t(400)
+        val medidor = MedidorCocina(reloj = { ahora })
+        val conMedidor = CocinaViewModel(repo, medidor)
+
+        conMedidor.alCambiar(CambioCocina("COMANDA_ESTADO_CAMBIADO", t(0), t(150)))
+
+        assertEquals(1, medidor.cantidad())
+        assertEquals(400L, medidor.muestras().single().totalMs)
+        assertEquals(250L, medidor.muestras().single().actualizacionMs)
+        ahora = t(900) // no se vuelve a medir por sí solo
+        assertEquals(1, medidor.cantidad())
+    }
+
+    @Test
+    fun `un cambio que llega durante la consulta se mide despues de la consulta repetida`() {
+        var ahora = t(200)
+        val medidor = MedidorCocina(reloj = { ahora })
+        val primera = CompletableDeferred<ResultadoCatalogo<List<ComandaCocina>>>()
+        repo.enEspera = primera
+        val otro = CocinaViewModel(repo, medidor)
+
+        otro.alCambiar(CambioCocina("COMANDA_MODIFICADA", t(0), t(100)))
+        assertEquals(0, medidor.cantidad()) // todavía no está en pantalla
+
+        repo.enEspera = null
+        ahora = t(700)
+        primera.complete(ResultadoCatalogo.Exito(listOf(comanda(1))))
+
+        // La primera consulta no lo cubría; la repetida sí, y a esa hora se mide.
+        assertEquals(1, medidor.cantidad())
+        assertEquals(700L, medidor.muestras().single().totalMs)
+    }
+
+    @Test
+    fun `si la actualizacion falla el cambio no se mide`() {
+        val medidor = MedidorCocina()
+        val conMedidor = CocinaViewModel(repo, medidor)
+        repo.resultado = ResultadoCatalogo.SinConexion
+
+        conMedidor.alCambiar(CambioCocina("COMANDA_ESTADO_CAMBIADO", t(0), t(10)))
+
+        assertEquals(0, medidor.cantidad())
+    }
+
+    @Test
+    fun `sin medidor alCambiar funciona igual`() {
+        vm.alCambiar(cambio)
+
+        assertEquals(2, repo.consultas)
     }
 
     private class RepositorioFalso : CocinaRepository {

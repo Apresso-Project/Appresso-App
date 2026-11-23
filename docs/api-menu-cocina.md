@@ -124,6 +124,10 @@ El evento es una foto resumida (`comandaId`, `mesaId`, `estado`…); el detalle 
 - **Sin conexión (RNF-21):** un aviso sobre la lista dice «Conectando…» o «Sin conexión… reintentando en N s» mientras no haya conexión en vivo. Si una actualización falla, se conserva lo que ya se veía.
 - **Quién la ve:** `Opcion.COCINA` (administrador y cocinero). El backend deja leer la lista también a mesero y cajero.
 
+## App Android: pruebas y medición (SCRUM-93)
+
+La app mide cada cambio de cocina con `MedidorCocina` (servidor publica → teléfono recibe → lista nueva en pantalla) y lo escribe en logcat con la etiqueta `Cocina`. El procedimiento, el emisor de pruebas (`POST /api/dev/tiempo-real/emitir-cocina`, solo perfil `dev`) y la tabla de resultados reales están en [`medicion-cocina.md`](medicion-cocina.md). Las pruebas unitarias de Android de esta historia son `MenuRepositoryRemotoTest`, `CocinaRepositoryRemotoTest`, `MenuViewModelTest`, `CocinaViewModelTest`, `CambiosCocinaTest`, `MedidorCocinaTest`, `CocinaScreenTest` y los casos nuevos de `PermisosTest`.
+
 ## Rendimiento del menú (SCRUM-89)
 
 La consulta del menú es una sola consulta a la base (`ProductoRepository.findDelMenu`, con la categoría cargada junto al producto, sin consultas por fila). `MenuTest` comprueba con un catálogo grande (10 categorías × 100 productos, más de 50 veces el tamaño esperado de una cafetería) que la respuesta completa tarda **2 segundos o menos**, y que esa cifra incluye seguridad, consulta y conversión a JSON.

@@ -11,6 +11,9 @@ import org.junit.Test
 
 class CambiosCocinaTest {
 
+    private val ahora = Instant.parse("2026-11-22T20:15:03.900Z")
+    private val reloj = { ahora }
+
     private fun evento(tipo: String, fecha: String = "2026-11-22T20:15:03.412Z") =
         EventoTiempoReal("id-$tipo", 1, tipo, fecha, JsonObject())
 
@@ -26,20 +29,21 @@ class CambiosCocinaTest {
 
         assertEquals(
             listOf("COMANDA_ESTADO_CAMBIADO", "COMANDA_MODIFICADA"),
-            eventos.cambiosDeCocina().toList().map { it.tipo },
+            eventos.cambiosDeCocina(reloj).toList().map { it.tipo },
         )
     }
 
     @Test
     fun `el cambio lleva la hora en que el servidor publico el evento`() = runBlocking {
-        val cambio = flowOf(evento("COMANDA_ESTADO_CAMBIADO")).cambiosDeCocina().toList().single()
+        val cambio = flowOf(evento("COMANDA_ESTADO_CAMBIADO")).cambiosDeCocina(reloj).toList().single()
 
         assertEquals(Instant.parse("2026-11-22T20:15:03.412Z"), cambio.fechaServidor)
+        assertEquals(ahora, cambio.recibidoEn)
     }
 
     @Test
     fun `una fecha ilegible no descarta el cambio`() = runBlocking {
-        val cambio = flowOf(evento("COMANDA_MODIFICADA", fecha = "ayer")).cambiosDeCocina().toList().single()
+        val cambio = flowOf(evento("COMANDA_MODIFICADA", fecha = "ayer")).cambiosDeCocina(reloj).toList().single()
 
         assertEquals("COMANDA_MODIFICADA", cambio.tipo)
         assertNull(cambio.fechaServidor)
@@ -47,8 +51,8 @@ class CambiosCocinaTest {
 
     @Test
     fun `una reconexion cuenta como cambio sin fecha`() = runBlocking {
-        val cambios = flowOf("reconectado").comoResincronizacion().toList()
+        val cambios = flowOf("reconectado").comoResincronizacion(reloj).toList()
 
-        assertEquals(listOf(CambioCocina(CambioCocina.RESINCRONIZACION, null)), cambios)
+        assertEquals(listOf(CambioCocina(CambioCocina.RESINCRONIZACION, null, ahora)), cambios)
     }
 }

@@ -1,6 +1,7 @@
 package com.appresso.backend.tiemporeal;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.context.annotation.Profile;
@@ -51,6 +52,49 @@ public class EmisorPruebasController {
 		hilo.setDaemon(true);
 		hilo.start();
 		return Map.of("programados", total, "pausaMs", pausa);
+	}
+
+	/**
+	 * Emite {@code cantidad} eventos de los que mueven la pantalla de cocina (cambios de estado y
+	 * productos agregados, alternados), uno cada {@code pausaMs} milisegundos. Sirve para medir en un
+	 * teléfono cuánto tarda la pantalla de cocina en releer y mostrar la lista tras un evento
+	 * (SCRUM-93, docs/medicion-cocina.md). Las comandas de mentira no existen en la base: la lista
+	 * REST no cambia, pero la app igual la vuelve a pedir, que es lo que se mide.
+	 */
+	@PostMapping("/emitir-cocina")
+	@PreAuthorize("hasRole('ADMINISTRADOR')")
+	public Map<String, Object> emitirCocina(@RequestParam(defaultValue = "10") int cantidad,
+			@RequestParam(defaultValue = "0") long pausaMs) {
+		int total = Math.max(1, Math.min(cantidad, MAXIMO_EVENTOS));
+		long pausa = Math.max(0, Math.min(pausaMs, MAXIMA_PAUSA_MS));
+		Thread hilo = new Thread(() -> emitirCocinaAhora(total, pausa), "emisor-pruebas-cocina");
+		hilo.setDaemon(true);
+		hilo.start();
+		return Map.of("programados", total, "pausaMs", pausa);
+	}
+
+	void emitirCocinaAhora(int cantidad, long pausaMs) {
+		for (int i = 1; i <= cantidad; i++) {
+			long mesaId = 1L + i % 10;
+			if (i % 2 == 1) {
+				publicador.publicarComanda(TipoEvento.COMANDA_ESTADO_CAMBIADO, new ComandaEventoDatos(
+						(long) i, mesaId, "EN_PREPARACION", "ENVIADA", new BigDecimal("9000.00"), null));
+			}
+			else {
+				publicador.publicarComanda(TipoEvento.COMANDA_MODIFICADA, new ComandaEventoDatos(
+						(long) i, mesaId, "ENVIADA", null, new BigDecimal("13500.00"),
+						List.of(new ComandaEventoDatos.ItemAgregado(1L, 1, "sin hielo"))));
+			}
+			if (pausaMs > 0 && i < cantidad) {
+				try {
+					Thread.sleep(pausaMs);
+				}
+				catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					return;
+				}
+			}
+		}
 	}
 
 	void emitirAhora(int cantidad, long pausaMs) {

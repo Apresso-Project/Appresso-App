@@ -208,6 +208,8 @@ Criterio: al menos 95 % de los eventos bajo 3 s. Resultado: …
 
 **No se pudo probar:** …
 
+> **Cocina (3.3.1):** la medición específica de la pantalla de cocina (evento → lista actualizada en pantalla) está en [`medicion-cocina.md`](medicion-cocina.md).
+
 ## Pruebas del servidor
 
 `ServiciosTiempoRealTest` comprueba, con un publicador simulado, que cada operación publica el evento correcto, que se cumplen las reglas de arriba y que una operación inválida no publica nada.

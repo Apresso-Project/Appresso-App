@@ -1,5 +1,6 @@
 package com.appresso.app.ui
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -50,6 +51,7 @@ import com.appresso.app.ui.menu.MenuRoute
 import com.appresso.app.ui.menu.MenuViewModel
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
+import com.appresso.app.tiemporeal.MedidorCocina
 import com.appresso.app.tiemporeal.cambiosDeCatalogo
 import com.appresso.app.tiemporeal.cambiosDeCocina
 import com.appresso.app.tiemporeal.comoResincronizacion
@@ -326,11 +328,13 @@ private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: (
     val cambios = remember(tiempoReal) {
         merge(tiempoReal.eventos.cambiosDeCocina(), tiempoReal.resincronizar.comoResincronizacion())
     }
+    // Mide cada cambio (SCRUM-93) y escribe una línea por muestra en logcat: `adb logcat -s Cocina`.
+    val medidor = remember { MedidorCocina(registro = { Log.i("Cocina", it) }) }
     // La clave evita que otra cuenta, o una visita posterior, herede la lista anterior.
     val visita = rememberSaveable { UUID.randomUUID().toString() }
     val viewModel: CocinaViewModel = viewModel(
         key = "cocina-$token-$visita",
-        factory = CocinaViewModel.factory(contenedor.cocinaRepository),
+        factory = CocinaViewModel.factory(contenedor.cocinaRepository, medidor),
     )
     LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.alCambiar(it) } }
     CocinaRoute(viewModel = viewModel, conexion = tiempoReal.estado, onVolver = onVolver)

@@ -9,6 +9,7 @@ import com.appresso.app.data.catalogo.ResultadoCatalogo
 import com.appresso.app.data.cocina.CocinaRepository
 import com.appresso.app.data.cocina.ComandaCocina
 import com.appresso.app.tiemporeal.CambioCocina
+import com.appresso.app.tiemporeal.MedidorCocina
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,7 +36,8 @@ data class CocinaUiState(
  * Pantalla de cocina en tiempo real (SCRUM-92, RF-23, RF-24, RF-26): las comandas activas y sus
  * productos, de solo lectura. La lista siempre sale de `GET /api/comandas/cocina`; los eventos del
  * WebSocket solo avisan que hay que volver a pedirla ([alCambiar], ver `cambiosDeCocina`), así la
- * pantalla nunca queda con una foto parcial.
+ * pantalla nunca queda con una foto parcial. Con un [medidor], cada cambio se mide desde que el
+ * servidor lo publicó hasta que la lista nueva está en pantalla (plazo de 3 s, SCRUM-93).
  *
  * Si llega un cambio mientras se está pidiendo la lista, la consulta se repite al terminar: el cambio
  * pudo ocurrir después de que el servidor armó esa respuesta, y perderlo dejaría a cocina con una
@@ -43,6 +45,7 @@ data class CocinaUiState(
  */
 class CocinaViewModel(
     private val repositorio: CocinaRepository,
+    private val medidor: MedidorCocina? = null,
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(CocinaUiState())
@@ -50,6 +53,9 @@ class CocinaViewModel(
 
     private var enCurso = false
     private var otraVez = false
+
+    /** Cambios recibidos que aún no se han visto reflejados en pantalla (para medir el plazo, SCRUM-93). */
+    private val porMedir = ArrayList<CambioCocina>()
 
     init {
         consultar(silencioso = false)
@@ -61,7 +67,10 @@ class CocinaViewModel(
      * Cocina cambió (un evento del WebSocket o una reconexión): vuelve a pedir la lista sin indicador
      * de carga ni avisos de error. La pantalla lo llama mientras está visible (ver `AppressoRaiz`).
      */
-    fun alCambiar(@Suppress("UNUSED_PARAMETER") cambio: CambioCocina) = consultar(silencioso = true)
+    fun alCambiar(cambio: CambioCocina) {
+        if (medidor != null) porMedir.add(cambio)
+        consultar(silencioso = true)
+    }
 
     private fun consultar(silencioso: Boolean) {
         if (enCurso) {
@@ -75,7 +84,12 @@ class CocinaViewModel(
                 var silenciosa = silencioso
                 do {
                     otraVez = false
-                    aplicar(repositorio.consultar(), silenciosa)
+                    // Los cambios que ya llegaron quedan cubiertos por esta consulta; los que lleguen
+                    // mientras tanto esperan a la siguiente vuelta.
+                    val cubiertos = porMedir.toList()
+                    porMedir.clear()
+                    val mostrada = aplicar(repositorio.consultar(), silenciosa)
+                    if (mostrada) cubiertos.forEach { medidor?.alMostrarse(it) }
                     silenciosa = true
                 } while (otraVez)
             } finally {
@@ -85,17 +99,19 @@ class CocinaViewModel(
         }
     }
 
-    private fun aplicar(resultado: ResultadoCatalogo<List<ComandaCocina>>, silenciosa: Boolean) {
+    /** Devuelve true si la lista nueva quedó en pantalla. */
+    private fun aplicar(resultado: ResultadoCatalogo<List<ComandaCocina>>, silenciosa: Boolean): Boolean =
         when (resultado) {
-            is ResultadoCatalogo.Exito -> _estado.update {
-                it.copy(cargando = false, comandas = resultado.valor, error = null)
+            is ResultadoCatalogo.Exito -> {
+                _estado.update { it.copy(cargando = false, comandas = resultado.valor, error = null) }
+                true
             }
 
-            else -> if (!silenciosa) {
-                _estado.update { it.copy(cargando = false, error = resultado.aError()) }
+            else -> {
+                if (!silenciosa) _estado.update { it.copy(cargando = false, error = resultado.aError()) }
+                false
             }
         }
-    }
 
     /** 401 no muestra nada (el cliente HTTP cierra la sesión); 403 y sin conexión también los avisa ese cliente, pero aquí se explican porque la pantalla queda vacía. */
     private fun ResultadoCatalogo<*>.aError(): ErrorCocina? = when (this) {
@@ -107,7 +123,7 @@ class CocinaViewModel(
     }
 
     companion object {
-        fun factory(repositorio: CocinaRepository): ViewModelProvider.Factory =
-            viewModelFactory { initializer { CocinaViewModel(repositorio) } }
+        fun factory(repositorio: CocinaRepository, medidor: MedidorCocina? = null): ViewModelProvider.Factory =
+            viewModelFactory { initializer { CocinaViewModel(repositorio, medidor) } }
     }
 }
