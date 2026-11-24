@@ -1,6 +1,7 @@
 package com.appresso.app.data.remote
 
 import java.math.BigDecimal
+import com.appresso.app.data.catalogo.TipoAjuste
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -90,7 +91,36 @@ interface CatalogoApi {
     suspend fun activarProducto(
         @Path("id") id: Long,
     ): Response<ProductoDto>
+
+    @POST("api/inventario/productos/{id}/ajustes")
+    suspend fun ajustar(@Path("id") id: Long, @Body ajuste: AjusteExistenciasBody): Response<ProductoDto>
+
+    @GET("api/inventario/movimientos")
+    suspend fun historial(
+        @Query("producto") producto: String?,
+        @Query("desde") desde: String?,
+        @Query("hasta") hasta: String?,
+    ): Response<List<MovimientoInventarioDto>>
+
+    @GET("api/inventario/alertas")
+    suspend fun alertas(): Response<List<ProductoDto>>
 }
+
+@Serializable
+data class AjusteExistenciasBody(val tipo: TipoAjuste, val cantidad: Int, val concepto: String)
+
+@Serializable
+data class MovimientoInventarioDto(
+    val id: Long,
+    val producto: String,
+    val tipo: String,
+    val cantidad: Int,
+    val stockAnterior: Int,
+    val stockResultante: Int,
+    val concepto: String? = null,
+    val fecha: String,
+    val usuario: String,
+)
 
 @Serializable
 data class CategoriaDto(

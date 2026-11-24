@@ -26,6 +26,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appresso.app.ContenedorApp
 import com.appresso.app.R
 import com.appresso.app.data.auth.TokenSesion
+import com.appresso.app.data.catalogo.Producto
+import com.appresso.app.data.catalogo.ResultadoCatalogo
 import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Accion
 import com.appresso.app.permisos.Opcion
@@ -40,6 +42,8 @@ import com.appresso.app.ui.cuenta.RegistroClienteViewModel
 import com.appresso.app.permisos.puede
 import com.appresso.app.ui.catalogo.CategoriasRoute
 import com.appresso.app.ui.catalogo.CategoriasViewModel
+import com.appresso.app.ui.catalogo.HistorialInventarioRoute
+import com.appresso.app.ui.catalogo.InventarioViewModel
 import com.appresso.app.ui.catalogo.ProductosRoute
 import com.appresso.app.ui.catalogo.ProductosViewModel
 import com.appresso.app.ui.inicio.InicioScreen
@@ -49,8 +53,12 @@ import com.appresso.app.ui.login.LoginViewModel
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
 import com.appresso.app.tiemporeal.cambiosDeCatalogo
+import com.appresso.app.tiemporeal.EstadoConexion
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
 
 /**
  * Raíz de la app: elige la pantalla según la sesión y la sección abierta (ver [destinoPara]).
@@ -106,6 +114,9 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
                     opciones = destino.opciones,
                     onAbrir = { abierta = it },
                     onCerrarSesion = { contenedor.almacenSesion.borrar() },
+                    productosConStockBajo = if (puede(destino.rol, Accion.GESTIONAR_INVENTARIO)) {
+                        observarStockBajo(contenedor, sesion?.token)
+                    } else emptyList(),
                 )
 
                 is Destino.Seccion -> {
@@ -115,6 +126,33 @@ fun AppressoRaiz(contenedor: ContenedorApp) {
             }
         }
     }
+}
+
+@Composable
+private fun observarStockBajo(contenedor: ContenedorApp, token: String?): List<Producto> {
+    val contexto = LocalContext.current
+    val ciclo = LocalLifecycleOwner.current.lifecycle
+    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto) }
+    var productos by remember(token) { mutableStateOf(emptyList<Producto>()) }
+    DisposableEffect(tiempoReal, ciclo, token) {
+        ciclo.addObserver(tiempoReal)
+        onDispose {
+            ciclo.removeObserver(tiempoReal)
+            tiempoReal.detener()
+        }
+    }
+
+    LaunchedEffect(tiempoReal, token) {
+        merge(
+            tiempoReal.eventos.cambiosDeCatalogo(),
+            tiempoReal.resincronizar.map { },
+            tiempoReal.estado.filter { it.estado == EstadoConexion.CONECTADO }.map { },
+        ).onStart { emit(Unit) }.conflate().collect {
+            val resultado = contenedor.inventarioRepository.alertas()
+            if (resultado is ResultadoCatalogo.Exito) productos = resultado.valor
+        }
+    }
+    return productos
 }
 
 /** Las pantallas a las que se llega sin sesión. */
@@ -235,7 +273,12 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
 @Composable
 private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     var enProductos by rememberSaveable(token) { mutableStateOf(false) }
+    var enHistorial by rememberSaveable(token) { mutableStateOf(false) }
     var visita by rememberSaveable(token) { mutableIntStateOf(0) }
+    val inventario: InventarioViewModel = viewModel(
+        key = "inventario-$token",
+        factory = InventarioViewModel.factory(contenedor.inventarioRepository),
+    )
 
     val contexto = LocalContext.current
     val ciclo = LocalLifecycleOwner.current.lifecycle
@@ -248,10 +291,17 @@ private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> 
         }
     }
     val cambios = remember(tiempoReal) {
-        merge(tiempoReal.eventos.cambiosDeCatalogo(), tiempoReal.resincronizar.map { })
+        merge(
+            tiempoReal.eventos.cambiosDeCatalogo(),
+            tiempoReal.resincronizar.map { },
+            tiempoReal.estado.filter { it.estado == EstadoConexion.CONECTADO }.map { },
+        )
     }
 
-    if (enProductos) {
+    if (enHistorial) {
+        BackHandler { enHistorial = false }
+        HistorialInventarioRoute(inventario, onVolver = { enHistorial = false })
+    } else if (enProductos) {
         BackHandler {
             visita++
             enProductos = false
@@ -260,9 +310,11 @@ private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> 
             key = "productos-$token-$visita",
             factory = ProductosViewModel.factory(contenedor.catalogoRepository),
         )
-        LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
+        LaunchedEffect(viewModel, cambios) { cambios.onStart { emit(Unit) }.collect { viewModel.recargarEnSilencio() } }
         ProductosRoute(
             viewModel = viewModel,
+            inventario = inventario,
+            onVerHistorial = { enHistorial = true },
             onVerCategorias = {
                 visita++
                 enProductos = false

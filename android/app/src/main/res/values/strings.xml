@@ -305,4 +305,37 @@
     </plurals>
     <string name="prod_error_numero">Escribe un número entero entre 0 y %1$d.</string>
     <string name="prod_error_no_encontrado">Ese producto ya no existe. Se actualizó la lista.</string>
+    <string name="inv_ajustar">Ajustar existencias</string>
+    <string name="inv_ajuste_titulo">Ajustar existencias de %1$s</string>
+    <string name="inv_stock_actual">Existencias actuales: %1$d</string>
+    <string name="inv_entrada">Entrada manual</string>
+    <string name="inv_salida">Salida manual</string>
+    <string name="inv_merma">Merma</string>
+    <string name="inv_venta">Venta</string>
+    <string name="inv_movimiento_generico">Movimiento</string>
+    <string name="inv_cantidad">Cantidad de unidades</string>
+    <string name="inv_concepto">Concepto del ajuste</string>
+    <string name="inv_cantidad_invalida">Ingresa una cantidad entera mayor que cero.</string>
+    <string name="inv_concepto_invalido">Ingresa un concepto de hasta 255 caracteres.</string>
+    <string name="inv_fecha_invalida">Usa una fecha válida con formato AAAA-MM-DD.</string>
+    <string name="inv_rango_invalido">La fecha final debe ser igual o posterior a la inicial.</string>
+    <string name="inv_producto_no_encontrado">El producto ya no está disponible. Actualiza la lista.</string>
+    <string name="inv_error">No se pudo completar la operación de inventario.</string>
+    <string name="inv_historial">Historial de inventario</string>
+    <string name="inv_volver">Volver a productos</string>
+    <string name="inv_filtrar">Filtrar</string>
+    <string name="inv_filtro_producto">Nombre del producto</string>
+    <string name="inv_desde">Desde (AAAA-MM-DD)</string>
+    <string name="inv_hasta">Hasta (AAAA-MM-DD)</string>
+    <string name="inv_sin_movimientos">No hay movimientos para estos filtros.</string>
+    <string name="inv_movimiento">%1$s · %2$d unidades</string>
+    <string name="inv_cambio_stock">Existencias: %1$d → %2$d</string>
+    <string name="inv_fecha_usuario">%1$s · %2$s</string>
+    <string name="inv_alertas_titulo">Productos que requieren reposición</string>
+    <string name="inv_alerta_producto">%1$s · %2$d de %3$d unidades mínimas</string>
+    <plurals name="inv_alertas_restantes">
+        <item quantity="one">%d producto más</item>
+        <item quantity="other">%d productos más</item>
+    </plurals>
+    <string name="inv_ver_inventario">Ver inventario</string>
 </resources>

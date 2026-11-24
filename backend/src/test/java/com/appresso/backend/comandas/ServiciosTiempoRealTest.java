@@ -114,13 +114,15 @@ class ServiciosTiempoRealTest {
 
 	@Test
 	void ajusteManualPublicaExistenciasYRechazaStockNegativo() {
-		productoService.ajustarExistencias(cafe.getId(), TipoMovimientoInventario.SALIDA_MANUAL, 4, "uso", mesero.getId());
+		Usuario administrador = usuario(Rol.ADMINISTRADOR);
+		productoService.ajustarExistencias(cafe.getId(), TipoMovimientoInventario.SALIDA_MANUAL, 4, "uso",
+				administrador.getId());
 		ArgumentCaptor<ProductoEventoDatos> datos = ArgumentCaptor.forClass(ProductoEventoDatos.class);
 		verify(publicador).publicarProducto(eq(TipoEvento.EXISTENCIAS_ACTUALIZADAS), datos.capture());
 		assertThat(datos.getValue().stockActual()).isEqualTo(6);
 
 		assertThatThrownBy(() -> productoService.ajustarExistencias(cafe.getId(),
-				TipoMovimientoInventario.AJUSTE_MERMA, 7, "merma", mesero.getId()))
+				TipoMovimientoInventario.AJUSTE_MERMA, 7, "merma", administrador.getId()))
 				.isInstanceOf(IllegalStateException.class);
 	}
 

@@ -21,7 +21,7 @@ import jakarta.persistence.EntityNotFoundException;
  * del resto de la API: {@code { "mensaje", "campos"? }}. Los 401 y 403 los responde la seguridad
  * antes de llegar aquí.
  */
-@RestControllerAdvice(assignableTypes = { CategoriaController.class, ProductoController.class })
+@RestControllerAdvice(assignableTypes = { CategoriaController.class, ProductoController.class, InventarioController.class })
 public class CatalogoExceptionHandler {
 
 	private static final String REVISA = "Revisa los datos ingresados.";
@@ -53,6 +53,12 @@ public class CatalogoExceptionHandler {
 	public ResponseEntity<ErrorRespuesta> conflicto(ConflictoCatalogoException e) {
 		Map<String, String> campos = e.getCampo() == null ? null : Map.of(e.getCampo(), e.getMessage());
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorRespuesta(e.getMessage(), campos));
+	}
+
+	@ExceptionHandler(StockInsuficienteException.class)
+	public ResponseEntity<ErrorRespuesta> stockInsuficiente(StockInsuficienteException e) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(new ErrorRespuesta(e.getMessage(), Map.of("cantidad", e.getMessage())));
 	}
 
 	/** Respaldo ante dos solicitudes simultáneas que chocan con una restricción de la base. */

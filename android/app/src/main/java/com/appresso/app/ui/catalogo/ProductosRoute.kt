@@ -35,10 +35,13 @@ import com.appresso.app.ui.theme.Ink
 @Composable
 fun ProductosRoute(
     viewModel: ProductosViewModel,
+    inventario: InventarioViewModel,
+    onVerHistorial: () -> Unit,
     onVerCategorias: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
+    val ajuste by inventario.ajuste.collectAsStateWithLifecycle()
 
     ProductosScreen(
         estado = estado,
@@ -46,11 +49,17 @@ fun ProductosRoute(
         onEditar = viewModel::editarProducto,
         onDesactivar = viewModel::pedirDesactivar,
         onActivar = viewModel::activar,
+        onAjustar = inventario::abrirAjuste,
+        onVerHistorial = onVerHistorial,
         onFiltrar = viewModel::filtrarPorCategoria,
         onReintentar = viewModel::cargar,
         onVolver = onVerCategorias,
         modifier = modifier,
     )
+
+    ajuste?.let { formulario ->
+        AjusteInventarioDialog(formulario, inventario, viewModel::actualizarTrasAjuste)
+    }
 
     estado.formulario?.let { formulario ->
         FormularioProductoDialog(estado, formulario, viewModel)

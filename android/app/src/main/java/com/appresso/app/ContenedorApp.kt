@@ -12,6 +12,7 @@ import com.appresso.app.data.cuenta.MisDatosRepository
 import com.appresso.app.data.cuenta.MisDatosRepositoryRemoto
 import com.appresso.app.data.catalogo.CatalogoRepository
 import com.appresso.app.data.catalogo.CatalogoRepositoryRemoto
+import com.appresso.app.data.catalogo.InventarioRepository
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.CatalogoApi
 import com.appresso.app.data.remote.BusEventosRed
@@ -56,9 +57,12 @@ class ContenedorApp(
         CuentaClienteRepositoryRemoto(retrofit.create(CuentaApi::class.java))
     }
 
-    val catalogoRepository: CatalogoRepository by lazy {
+    private val catalogoRemoto by lazy {
         CatalogoRepositoryRemoto(retrofit.create(CatalogoApi::class.java))
     }
+
+    val catalogoRepository: CatalogoRepository get() = catalogoRemoto
+    val inventarioRepository: InventarioRepository get() = catalogoRemoto
 
     val usuariosRepository: UsuariosRepository by lazy {
         UsuariosRepositoryRemoto(retrofit.create(UsuariosApi::class.java))
