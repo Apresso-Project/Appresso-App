@@ -1,5 +1,6 @@
 package com.appresso.app.data.catalogo
 
+import com.appresso.app.data.remote.AjusteExistenciasBody
 import com.appresso.app.data.remote.CatalogoApi
 import com.appresso.app.data.remote.CategoriaBody
 import com.appresso.app.data.remote.CategoriaDto
@@ -9,6 +10,7 @@ import com.appresso.app.data.remote.ProductoCrearBody
 import com.appresso.app.data.remote.ProductoDto
 import com.appresso.app.data.remote.ProductoEditarBody
 import java.io.IOException
+import java.time.LocalDate
 import kotlinx.serialization.SerializationException
 import retrofit2.Response
 
@@ -17,7 +19,7 @@ import retrofit2.Response
  * (docs/api-catalogo.md) a un [ResultadoCatalogo]. El token y el cierre de sesión ante un 401 los
  * maneja el cliente HTTP compartido.
  */
-class CatalogoRepositoryRemoto(private val api: CatalogoApi) : CatalogoRepository {
+class CatalogoRepositoryRemoto(private val api: CatalogoApi) : CatalogoRepository, InventarioRepository {
 
     // ---------------------------------------------------------------- categorías
 
@@ -86,6 +88,24 @@ class CatalogoRepositoryRemoto(private val api: CatalogoApi) : CatalogoRepositor
 
     override suspend fun activarProducto(id: Long): ResultadoCatalogo<Producto> =
         ejecutar({ api.activarProducto(id) }) { it.aProducto() }
+
+    override suspend fun ajustar(id: Long, tipo: TipoAjuste, cantidad: Int, concepto: String): ResultadoCatalogo<Producto> =
+        ejecutar({ api.ajustar(id, AjusteExistenciasBody(tipo, cantidad, concepto)) }) { it.aProducto() }
+
+    override suspend fun historial(
+        producto: String?,
+        desde: LocalDate?,
+        hasta: LocalDate?,
+    ): ResultadoCatalogo<List<MovimientoInventario>> =
+        ejecutar({ api.historial(producto.sinVacio(), desde?.toString(), hasta?.toString()) }) { lista ->
+            lista.map {
+                MovimientoInventario(it.id, it.producto, it.tipo, it.cantidad, it.stockAnterior,
+                    it.stockResultante, it.concepto, it.fecha, it.usuario)
+            }
+        }
+
+    override suspend fun alertas(): ResultadoCatalogo<List<Producto>> =
+        ejecutar({ api.alertas() }) { lista -> lista.map { it.aProducto() } }
 
     // ---------------------------------------------------------------- traducción
 

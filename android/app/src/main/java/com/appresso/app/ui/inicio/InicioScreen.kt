@@ -35,8 +35,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.appresso.app.R
 import com.appresso.app.data.auth.Rol
+import com.appresso.app.data.catalogo.Producto
 import com.appresso.app.permisos.Opcion
 import com.appresso.app.permisos.opcionesPara
+import com.appresso.app.ui.catalogo.ResumenStockBajo
 import com.appresso.app.ui.theme.AppressoTheme
 import com.appresso.app.ui.theme.Caramel
 import com.appresso.app.ui.theme.Cream
@@ -57,6 +59,7 @@ fun InicioScreen(
     onAbrir: (Opcion) -> Unit,
     onCerrarSesion: () -> Unit,
     modifier: Modifier = Modifier,
+    productosConStockBajo: List<Producto> = emptyList(),
 ) {
     Column(
         modifier = modifier
@@ -107,6 +110,9 @@ fun InicioScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Muted,
                 )
+            }
+            if (productosConStockBajo.isNotEmpty()) {
+                item { ResumenStockBajo(productosConStockBajo) { onAbrir(Opcion.PRODUCTOS_E_INVENTARIO) } }
             }
             items(opciones, key = { it.name }) { opcion ->
                 TarjetaOpcion(opcion = opcion, onClick = { onAbrir(opcion) })

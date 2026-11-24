@@ -31,8 +31,8 @@ import com.appresso.backend.usuarios.Rol;
  * <li>{@code ejemplo} es una ruta concreta que cumple el patrón; la usan las pruebas.</li>
  * </ul>
  * El administrador puede hacer lo que hace cualquier otro rol del personal: está en todas las
- * reglas con roles, salvo {@code /api/clientes/yo}, que son los puntos de un cliente y el
- * administrador no tiene registro de cliente.
+ * reglas con roles, salvo {@code /api/clientes/yo}, que son los puntos de un cliente y la eliminación
+ * de sus datos, y el administrador no tiene registro de cliente.
  * <p>
  * El registro del cliente, el inicio de sesión y la recuperación de contraseña son públicos
  * ({@code /api/auth/**}) y por eso no están aquí, sino en {@link SeguridadConfig}. Nadie del
@@ -127,6 +127,10 @@ public final class PoliticaPermisos {
 
 			// ---------------------------------------------------------------- Fidelización (módulo 6)
 			regla(GET, "/api/clientes/yo", "/api/clientes/yo", solo(CLIENTE), "RF-55"),
+			// El propio cliente pide la eliminación de sus datos (Ley 1581, 8.4.1).
+			regla(POST, "/api/clientes/yo/eliminacion", "/api/clientes/yo/eliminacion", solo(CLIENTE), "Ley 1581"),
+			regla(GET, "/api/clientes/*/consentimiento", "/api/clientes/1/consentimiento", solo(ADMINISTRADOR),
+					"Ley 1581"),
 			regla(GET, "/api/clientes/**", "/api/clientes/1234567890", solo(ADMINISTRADOR, MESERO), "RF-51, RF-57"),
 			regla(CUALQUIERA, "/api/clientes/**", "/api/clientes/1", NADIE, "—"),
 			regla(GET, "/api/recompensas/**", "/api/recompensas", solo(ADMINISTRADOR, MESERO, CLIENTE),

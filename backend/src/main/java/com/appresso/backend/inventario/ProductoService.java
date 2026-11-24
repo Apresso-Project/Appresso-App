@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import com.appresso.backend.comandas.Comanda;
 import com.appresso.backend.tiemporeal.ProductoEventoDatos;
 import com.appresso.backend.tiemporeal.PublicadorTiempoReal;
 import com.appresso.backend.tiemporeal.TipoEvento;
+import com.appresso.backend.usuarios.Rol;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
 
@@ -74,7 +76,7 @@ public class ProductoService {
 	@Transactional
 	public Producto actualizar(Long productoId, String nombre, String descripcion, BigDecimal precio,
 			int umbralMinimo, boolean activo) {
-		Producto p = buscar(productoId);
+		Producto p = bloquear(productoId);
 		p.setNombre(nombre);
 		p.setDescripcion(descripcion);
 		p.setPrecio(precio);
@@ -95,16 +97,33 @@ public class ProductoService {
 		if (cantidad < 1) {
 			throw new IllegalArgumentException("La cantidad debe ser al menos 1");
 		}
-		if (tipo == TipoMovimientoInventario.VENTA) {
-			throw new IllegalArgumentException("Las ventas se descuentan al enviar la comanda, no a mano");
+		if (tipo == null || tipo == TipoMovimientoInventario.VENTA) {
+			throw new IllegalArgumentException("El tipo debe ser una entrada, salida o merma manual");
 		}
 		if (justificacion == null || justificacion.isBlank()) {
 			throw new IllegalArgumentException("El movimiento necesita una justificación (RF-07)");
 		}
-		Producto p = buscar(productoId);
 		Usuario usuario = usuarios.findById(usuarioId)
 				.orElseThrow(() -> new EntityNotFoundException("Usuario " + usuarioId + " no existe"));
-		return mover(p, tipo, cantidad, justificacion, usuario, null);
+		if (usuario.getRol() != Rol.ADMINISTRADOR) {
+			throw new AccessDeniedException("Solo el administrador puede ajustar el inventario");
+		}
+		Producto p = bloquear(productoId);
+		return mover(p, tipo, cantidad, justificacion.strip(), usuario, null);
+	}
+
+	@Transactional
+	public ProductoRespuesta ajustar(Long productoId, AjusteExistenciasRequest solicitud, Long actorId) {
+		if (solicitud.tipo() == TipoMovimientoInventario.VENTA) {
+			throw new CampoInvalidoCatalogoException("tipo", "Las ventas se descuentan al confirmar comandas");
+		}
+		return ProductoRespuesta.de(ajustarExistencias(productoId, solicitud.tipo(), solicitud.cantidad().intValueExact(),
+				solicitud.concepto(), actorId));
+	}
+
+	@Transactional(readOnly = true)
+	public List<ProductoRespuesta> listarStockBajo() {
+		return productos.findConStockBajo().stream().map(ProductoRespuesta::de).toList();
 	}
 
 	/**
@@ -113,25 +132,35 @@ public class ProductoService {
 	 */
 	@Transactional
 	public Producto descontarPorVenta(Long productoId, int cantidad, Comanda comanda, Usuario usuario) {
-		return mover(buscar(productoId), TipoMovimientoInventario.VENTA, cantidad,
+		Producto producto = bloquear(productoId);
+		if (!enElMenu(producto)) {
+			throw new IllegalStateException("El producto " + producto.getNombre() + " no está disponible");
+		}
+		return mover(producto, TipoMovimientoInventario.VENTA, cantidad,
 				"Venta en comanda " + comanda.getId(), usuario, comanda);
 	}
 
 	private Producto mover(Producto p, TipoMovimientoInventario tipo, int cantidad, String justificacion,
 			Usuario usuario, Comanda comanda) {
-		int delta = tipo == TipoMovimientoInventario.ENTRADA_MANUAL ? cantidad : -cantidad;
-		int resultante = p.getStockActual() + delta;
+		if (cantidad < 1) {
+			throw new IllegalArgumentException("La cantidad debe ser al menos 1");
+		}
+		long delta = tipo == TipoMovimientoInventario.ENTRADA_MANUAL ? cantidad : -cantidad;
+		long resultante = p.getStockActual() + delta;
 		if (resultante < 0) {
-			throw new IllegalStateException("Existencias insuficientes de " + p.getNombre()
+			throw new StockInsuficienteException("Existencias insuficientes de " + p.getNombre()
 					+ ": hay " + p.getStockActual() + " y se piden " + cantidad);
 		}
-		p.setStockActual(resultante);
+		if (resultante > Integer.MAX_VALUE) {
+			throw new CampoInvalidoCatalogoException("cantidad", "El ajuste supera el máximo de existencias");
+		}
+		p.setStockActual((int) resultante);
 
 		MovimientoInventario m = new MovimientoInventario();
 		m.setProducto(p);
 		m.setTipo(tipo);
 		m.setCantidad(cantidad);
-		m.setStockResultante(resultante);
+		m.setStockResultante(p.getStockActual());
 		m.setJustificacion(justificacion);
 		m.setUsuario(usuario);
 		m.setComanda(comanda);
@@ -213,7 +242,7 @@ public class ProductoService {
 	 */
 	@Transactional
 	public ProductoRespuesta modificar(Long id, ProductoEditarRequest solicitud, Long actorId) {
-		Producto p = buscar(id);
+		Producto p = bloquear(id);
 		// Se valida todo antes de tocar el producto, para no dejar cambios a medias si algo falla.
 		Categoria nueva = solicitud.categoriaId().equals(p.getCategoria().getId())
 				? null
@@ -269,7 +298,7 @@ public class ProductoService {
 	}
 
 	private ProductoRespuesta cambiarEstado(Long id, boolean activo, Long actorId, String operacion) {
-		Producto p = buscar(id);
+		Producto p = bloquear(id);
 		if (p.isActivo() != activo) {
 			p.setActivo(activo);
 			registrar(actorId, operacion, p, "Producto '" + p.getNombre() + "'");
@@ -313,6 +342,11 @@ public class ProductoService {
 
 	private Producto buscar(Long id) {
 		return productos.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("Producto " + id + " no existe"));
+	}
+
+	private Producto bloquear(Long id) {
+		return productos.bloquearPorId(id)
 				.orElseThrow(() -> new EntityNotFoundException("Producto " + id + " no existe"));
 	}
 

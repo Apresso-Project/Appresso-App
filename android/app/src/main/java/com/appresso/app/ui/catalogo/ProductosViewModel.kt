@@ -97,6 +97,8 @@ class ProductosViewModel(
 
     private val _estado = MutableStateFlow(ProductosUiState())
     val estado: StateFlow<ProductosUiState> = _estado.asStateFlow()
+    private var consultando = false
+    private var recargaPendiente = false
 
     init {
         cargar()
@@ -114,27 +116,51 @@ class ProductosViewModel(
     fun recargarEnSilencio() = cargar(silencioso = true)
 
     private fun cargar(silencioso: Boolean) {
-        if (_estado.value.cargando) return
+        if (consultando) {
+            if (silencioso) recargaPendiente = true
+            return
+        }
+        consultando = true
         if (!silencioso) _estado.update { it.copy(cargando = true, errorLista = null) }
         viewModelScope.launch {
-            val productos = repositorio.listarProductos(categoriaId = null, incluirFueraDelMenu = true)
-            val categorias = repositorio.listarCategorias(incluirInactivas = false)
-            if (productos is ResultadoCatalogo.Exito && categorias is ResultadoCatalogo.Exito) {
-                _estado.update {
-                    it.copy(
-                        cargando = false,
-                        productos = ordenar(productos.valor),
-                        categorias = categorias.valor.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { c -> c.nombre }),
-                        errorLista = null,
-                        // Si la categoría filtrada desapareció, se vuelve a «todas».
-                        filtroCategoriaId = it.filtroCategoriaId?.takeIf { id -> productos.valor.any { p -> p.categoriaId == id } },
-                    )
-                }
-            } else if (!silencioso) {
-                val error = (if (productos !is ResultadoCatalogo.Exito) productos else categorias).aError()
-                _estado.update { it.copy(cargando = false, errorLista = error) }
+            try {
+                var silenciosa = silencioso
+                do {
+                    recargaPendiente = false
+                    consultarLista(silenciosa)
+                    silenciosa = true
+                } while (recargaPendiente)
+            } finally {
+                consultando = false
             }
         }
+    }
+
+    private suspend fun consultarLista(silencioso: Boolean) {
+        val productos = repositorio.listarProductos(categoriaId = null, incluirFueraDelMenu = true)
+        val categorias = repositorio.listarCategorias(incluirInactivas = false)
+        if (productos is ResultadoCatalogo.Exito && categorias is ResultadoCatalogo.Exito) {
+            _estado.update {
+                it.copy(
+                    cargando = false,
+                    productos = ordenar(productos.valor),
+                    categorias = categorias.valor.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { c -> c.nombre }),
+                    errorLista = null,
+                    // Si la categoría filtrada desapareció, se vuelve a «todas».
+                    filtroCategoriaId = it.filtroCategoriaId?.takeIf { id -> productos.valor.any { p -> p.categoriaId == id } },
+                )
+            }
+        } else if (!silencioso) {
+            val error = (if (productos !is ResultadoCatalogo.Exito) productos else categorias).aError()
+            _estado.update { it.copy(cargando = false, errorLista = error) }
+        }
+    }
+
+    fun actualizarTrasAjuste(producto: Producto) {
+        _estado.update { estado ->
+            estado.copy(productos = estado.productos.map { if (it.id == producto.id) producto else it })
+        }
+        recargarEnSilencio()
     }
 
     fun filtrarPorCategoria(id: Long?) = _estado.update { it.copy(filtroCategoriaId = id) }

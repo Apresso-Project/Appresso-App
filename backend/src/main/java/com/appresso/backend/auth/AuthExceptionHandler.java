@@ -24,10 +24,7 @@ public class AuthExceptionHandler {
 
 	@ExceptionHandler(CuentaBloqueadaException.class)
 	public ResponseEntity<ErrorRespuesta> cuentaBloqueada(CuentaBloqueadaException e) {
-		long minutos = e.getMinutosRestantes();
-		String mensaje = "Cuenta bloqueada temporalmente por demasiados intentos fallidos. "
-				+ "Intenta de nuevo en " + minutos + (minutos == 1 ? " minuto." : " minutos.");
-		return ResponseEntity.status(HttpStatus.LOCKED).body(new ErrorRespuesta(mensaje));
+		return ResponseEntity.status(HttpStatus.LOCKED).body(new ErrorRespuesta(e.mensajeVisible()));
 	}
 
 	@ExceptionHandler(CodigoInvalidoException.class)

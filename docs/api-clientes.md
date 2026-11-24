@@ -11,8 +11,10 @@ El inicio de sesión del cliente (con su documento) y la recuperación de su con
 | `POST /api/auth/registro` | Público (sin token) | El cliente crea su cuenta |
 | `GET /api/clientes/{documento}` | Mesero y administrador | Busca un cliente por documento |
 | `GET /api/clientes/yo` | Cliente | Sus propios datos y puntos |
+| `POST /api/clientes/yo/eliminacion` | Cliente | Elimina sus datos personales (Ley 1581) |
+| `GET /api/clientes/{id}/consentimiento` | Administrador | Evidencia del consentimiento y de la supresión |
 
-**El personal no registra, edita ni elimina clientes.** Cada cliente crea su cuenta desde la app; el mesero y el administrador solo los buscan. No hay lista completa de clientes: se consultan de a uno, por documento (RNF-09). La eliminación de los datos personales la pide el propio cliente (entregable 8.4.1).
+**El personal no registra, edita ni elimina clientes.** Cada cliente crea su cuenta desde la app; el mesero y el administrador solo los buscan. No hay lista completa de clientes: se consultan de a uno, por documento (RNF-09). La eliminación de los datos personales la pide el propio cliente.
 
 ## Registrarse — `POST /api/auth/registro`
 
@@ -73,7 +75,7 @@ El inicio de sesión del cliente (con su documento) y la recuperación de su con
 ### Qué guarda
 
 - Una cuenta (`usuarios`) con rol `CLIENTE`, el correo y el hash de la contraseña, y su registro de cliente (`clientes`) con 0 puntos, la aceptación del tratamiento de datos y su fecha. Las dos cosas, o ninguna.
-- Un registro de auditoría `CONSENTIMIENTO_DATOS_1581` que dice que el titular aceptó, con la fecha y la cuenta, **sin copiar** nombre, documento ni otros datos personales.
+- Un registro de auditoría `CONSENTIMIENTO_DATOS_1581` que dice que el titular aceptó, con la fecha, la cuenta y la versión del texto aceptado, **sin copiar** nombre, documento ni otros datos personales.
 - El registro **no inicia sesión**: después, el cliente entra con su documento y su contraseña.
 
 ## Buscar por documento — `GET /api/clientes/{documento}`
@@ -95,6 +97,32 @@ Solo lo necesario para identificar al cliente y ver sus puntos: **no** incluye c
 ## Mi cuenta — `GET /api/clientes/yo`
 
 Solo para el cliente (RF-55). Responde lo mismo que la búsqueda, con sus propios datos. Un `404` significa que la cuenta no tiene registro de cliente.
+
+## Eliminar mis datos — `POST /api/clientes/yo/eliminacion`
+
+Solo para el cliente, sobre su propia cuenta. **Es inmediato e irreversible**; confirma con su contraseña. Qué se borra y qué se conserva está en [`eliminacion-de-datos.md`](eliminacion-de-datos.md).
+
+```json
+{ "contrasena": "Clave-Cliente-1" }
+```
+
+| Código | Cuándo | `mensaje` |
+|---|---|---|
+| **204** | Datos eliminados o anonimizados y cuenta cerrada. El token deja de servir | (sin cuerpo) |
+| **400** | Falta la contraseña | "Escribe tu contraseña para confirmar." (`campos.contrasena`) |
+| **400** | La contraseña no es la de la cuenta | "La contraseña no es correcta." (`campos.contrasena`) |
+| **403** | Cualquier rol del personal | "No tienes permiso para realizar esta acción." |
+| **423** | Cuenta bloqueada por intentos fallidos | "Cuenta bloqueada temporalmente…" |
+
+Una contraseña incorrecta responde `400` y no `401` porque la sesión sigue siendo válida. Los fallos cuentan como los del inicio de sesión: al quinto, la cuenta se bloquea 15 minutos.
+
+## Historial de consentimiento — `GET /api/clientes/{id}/consentimiento`
+
+Solo para el administrador. Devuelve, del más antiguo al más reciente, cuándo el titular aceptó el tratamiento de sus datos y cuándo los eliminó. No trae datos personales y funciona aunque el cliente ya no exista; `404` si nunca existió. El `id` es el que devuelve la búsqueda por documento.
+
+```json
+[ { "operacion": "CONSENTIMIENTO_DATOS_1581", "fecha": "2026-11-20T15:04:05Z", "usuarioId": 12, "detalle": "..." } ]
+```
 
 ## Probarlo a mano
 

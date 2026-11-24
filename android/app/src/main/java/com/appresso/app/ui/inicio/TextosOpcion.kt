@@ -20,6 +20,7 @@ fun Opcion.titulo(): Int = when (this) {
     Opcion.CLIENTES -> R.string.opcion_clientes
     Opcion.RECOMPENSAS_Y_PROMOCIONES -> R.string.opcion_recompensas_promociones
     Opcion.MIS_PUNTOS -> R.string.opcion_mis_puntos
+    Opcion.MIS_DATOS -> R.string.opcion_mis_datos
 }
 
 @StringRes
@@ -36,6 +37,7 @@ fun Opcion.descripcion(): Int = when (this) {
     Opcion.CLIENTES -> R.string.opcion_clientes_desc
     Opcion.RECOMPENSAS_Y_PROMOCIONES -> R.string.opcion_recompensas_promociones_desc
     Opcion.MIS_PUNTOS -> R.string.opcion_mis_puntos_desc
+    Opcion.MIS_DATOS -> R.string.opcion_mis_datos_desc
 }
 
 @StringRes

@@ -45,7 +45,8 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"$urlBaseDebug\"")
+            // Kotlin incrusta constantes de Java y puede conservar la IP anterior al recompilar.
+            buildConfigField("String", "API_BASE_URL", "String.valueOf(\"$urlBaseDebug\")")
         }
         release {
             // Aún no hay servidor desplegado (entregable 8.5.1). El dominio ".invalid" está reservado

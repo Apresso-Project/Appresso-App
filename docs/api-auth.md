@@ -102,7 +102,7 @@ Es un JWT firmado (HS256) con una clave que solo conoce el servidor.
 - **Vigencia:** 12 horas por defecto (`JWT_EXPIRACION_MINUTOS`, 720). Cerrar la sesión por 30 minutos de inactividad (RNF-26.2) se resuelve en 2.3.1; hoy no está.
 - **Contenido legible:** cualquiera que tenga el token puede leer sus datos, pero no modificarlos sin que la firma falle. Por eso no lleva correo ni datos sensibles.
 - **La app no verifica la firma** (no tiene la clave). Puede leer `exp` para saber cuándo pedir un nuevo inicio de sesión, pero quien decide si el token vale es siempre el servidor.
-- **Almacenamiento en Android:** en Android Keystore (entregable 8.4.1). Mientras tanto, detrás de una interfaz propia para poder cambiarlo sin tocar el resto.
+- **Almacenamiento en Android:** cifrado con una clave de Android Keystore (`AlmacenSesionKeystore`, 8.4.1; ver [`seguridad-y-ley-1581.md`](seguridad-y-ley-1581.md), 1.3).
 - **Cerrar sesión** es solo borrar el token en el teléfono: el servidor no guarda sesiones.
 
 ### Cómo se envía
@@ -184,11 +184,11 @@ El cliente de prueba (perfil `dev`) entra con su documento: `{"identificador":"1
 
 Desde un emulador de Android, `localhost` es el propio emulador: el backend de tu computador se alcanza en `http://10.0.2.2:8080`. En un teléfono físico, usa la IP de tu computador en la red Wi-Fi.
 
-**Ojo con HTTP:** desde Android 9 la app bloquea por defecto las conexiones sin cifrar, y el backend local responde por `http://`. En desarrollo hay que permitirlo solo para el entorno de depuración (por ejemplo, con una configuración de seguridad de red que aplique únicamente a `debug`); en producción todo va por HTTPS (8.4.1 y 8.5.1). La URL base debe poder cambiar según el tipo de compilación.
+**Ojo con HTTP:** desde Android 9 la app bloquea por defecto las conexiones sin cifrar, y el backend local responde por `http://`. La app lo permite solo en las compilaciones `debug` (`app/src/debug/res/xml/network_security_config.xml`); en producción todo va por HTTPS (8.4.1 y 8.5.1). La URL base debe poder cambiar según el tipo de compilación.
 
 ## Fuera de este contrato (por ahora)
 
 - Cierre de sesión por 30 minutos de inactividad (RNF-26.2): pendiente.
 - Renovación del token (refresh) y cierre de sesión en el servidor: no previstos.
 - Registro de los intentos fallidos en la auditoría (RNF-12): pendiente de decidir.
-- Almacenamiento seguro del token en Android y HTTPS: **8.4.1**.
+- HTTPS en el servidor: certificado y despliegue en **8.5.1** (ver [`seguridad-y-ley-1581.md`](seguridad-y-ley-1581.md), 1.2).
