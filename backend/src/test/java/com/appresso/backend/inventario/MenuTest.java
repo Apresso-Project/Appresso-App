@@ -55,11 +55,13 @@ class MenuTest {
 
 	MockMvc mvc;
 	Usuario mesero;
+	Usuario admin; // solo el administrador ajusta existencias (3.2.1)
 
 	@BeforeEach
 	void preparar() {
 		mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
 		mesero = cuenta(Rol.MESERO);
+		admin = cuenta(Rol.ADMINISTRADOR);
 	}
 
 	// ------------------------------------------------------------------ utilidades
@@ -246,7 +248,7 @@ class MenuTest {
 		assertThat(nombresDe(consultar(mesero), c)).isEmpty();
 
 		productoService.ajustarExistencias(agotado.getId(), TipoMovimientoInventario.ENTRADA_MANUAL, 8,
-				"Reposición", mesero.getId());
+				"Reposición", admin.getId());
 
 		Map<String, Object> latte = productosDe(consultar(mesero), c).get(0);
 		assertThat(latte.get("existencias")).isEqualTo(8);
@@ -258,7 +260,7 @@ class MenuTest {
 		Producto p = producto(c, "Latte", 2, 1, true);
 		assertThat(nombresDe(consultar(mesero), c)).containsExactly("Latte");
 
-		productoService.ajustarExistencias(p.getId(), TipoMovimientoInventario.SALIDA_MANUAL, 2, "Merma", mesero.getId());
+		productoService.ajustarExistencias(p.getId(), TipoMovimientoInventario.SALIDA_MANUAL, 2, "Merma", admin.getId());
 
 		assertThat(nombresDe(consultar(mesero), c)).isEmpty();
 	}
