@@ -17,13 +17,16 @@ interface AuthApi {
     suspend fun login(@Body solicitud: LoginRequest): Response<LoginResponse>
 }
 
-/** El campo se llama `contrasena`, sin ñ, igual que en el backend. */
+/**
+ * [identificador] es el correo (personal) o el número de documento (cliente); ver docs/api-auth.md.
+ * El campo se llama `contrasena`, sin ñ, igual que en el backend.
+ */
 @Serializable
 data class LoginRequest(
-    val correo: String,
+    val identificador: String,
     val contrasena: String,
 ) {
-    override fun toString() = "LoginRequest(correo=$correo, contrasena=***)"
+    override fun toString() = "LoginRequest(identificador=$identificador, contrasena=***)"
 }
 
 @Serializable

@@ -1,8 +1,9 @@
 package com.appresso.backend.auth;
 
 /**
- * Correo inexistente, contraseña incorrecta o cuenta inactiva. Los tres casos se responden igual
- * a propósito, para no revelar qué correos están registrados.
+ * Cuenta inexistente (correo o documento), contraseña incorrecta, cuenta inactiva o identificador
+ * que no corresponde al rol (un cliente con su correo, el personal con un documento). Todos se
+ * responden igual a propósito, para no revelar qué cuentas están registradas.
  */
 public class CredencialesInvalidasException extends RuntimeException {
 

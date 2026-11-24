@@ -1,0 +1,68 @@
+﻿Caso,Comprobacion,Resultado,Detalle
+A1,El registro responde 201 y no devuelve la contraseña ni su hash,OK,201
+A2,Crear personal no devuelve la contraseña ni su hash,OK,201
+A3,Todas las contraseñas guardadas son BCrypt de costo 10 o más,OK,8 cuentas
+A4,La misma contraseña en dos cuentas da hashes distintos (sal),OK,
+A5,Ninguna contraseña aparece en el volcado completo de la base,OK,9835 bytes revisados
+A6,Con la contraseña correcta se entra y con otra no,OK,
+A7,Más de 72 bytes se rechaza en vez de truncarse,OK,
+A8,El hash no sirve como contraseña,OK,
+A9,Cuenta inexistente y contraseña incorrecta responden igual,OK,"{""mensaje"":""Credenciales inválidas""}"
+A10,Al quinto fallo la cuenta se bloquea aun con la correcta (423),OK,
+A11,"El código de recuperación se guarda con BCrypt, no en claro",OK,
+A12,"Tras restablecer, la nueva entra, la anterior no, y queda con hash",OK,200
+A13,Ninguna contraseña aparece en el registro (log) del backend,OK,
+C1,El token válido abre lo propio,OK,{'alg': 'HS256'}
+C2,El token no lleva datos personales ni contraseña,OK,"['exp', 'iat', 'iss', 'rol', 'sub']"
+C3,Vence a las 12 horas,OK,43200
+C4,Sin token responde 401,OK,
+C5,Cambiar el rol dentro del token lo invalida (401),OK,
+C6,Sin firma (alg none) responde 401,OK,
+C7,Firmado con otra clave responde 401,OK,
+C8,Control: refirmado con la clave correcta sí sirve,OK,
+C9,Vencido responde 401,OK,
+C10,Sin vencimiento responde 401,OK,
+C11,De otro emisor responde 401,OK,
+C12,En la URL no se acepta (solo en la cabecera),OK,
+C13,"Aun con firma válida, manda el rol de la base, no el del token",OK,
+C14,"Al desactivar una cuenta, su token deja de servir de inmediato",OK,200
+C15,El cliente no entra a lo del personal (403),OK,
+C16,Ningún token aparece en el registro del backend,OK,
+C17,El servidor no guarda tokens en la base,OK,
+D0,El administrador ve la evidencia del consentimiento,OK,
+D1,Sin contraseña no se elimina (400),OK,
+D2,Con contraseña incorrecta no se elimina (400) y la sesión sigue,OK,
+D3,El administrador no puede eliminar clientes (403),OK,
+D4,Sin historial: responde 204 y el registro del cliente se borra,OK,204
+D5,Ningún dato personal queda en toda la base (volcado completo),OK,"antes 7 de 7, después 0 []"
+D6,"Se borran sus notificaciones, dispositivos y códigos de recuperación",OK,
+D7,La cuenta queda inactiva y anónima,OK,[DATOS ELIMINADOS]|eliminado-6@appresso.invalid|f
+D8,El token deja de servir (401) y no se puede volver a entrar,OK,
+D9,"Queda la evidencia de autorización y supresión, sin datos personales",OK,"['CONSENTIMIENTO_DATOS_1581', 'SUPRESION_DATOS_LEY_1581']"
+D10,"El mismo documento y correo se pueden registrar de nuevo, con 0 puntos",OK,
+D11,Con historial: 204 y el cliente queda anónimo,OK,[DATOS ELIMINADOS]|[LEY 1581]|ELIM-5|[ELIMINADO]|f|t
+D12,"La comanda se conserva, ligada al cliente anónimo",OK,
+D13,Ningún dato personal queda en toda la base (volcado completo),OK,"antes 5 de 5, después 0 []"
+D14,El personal ya no lo encuentra por su documento (404),OK,
+D15,Cinco contraseñas incorrectas bloquean la eliminación (423),OK,"[400, 400, 400, 400, 400, 423]"
+D16,Ningún dato personal eliminado aparece en el registro del backend,OK,
+E1,verificar-roles.ps1: cada regla con los cinco roles y sin token,OK,TODO CORRECTO: 258
+B1,Login por HTTP: 426 y mensaje,OK,"(426, '{""mensaje"":""Esta API solo acepta conexiones cifradas (HTTPS).""}')"
+B2,Endpoint protegido por HTTP: 426 (ni siquiera lee el token),OK,
+B3,"Registro, recuperación y eliminación por HTTP: 426",OK,
+B4,WebSocket sin cifrar (ws://): 426,OK,HTTP/1.1 426 
+B5,No redirige (una redirección ya habría enviado la contraseña en claro),OK,
+B6,El chequeo de salud del servidor sigue respondiendo por HTTP,OK,
+B7,Con proxy TLS (X-Forwarded-Proto: https) la solicitud sigue normal,OK,
+B8,HSTS de un año en las respuestas HTTPS,OK,max-age=31536000 ; includeSubDomains
+B9,WebSocket detrás del proxy TLS (wss://): 101,OK,HTTP/1.1 101 
+B10,Con X-Forwarded-Proto: http se rechaza (426),OK,
+B11,"Sin perfil dev, el código de recuperación no se escribe en el registro",OK,
+B12,Sin perfil dev no se crean usuarios de prueba,OK,
+B13,X-Forwarded-Proto: https enviado por quien no es el proxy: 426,OK,
+B14,HTTPS real: el backend responde,OK,
+B15,Un cliente que valida certificados rechaza el autofirmado,OK,
+B16,http:// al puerto HTTPS no funciona,OK,400
+B17,Acepta TLS 1.2 y 1.3; rechaza 1.0 y 1.1,OK,"{'TLS1.0': 'NONE', 'TLS1.0_err': 'alert protocol version', 'TLS1.1': 'NONE', 'TLS1.1_err': 'alert protocol version', 'TLS1.2': 'ECDHE-RSA-AES256-GCM-SHA384', 'TLS1.3': 'TLS_AES_256_GCM_SHA384'}"
+B18,WebSocket cifrado (wss://): 101,OK,HTTP/1.1 101 
+B19,HSTS presente con HTTPS real,OK,

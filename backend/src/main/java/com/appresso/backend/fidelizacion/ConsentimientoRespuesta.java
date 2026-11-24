@@ -9,7 +9,7 @@ import com.appresso.backend.auditoria.RegistroAuditoria;
  * otorgamiento de la autorización o la supresión de sus datos. No contiene datos personales.
  *
  * @param operacion {@code CONSENTIMIENTO_DATOS_1581} o {@code SUPRESION_DATOS_LEY_1581}
- * @param usuarioId quién atendió la operación (mesero o administrador)
+ * @param usuarioId la cuenta del titular que hizo la operación (anónima si ya se suprimió)
  */
 public record ConsentimientoRespuesta(String operacion, Instant fecha, Long usuarioId, String detalle) {
 

@@ -25,8 +25,9 @@ import jakarta.servlet.http.HttpServletResponse;
  * <p>
  * Reglas, en orden (gana la primera que coincide):
  * <ol>
- * <li>Públicos, sin token: iniciar sesión, {@code /api/health}, {@code /actuator/health} y el
- * apretón de manos del WebSocket {@code /ws/**} (ahí el token se exige en el {@code CONNECT}).</li>
+ * <li>Públicos, sin token: iniciar sesión, registrarse como cliente, pedir y usar el código de
+ * recuperación de contraseña, {@code /api/health}, {@code /actuator/health} y el apretón de manos
+ * del WebSocket {@code /ws/**} (ahí el token se exige en el {@code CONNECT}).</li>
  * <li>Por rol: cada módulo, según {@link PoliticaPermisos} (SCRUM-47).</li>
  * <li>Todo lo demás: basta con haber iniciado sesión.</li>
  * </ol>
@@ -65,7 +66,8 @@ public class SeguridadConfig {
 
 				.authorizeHttpRequests(reglas -> {
 					// 1. Públicos
-					reglas.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+					reglas.requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/registro",
+									"/api/auth/recuperar", "/api/auth/restablecer").permitAll()
 							.requestMatchers(HttpMethod.GET, "/api/health", "/actuator/health", "/actuator/health/**")
 							.permitAll()
 							.requestMatchers("/error").permitAll()

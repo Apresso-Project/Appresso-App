@@ -1,33 +1,57 @@
 package com.appresso.backend.fidelizacion;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.appresso.backend.auditoria.RegistroAuditoria;
 import com.appresso.backend.auditoria.RegistroAuditoriaRepository;
+import com.appresso.backend.auth.AuthService;
+import com.appresso.backend.auth.CodigoRecuperacionRepository;
+import com.appresso.backend.auth.CredencialesInvalidasException;
+import com.appresso.backend.usuarios.DispositivoPushRepository;
+import com.appresso.backend.usuarios.Rol;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
 
 /**
- * Gestión de clientes del programa de fidelización y cumplimiento de la Ley 1581 de 2012
- * (Protección de Datos Personales en Colombia). Ver docs/seguridad-y-ley-1581.md.
- * <p>
- * Garantiza:
- * <ol>
- * <li>Exigencia de aceptación explícita de tratamiento de datos en el registro.</li>
- * <li>Trazabilidad del consentimiento: fecha de aceptación en el cliente y registro inmutable en
- * auditoría, con la versión del texto de autorización aceptado (SCRUM-101).</li>
- * <li>Supresión de datos personales (Habeas Data, art. 15): eliminación física si el cliente no
- * tiene historial comercial; si lo tiene, anonimización irreversible (SCRUM-101).</li>
- * </ol>
- * Los registros de auditoría <b>no guardan datos personales</b> (nombre, documento, celular): son
- * inmutables, así que si los guardaran sobrevivirían a la supresión. Se identifican por el id.
+ * Clientes del programa de fidelización (7.1.1) y protección de sus datos personales (8.4.1). Ver
+ * {@code docs/seguridad-y-ley-1581.md}.
+ *
+ * <p>Reglas:</p>
+ * <ul>
+ * <li>El propio cliente crea su cuenta desde la app (RF-50): una cuenta {@link Usuario} con rol
+ * {@code CLIENTE} (correo y contraseña con BCrypt) y su registro {@link Cliente} con 0 puntos, en la
+ * misma transacción. Inicia sesión con su documento (RF-01).</li>
+ * <li>Exige aceptar el tratamiento de datos personales (Ley 1581 de 2012) y guarda la fecha de la
+ * aceptación. La auditoría registra que se otorgó y la versión del texto aceptado, sin copiar datos
+ * personales (RNF-09, RNF-12): es inmutable, así que si los guardara sobrevivirían a la supresión.</li>
+ * <li>El cliente elimina sus datos desde la app (Ley 1581, art. 15): si no tiene historial comercial
+ * se borra su registro; si lo tiene, se anonimiza de forma irreversible. El personal no lo hace.</li>
+ * <li>Documento y correo son únicos. El correo no distingue mayúsculas y no puede repetir el de
+ * ninguna cuenta, tampoco del personal. Dos registros simultáneos con el mismo dato chocan con la
+ * restricción única de la base y responden igual que un duplicado (409).</li>
+ * <li>La búsqueda por documento devuelve solo nombre, apellido, documento y puntos (RF-51).</li>
+ * </ul>
  */
 @Service
 public class ClienteService {
+
+	public static final String MENSAJE_REGISTRO_EXITOSO =
+			"Registro exitoso. ¡Ya puedes empezar a acumular tus puntos de fidelidad!";
+	public static final String MENSAJE_DOCUMENTO_DUPLICADO = "Este documento ya está registrado.";
+	public static final String MENSAJE_CORREO_DUPLICADO = "Este correo ya está registrado.";
+	public static final String MENSAJE_NO_ENCONTRADO = "Cliente no encontrado";
+
+	public static final String MENSAJE_CONTRASENA_INCORRECTA = "La contraseña no es correcta.";
+	static final String MENSAJE_CONTRASENA_REQUERIDA = "Escribe tu contraseña para confirmar.";
 
 	/**
 	 * Versión del texto de autorización que muestra la app (strings.xml: cliente_autorizacion_texto).
@@ -43,64 +67,131 @@ public class ClienteService {
 	static final String APELLIDO_SUPRIMIDO = "[LEY 1581]";
 	static final String CELULAR_SUPRIMIDO = "[ELIMINADO]";
 	static final String PREFIJO_DOCUMENTO_SUPRIMIDO = "ELIM-";
-	private static final int MAX_MOTIVO = 500;
+
+	private static final int MAX_BYTES_CONTRASENA = 72;
+
+	/** El documento o el correo ya pertenecen a otra cuenta (409). {@code campo} es null si no se sabe cuál. */
+	public static class DatoDuplicadoException extends RuntimeException {
+		private final String campo;
+
+		public DatoDuplicadoException(String campo, String mensaje) {
+			super(mensaje);
+			this.campo = campo;
+		}
+
+		public String getCampo() {
+			return campo;
+		}
+	}
+
+	/** Un campo no cumple una regla que solo se comprueba aquí (400). */
+	public static class DatoInvalidoException extends RuntimeException {
+		private final String campo;
+
+		public DatoInvalidoException(String campo, String mensaje) {
+			super(mensaje);
+			this.campo = campo;
+		}
+
+		public String getCampo() {
+			return campo;
+		}
+	}
+
+	/** No hay cliente con ese documento, o la cuenta no tiene registro de cliente (404). */
+	public static class ClienteNoEncontradoException extends RuntimeException {
+		public ClienteNoEncontradoException() {
+			super(MENSAJE_NO_ENCONTRADO);
+		}
+	}
 
 	private final ClienteRepository clientes;
-	private final RegistroAuditoriaRepository auditoria;
 	private final UsuarioRepository usuarios;
+	private final RegistroAuditoriaRepository auditoria;
+	private final CodigoRecuperacionRepository codigos;
+	private final DispositivoPushRepository dispositivos;
+	private final AuthService autenticacion;
+	private final PasswordEncoder codificador;
+	private final Clock reloj;
 
-	public ClienteService(ClienteRepository clientes, RegistroAuditoriaRepository auditoria, UsuarioRepository usuarios) {
+	public ClienteService(ClienteRepository clientes, UsuarioRepository usuarios, RegistroAuditoriaRepository auditoria,
+			CodigoRecuperacionRepository codigos, DispositivoPushRepository dispositivos, AuthService autenticacion,
+			PasswordEncoder codificador, Clock reloj) {
 		this.clientes = clientes;
-		this.auditoria = auditoria;
 		this.usuarios = usuarios;
+		this.auditoria = auditoria;
+		this.codigos = codigos;
+		this.dispositivos = dispositivos;
+		this.autenticacion = autenticacion;
+		this.codificador = codificador;
+		this.reloj = reloj;
 	}
 
 	@Transactional
-	public ClienteRespuesta registrar(ClienteCrearRequest req, Long actorId) {
-		if (req.aceptoTratamientoDatos() == null || !req.aceptoTratamientoDatos()) {
-			throw new ConsentimientoRequeridoException(
-					"El registro de clientes exige la aceptación explícita de la política de tratamiento de datos personales conforme a la Ley 1581 de 2012.");
+	public RegistroClienteRespuesta registrar(RegistroClienteRequest datos) {
+		String documento = DocumentoIdentidad.normalizar(datos.documento());
+		if (!DocumentoIdentidad.esValido(documento)) {
+			throw new DatoInvalidoException("documento", DocumentoIdentidad.MENSAJE_INVALIDO);
+		}
+		if (datos.contrasena().getBytes(StandardCharsets.UTF_8).length > MAX_BYTES_CONTRASENA) {
+			throw new DatoInvalidoException("contrasena", RegistroClienteRequest.MENSAJE_CONTRASENA);
+		}
+		String correo = datos.correo().trim();
+		if (clientes.existsByDocumento(documento)) {
+			throw new DatoDuplicadoException("documento", MENSAJE_DOCUMENTO_DUPLICADO);
+		}
+		if (usuarios.findByCorreoIgnoreCase(correo).isPresent()) {
+			throw new DatoDuplicadoException("correo", MENSAJE_CORREO_DUPLICADO);
 		}
 
-		String documentoLimpio = req.documento().trim();
-		if (clientes.existsByDocumento(documentoLimpio)) {
-			throw new DocumentoDuplicadoException("Ya existe un cliente registrado con el documento " + documentoLimpio);
+		Instant ahora = reloj.instant();
+		Usuario cuenta = new Usuario();
+		cuenta.setNombre(datos.nombre().trim());
+		cuenta.setCorreo(correo);
+		cuenta.setContrasenaHash(codificador.encode(datos.contrasena()));
+		cuenta.setRol(Rol.CLIENTE);
+		cuenta.setActivo(true);
+		cuenta.setFechaCreacion(ahora);
+
+		Cliente cliente = new Cliente();
+		cliente.setNombre(datos.nombre().trim());
+		cliente.setApellido(datos.apellido().trim());
+		cliente.setDocumento(documento);
+		cliente.setCelular(datos.celular().replace(" ", ""));
+		cliente.setAceptoTratamientoDatos(true);
+		cliente.setFechaAceptacionDatos(ahora);
+		cliente.setFechaRegistro(ahora);
+		cliente.setPuntos(0);
+		cliente.setUsuario(cuenta);
+
+		try {
+			usuarios.saveAndFlush(cuenta);
+			clientes.saveAndFlush(cliente);
+		} catch (DataIntegrityViolationException e) {
+			// Otro registro con el mismo documento o correo se guardó entre la comprobación y aquí.
+			throw new DatoDuplicadoException(null, "Este documento o correo ya está registrado.");
 		}
 
-		Instant ahora = Instant.now();
-		Cliente c = new Cliente();
-		c.setNombre(req.nombre().trim());
-		c.setApellido(req.apellido().trim());
-		c.setDocumento(documentoLimpio);
-		c.setCelular(req.celular().trim());
-		c.setAceptoTratamientoDatos(true);
-		c.setFechaAceptacionDatos(ahora);
-		c.setFechaRegistro(ahora);
-		c.setPuntos(0);
+		auditar(OPERACION_CONSENTIMIENTO, cliente.getId(), cuenta, ahora,
+				"El titular aceptó el tratamiento de sus datos personales (Ley 1581 de 2012) al registrarse desde la app. "
+						+ "Texto de autorización aceptado: versión " + VERSION_TEXTO_AUTORIZACION + ".");
 
-		Cliente guardado = clientes.save(c);
-
-		auditar(OPERACION_CONSENTIMIENTO, guardado.getId(), actorId, ahora,
-				"Autorización previa, expresa e informada para el tratamiento de datos personales (Ley 1581 de 2012). "
-						+ "Cliente #" + guardado.getId() + ". Texto de autorización aceptado: versión "
-						+ VERSION_TEXTO_AUTORIZACION + ".");
-
-		return ClienteRespuesta.desde(guardado);
+		return new RegistroClienteRespuesta(MENSAJE_REGISTRO_EXITOSO, cliente.getNombre(), cliente.getPuntos());
 	}
 
 	@Transactional(readOnly = true)
 	public ClienteRespuesta buscarPorDocumento(String documento) {
-		return clientes.findByDocumento(documento.trim())
+		return clientes.findByDocumento(DocumentoIdentidad.normalizar(documento))
 				.map(ClienteRespuesta::desde)
-				.orElseThrow(() -> new ClienteNoEncontradoException(
-						"No se encontró ningún cliente con el documento " + documento.trim()));
+				.orElseThrow(ClienteNoEncontradoException::new);
 	}
 
+	/** El registro de cliente de la cuenta que inició sesión (RF-55). */
 	@Transactional(readOnly = true)
-	public List<ClienteRespuesta> listar() {
-		return clientes.findAll().stream()
+	public ClienteRespuesta miCuenta(Long usuarioId) {
+		return clientes.findByUsuarioId(usuarioId)
 				.map(ClienteRespuesta::desde)
-				.toList();
+				.orElseThrow(ClienteNoEncontradoException::new);
 	}
 
 	/**
@@ -116,88 +207,81 @@ public class ClienteService {
 				.map(ConsentimientoRespuesta::desde)
 				.toList();
 		if (historial.isEmpty() && !clientes.existsById(clienteId)) {
-			throw new ClienteNoEncontradoException("No se encontró el cliente con id " + clienteId);
+			throw new ClienteNoEncontradoException();
 		}
 		return historial;
 	}
 
 	/**
-	 * Suprime los datos personales del cliente (Ley 1581, art. 15):
+	 * El cliente elimina sus datos personales (Ley 1581, art. 15). Es irreversible: confirma con su
+	 * contraseña, y los intentos fallidos cuentan como los del inicio de sesión.
 	 * <ul>
-	 * <li>Siempre borra sus notificaciones y, si tiene cuenta para entrar a la app, la desactiva y
-	 * anonimiza.</li>
+	 * <li>Siempre borra sus notificaciones, sus dispositivos y sus códigos de recuperación, y
+	 * desactiva y anonimiza su cuenta (el token deja de servir de inmediato).</li>
 	 * <li>Sin comandas ni canjes: elimina el registro del cliente.</li>
 	 * <li>Con comandas o canjes (historial comercial que se debe conservar): anonimiza nombre,
-	 * apellido, documento y celular y revoca la autorización. Es irreversible.</li>
+	 * apellido, documento y celular y revoca la autorización.</li>
 	 * </ul>
 	 * Las dependencias se revisan antes de borrar (no se espera un error de la base de datos): un
 	 * error de integridad dentro de la transacción la dejaría marcada para revertirse.
 	 */
-	@Transactional
-	public ResultadoSupresion suprimirDatosPersonales(Long clienteId, String motivo, Long actorId) {
-		// Primero las notificaciones: el borrado directo vacía el contexto de persistencia, así que el
-		// cliente se carga después. Si el cliente no existe, la excepción revierte la transacción.
-		clientes.borrarNotificaciones(clienteId);
-		Cliente c = clientes.findById(clienteId)
-				.orElseThrow(() -> new ClienteNoEncontradoException("No se encontró el cliente con id " + clienteId));
-
-		Instant ahora = Instant.now();
-		String motivoTexto = limpiarMotivo(motivo);
-
-		Usuario cuenta = c.getUsuario();
-		if (cuenta != null) {
-			c.setUsuario(null);
-			anonimizarCuenta(cuenta);
+	@Transactional(noRollbackFor = CredencialesInvalidasException.class)
+	public ResultadoSupresion eliminarMisDatos(Long usuarioId, String contrasena) {
+		if (contrasena == null || contrasena.isBlank()) {
+			throw new DatoInvalidoException("contrasena", MENSAJE_CONTRASENA_REQUERIDA);
 		}
+		autenticacion.confirmarContrasena(usuarioId, contrasena);
+		Long clienteId = clientes.findByUsuarioId(usuarioId)
+				.orElseThrow(ClienteNoEncontradoException::new).getId();
+
+		// Los borrados directos vacían el contexto de persistencia: el cliente y la cuenta se cargan después.
+		clientes.borrarNotificaciones(clienteId);
+		dispositivos.borrarDeCuenta(usuarioId);
+		codigos.borrarDeCuenta(usuarioId);
+		Cliente cliente = clientes.findById(clienteId).orElseThrow(ClienteNoEncontradoException::new);
+		Usuario cuenta = cliente.getUsuario();
+
+		cliente.setUsuario(null);
+		anonimizar(cuenta);
 
 		ResultadoSupresion resultado;
 		if (clientes.tieneComandas(clienteId) || clientes.tieneCanjes(clienteId)) {
-			c.setNombre(NOMBRE_SUPRIMIDO);
-			c.setApellido(APELLIDO_SUPRIMIDO);
-			c.setDocumento(PREFIJO_DOCUMENTO_SUPRIMIDO + clienteId);
-			c.setCelular(CELULAR_SUPRIMIDO);
-			c.setAceptoTratamientoDatos(false);
-			clientes.save(c);
+			cliente.setNombre(NOMBRE_SUPRIMIDO);
+			cliente.setApellido(APELLIDO_SUPRIMIDO);
+			cliente.setDocumento(PREFIJO_DOCUMENTO_SUPRIMIDO + clienteId);
+			cliente.setCelular(CELULAR_SUPRIMIDO);
+			cliente.setAceptoTratamientoDatos(false);
+			clientes.save(cliente);
 			resultado = ResultadoSupresion.ANONIMIZADO;
 		} else {
-			clientes.delete(c);
+			clientes.delete(cliente);
 			resultado = ResultadoSupresion.ELIMINADO;
 		}
 
-		auditar(OPERACION_SUPRESION, clienteId, actorId, ahora,
-				"Supresión de datos personales conforme al art. 15 de la Ley 1581 de 2012. Cliente #" + clienteId
-						+ ": " + resultado.descripcion + (cuenta != null ? " Cuenta de usuario desactivada." : "")
-						+ " Motivo: " + motivoTexto);
-
+		auditar(OPERACION_SUPRESION, clienteId, cuenta, reloj.instant(),
+				"Supresión de datos personales solicitada por el titular desde la app (Ley 1581 de 2012, art. 15): "
+						+ resultado.descripcion + " Cuenta desactivada y anonimizada.");
 		return resultado;
 	}
 
-	private void anonimizarCuenta(Usuario cuenta) {
+	private void anonimizar(Usuario cuenta) {
 		cuenta.setNombre(NOMBRE_SUPRIMIDO);
 		cuenta.setCorreo("eliminado-" + cuenta.getId() + "@appresso.invalid");
+		// Ya no queda ni el hash de su contraseña: se reemplaza por el de un valor que nadie conoce.
+		cuenta.setContrasenaHash(codificador.encode(UUID.randomUUID().toString()));
 		cuenta.setActivo(false);
 		usuarios.save(cuenta);
 	}
 
-	private static String limpiarMotivo(String motivo) {
-		if (motivo == null || motivo.isBlank()) {
-			return "Solicitud del titular (Habeas Data)";
-		}
-		String limpio = motivo.trim();
-		return limpio.length() > MAX_MOTIVO ? limpio.substring(0, MAX_MOTIVO) : limpio;
-	}
-
-	private void auditar(String operacion, Long clienteId, Long actorId, Instant fecha, String detalle) {
-		RegistroAuditoria reg = new RegistroAuditoria();
-		reg.setTipoOperacion(operacion);
-		reg.setEntidad(ENTIDAD);
-		reg.setEntidadId(clienteId);
-		reg.setDetalle(detalle);
-		if (actorId != null) {
-			reg.setUsuario(usuarios.getReferenceById(actorId));
-		}
-		reg.setFecha(fecha);
-		auditoria.save(reg);
+	private void auditar(String operacion, Long clienteId, Usuario cuenta, Instant fecha, String detalle) {
+		RegistroAuditoria registro = new RegistroAuditoria();
+		registro.setUsuario(cuenta);
+		registro.setTipoOperacion(operacion);
+		registro.setEntidad(ENTIDAD);
+		registro.setEntidadId(clienteId);
+		registro.setDetalle(detalle);
+		registro.setFecha(fecha);
+		auditoria.save(registro);
 	}
 
 	/** Qué se hizo con los datos al atender una solicitud de supresión. */
@@ -209,24 +293,6 @@ public class ClienteService {
 
 		ResultadoSupresion(String descripcion) {
 			this.descripcion = descripcion;
-		}
-	}
-
-	public static class ConsentimientoRequeridoException extends RuntimeException {
-		public ConsentimientoRequeridoException(String mensaje) {
-			super(mensaje);
-		}
-	}
-
-	public static class DocumentoDuplicadoException extends RuntimeException {
-		public DocumentoDuplicadoException(String mensaje) {
-			super(mensaje);
-		}
-	}
-
-	public static class ClienteNoEncontradoException extends RuntimeException {
-		public ClienteNoEncontradoException(String mensaje) {
-			super(mensaje);
 		}
 	}
 

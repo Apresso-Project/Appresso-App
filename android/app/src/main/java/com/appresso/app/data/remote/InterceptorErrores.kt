@@ -7,13 +7,14 @@ import okhttp3.Response
 /**
  * Avisa de los 403 y de la pérdida de conexión en los endpoints protegidos. Las llamadas
  * canceladas por la app no cuentan como pérdida de conexión.
- * El login se omite: ahí ResultadoLogin ya informa cada caso en la propia pantalla.
+ * Las rutas públicas de la cuenta (`/api/auth/`: login, registro y recuperación) se omiten: ahí
+ * cada pantalla informa el caso por su cuenta.
  */
 class InterceptorErrores(private val bus: BusEventosRed) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val solicitud = chain.request()
-        val esLogin = solicitud.url.encodedPath.endsWith(RUTA_LOGIN)
+        val esLogin = solicitud.url.encodedPath.contains(RUTAS_PUBLICAS)
 
         val respuesta = try {
             chain.proceed(solicitud)
@@ -29,6 +30,6 @@ class InterceptorErrores(private val bus: BusEventosRed) : Interceptor {
     }
 
     private companion object {
-        const val RUTA_LOGIN = "api/auth/login"
+        const val RUTAS_PUBLICAS = "/api/auth/"
     }
 }

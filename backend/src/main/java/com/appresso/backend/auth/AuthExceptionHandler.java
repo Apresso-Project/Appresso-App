@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * Traduce los errores del inicio de sesión a respuestas sin trazas técnicas (RNF-19).
- * Aplica solo a {@link AuthController}.
+ * Traduce los errores del inicio de sesión y de la recuperación de contraseña a respuestas sin
+ * trazas técnicas (RNF-19). Aplica solo a {@link AuthController}.
  */
 @RestControllerAdvice(assignableTypes = AuthController.class)
 public class AuthExceptionHandler {
@@ -24,10 +24,18 @@ public class AuthExceptionHandler {
 
 	@ExceptionHandler(CuentaBloqueadaException.class)
 	public ResponseEntity<ErrorRespuesta> cuentaBloqueada(CuentaBloqueadaException e) {
-		long minutos = e.getMinutosRestantes();
-		String mensaje = "Cuenta bloqueada temporalmente por demasiados intentos fallidos. "
-				+ "Intenta de nuevo en " + minutos + (minutos == 1 ? " minuto." : " minutos.");
-		return ResponseEntity.status(HttpStatus.LOCKED).body(new ErrorRespuesta(mensaje));
+		return ResponseEntity.status(HttpStatus.LOCKED).body(new ErrorRespuesta(e.mensajeVisible()));
+	}
+
+	@ExceptionHandler(CodigoInvalidoException.class)
+	public ResponseEntity<ErrorRespuesta> codigoInvalido(CodigoInvalidoException e) {
+		return ResponseEntity.badRequest().body(new ErrorRespuesta(e.getMessage(), Map.of("codigo", e.getMessage())));
+	}
+
+	@ExceptionHandler(ContrasenaInvalidaException.class)
+	public ResponseEntity<ErrorRespuesta> contrasenaInvalida(ContrasenaInvalidaException e) {
+		return ResponseEntity.badRequest()
+				.body(new ErrorRespuesta(e.getMessage(), Map.of("contrasenaNueva", e.getMessage())));
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)

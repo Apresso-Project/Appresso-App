@@ -48,10 +48,10 @@ class LoginViewModelTest {
 
     @Test
     fun `escribir actualiza los campos`() {
-        viewModel.onCorreoChange("ana@appresso.test")
+        viewModel.onIdentificadorChange("ana@appresso.test")
         viewModel.onContrasenaChange("clave")
 
-        assertEquals("ana@appresso.test", viewModel.estado.value.correo)
+        assertEquals("ana@appresso.test", viewModel.estado.value.identificador)
         assertEquals("clave", viewModel.estado.value.contrasena)
     }
 
@@ -136,10 +136,10 @@ class LoginViewModelTest {
         escribir("ana@appresso.test", "clave-1")
         viewModel.enviar()
 
-        viewModel.onCorreoChange("otro@appresso.test")
+        viewModel.onIdentificadorChange("otro@appresso.test")
         viewModel.onContrasenaChange("otra")
 
-        assertEquals("ana@appresso.test", viewModel.estado.value.correo)
+        assertEquals("ana@appresso.test", viewModel.estado.value.identificador)
         assertEquals("clave-1", viewModel.estado.value.contrasena)
     }
 
@@ -167,7 +167,7 @@ class LoginViewModelTest {
 
         val estado = viewModel.estado.value
         assertEquals(ErrorLogin.CredencialesInvalidas, estado.error)
-        assertEquals("ana@appresso.test", estado.correo)
+        assertEquals("ana@appresso.test", estado.identificador)
         assertEquals("mala", estado.contrasena)
         assertFalse(estado.cargando)
         assertNull(almacen.sesion.value)
@@ -251,13 +251,34 @@ class LoginViewModelTest {
 
     @Test
     fun `un correo sin formato valido no llega al servidor`() = runTest {
-        escribir("no-es-un-correo", "clave-1")
+        escribir("ana@", "clave-1")
 
         viewModel.enviar()
 
-        assertEquals(ErrorLogin.CorreoInvalido, viewModel.estado.value.error)
+        assertEquals(ErrorLogin.IdentificadorInvalido, viewModel.estado.value.error)
         assertTrue(repositorio.llamadas.isEmpty())
         assertFalse(viewModel.estado.value.cargando)
+    }
+
+    @Test
+    fun `un texto sin arroba que no es un documento valido no llega al servidor`() = runTest {
+        escribir("ana_perez", "clave-1")
+
+        viewModel.enviar()
+
+        assertEquals(ErrorLogin.IdentificadorInvalido, viewModel.estado.value.error)
+        assertTrue(repositorio.llamadas.isEmpty())
+    }
+
+    @Test
+    fun `el cliente puede iniciar sesion con su numero de documento`() = runTest {
+        repositorio.resultado = ResultadoLogin.Exito(Sesion("t", Rol.CLIENTE, "Ana"))
+        escribir(" 1.234.567.890 ", "clave-1")
+
+        viewModel.enviar()
+
+        assertEquals(listOf("1.234.567.890" to "clave-1"), repositorio.llamadas)
+        assertEquals(Rol.CLIENTE, almacen.sesion.value?.rol)
     }
 
     @Test
@@ -281,6 +302,14 @@ class LoginViewModelTest {
     }
 
     @Test
+    fun `reglas del identificador correo o documento`() {
+        listOf("ana@appresso.test", "1234567890", "1.234.567", "AB12345", "pa 123 456")
+            .forEach { assertTrue(it, LoginViewModel.esIdentificadorValido(it)) }
+        listOf("ana@", "1234", "ana_perez", "123456789012345678901", "12_345")
+            .forEach { assertFalse(it, LoginViewModel.esIdentificadorValido(it)) }
+    }
+
+    @Test
     fun `reglas del formato de correo`() {
         listOf("a@b", "ana@appresso.test", "ana.perez+cafe@appresso.co", "a".repeat(143) + "@x.com")
             .forEach { assertTrue(it, LoginViewModel.esCorreoValido(it)) }
@@ -290,8 +319,8 @@ class LoginViewModelTest {
 
     // ---------------------------------------------------------------- apoyo
 
-    private fun escribir(correo: String, contrasena: String) {
-        viewModel.onCorreoChange(correo)
+    private fun escribir(identificador: String, contrasena: String) {
+        viewModel.onIdentificadorChange(identificador)
         viewModel.onContrasenaChange(contrasena)
     }
 
@@ -301,8 +330,8 @@ class LoginViewModelTest {
         var resultado: ResultadoLogin = ResultadoLogin.ErrorDelServidor
         var espera: CompletableDeferred<ResultadoLogin>? = null
 
-        override suspend fun iniciarSesion(correo: String, contrasena: String): ResultadoLogin {
-            llamadas += correo to contrasena
+        override suspend fun iniciarSesion(identificador: String, contrasena: String): ResultadoLogin {
+            llamadas += identificador to contrasena
             return espera?.await() ?: resultado
         }
     }

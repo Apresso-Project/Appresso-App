@@ -76,18 +76,4 @@ object ClienteHttp {
      */
     fun crearAuthApi(urlBase: String, tiempoLimiteSegundos: Long = TIEMPO_LIMITE_SEGUNDOS): AuthApi =
         crearRetrofit(urlBase, tiempoLimiteSegundos = tiempoLimiteSegundos).create(AuthApi::class.java)
-
-    /**
-     * Convierte la URL base HTTP/HTTPS en la URL correspondiente para WebSocket STOMP.
-     * En producción (HTTPS) garantiza el uso de WSS (WebSocket Secure), cifrado de extremo a extremo.
-     */
-    fun urlWebSocket(urlHttpBase: String): String {
-        val limpia = if (urlHttpBase.endsWith("/")) urlHttpBase else "$urlHttpBase/"
-        val prefijoWs = when {
-            limpia.startsWith("https://", ignoreCase = true) -> "wss://" + limpia.substring("https://".length)
-            limpia.startsWith("http://", ignoreCase = true) -> "ws://" + limpia.substring("http://".length)
-            else -> "wss://$limpia"
-        }
-        return "${prefijoWs}ws/websocket"
-    }
 }

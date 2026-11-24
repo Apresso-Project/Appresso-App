@@ -8,15 +8,19 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.appresso.app.data.auth.AlmacenSesion
 import com.appresso.app.data.auth.AuthRepository
 import com.appresso.app.data.auth.ResultadoLogin
+import com.appresso.app.data.cuenta.ReglasCuenta
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Todo lo que la pantalla de inicio de sesión necesita dibujar. */
+/**
+ * Todo lo que la pantalla de inicio de sesión necesita dibujar. [identificador] es el correo (personal)
+ * o el número de documento (cliente).
+ */
 data class LoginUiState(
-    val correo: String = "",
+    val identificador: String = "",
     val contrasena: String = "",
     val cargando: Boolean = false,
     val error: ErrorLogin? = null,
@@ -29,7 +33,7 @@ data class LoginUiState(
 sealed interface ErrorLogin {
 
     /** Validación del lado del cliente: no se llegó a llamar al servidor. */
-    data object CorreoInvalido : ErrorLogin
+    data object IdentificadorInvalido : ErrorLogin
     data object ContrasenaDemasiadoLarga : ErrorLogin
 
     data object CredencialesInvalidas : ErrorLogin
@@ -53,8 +57,8 @@ class LoginViewModel(
     val estado: StateFlow<LoginUiState> = _estado.asStateFlow()
 
     // Mientras se espera la respuesta los campos no cambian; al editar, el error anterior ya no aplica.
-    fun onCorreoChange(valor: String) = _estado.update {
-        if (it.cargando) it else it.copy(correo = valor, error = null)
+    fun onIdentificadorChange(valor: String) = _estado.update {
+        if (it.cargando) it else it.copy(identificador = valor, error = null)
     }
 
     fun onContrasenaChange(valor: String) = _estado.update {
@@ -65,11 +69,11 @@ class LoginViewModel(
         val actual = _estado.value
         if (actual.cargando) return // un segundo toque no debe enviar otra solicitud (cuenta como otro intento)
 
-        val correo = actual.correo.trim()
+        val identificador = actual.identificador.trim()
         val contrasena = actual.contrasena
-        if (correo.isEmpty() || contrasena.isEmpty()) return
+        if (identificador.isEmpty() || contrasena.isEmpty()) return
 
-        val problema = validar(correo, contrasena)
+        val problema = validar(identificador, contrasena)
         if (problema != null) {
             _estado.update { it.copy(error = problema) }
             return
@@ -77,7 +81,7 @@ class LoginViewModel(
 
         _estado.update { it.copy(cargando = true, error = null) }
         viewModelScope.launch {
-            when (val resultado = repositorio.iniciarSesion(correo, contrasena)) {
+            when (val resultado = repositorio.iniciarSesion(identificador, contrasena)) {
                 is ResultadoLogin.Exito -> {
                     almacenSesion.guardar(resultado.sesion)
                     // La contraseña no se queda en memoria una vez usada.
@@ -90,8 +94,8 @@ class LoginViewModel(
     }
 
     /** Mismas reglas del servidor (docs/api-auth.md), igual de permisivas o más, para no rechazar de más. */
-    private fun validar(correo: String, contrasena: String): ErrorLogin? = when {
-        !esCorreoValido(correo) -> ErrorLogin.CorreoInvalido
+    private fun validar(identificador: String, contrasena: String): ErrorLogin? = when {
+        !esIdentificadorValido(identificador) -> ErrorLogin.IdentificadorInvalido
         contrasena.length > MAX_CARACTERES_CONTRASENA -> ErrorLogin.ContrasenaDemasiadoLarga
         else -> null
     }
@@ -105,6 +109,10 @@ class LoginViewModel(
 
         internal fun esCorreoValido(correo: String) =
             correo.length <= MAX_CARACTERES_CORREO && FORMATO_CORREO.matches(correo)
+
+        /** Con @ es el correo del personal; sin @, el documento del cliente (RF-01). */
+        internal fun esIdentificadorValido(identificador: String) =
+            if (identificador.contains('@')) esCorreoValido(identificador) else ReglasCuenta.esDocumentoValido(identificador)
 
         fun factory(repositorio: AuthRepository, almacenSesion: AlmacenSesion): ViewModelProvider.Factory =
             viewModelFactory { initializer { LoginViewModel(repositorio, almacenSesion) } }

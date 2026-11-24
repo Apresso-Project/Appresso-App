@@ -13,6 +13,8 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
 	boolean existsByDocumento(String documento);
 
+	Optional<Cliente> findByUsuarioId(Long usuarioId);
+
 	/** Comandas del cliente: son registros comerciales que se conservan (Ley 1581, art. 15). */
 	@Query("select case when count(c) > 0 then true else false end from Comanda c where c.cliente.id = :id")
 	boolean tieneComandas(@Param("id") Long clienteId);

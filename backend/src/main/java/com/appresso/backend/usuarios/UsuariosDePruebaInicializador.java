@@ -1,6 +1,7 @@
 package com.appresso.backend.usuarios;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -12,6 +13,9 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import com.appresso.backend.fidelizacion.Cliente;
+import com.appresso.backend.fidelizacion.ClienteRepository;
+
 /**
  * Crea un usuario de prueba por cada rol que no es administrador, solo con el perfil {@code dev},
  * para verificar el control de acceso con los cinco roles (SCRUM-51). El administrador lo crea
@@ -20,6 +24,9 @@ import org.springframework.stereotype.Component;
  * Los cuatro comparten la contraseña de la variable {@code DEV_USUARIOS_CONTRASENA} (en
  * {@code backend/.env}), nunca del repositorio. Igual que el administrador: si la variable está
  * vacía no se crea nada, y si un correo ya existe no se toca.
+ * <p>
+ * El cliente de prueba también tiene su registro de cliente, porque los clientes inician sesión con
+ * su documento ({@value #DOCUMENTO_CLIENTE}) y no con el correo.
  */
 @Component
 @Profile("dev")
@@ -35,13 +42,18 @@ public class UsuariosDePruebaInicializador implements ApplicationRunner {
 			Rol.COCINERO, new String[] { "cocinero@appresso.test", "Cocinero de prueba" },
 			Rol.CLIENTE, new String[] { "cliente@appresso.test", "Cliente de prueba" });
 
+	/** Documento con el que inicia sesión el cliente de prueba. */
+	static final String DOCUMENTO_CLIENTE = "1000000001";
+
 	private final UsuarioRepository usuarios;
+	private final ClienteRepository clientes;
 	private final PasswordEncoder codificador;
 	private final String contrasena;
 
-	public UsuariosDePruebaInicializador(UsuarioRepository usuarios, PasswordEncoder codificador,
-			@Value("${appresso.dev.usuarios-contrasena:}") String contrasena) {
+	public UsuariosDePruebaInicializador(UsuarioRepository usuarios, ClienteRepository clientes,
+			PasswordEncoder codificador, @Value("${appresso.dev.usuarios-contrasena:}") String contrasena) {
 		this.usuarios = usuarios;
+		this.clientes = clientes;
 		this.codificador = codificador;
 		this.contrasena = contrasena;
 	}
@@ -71,6 +83,21 @@ public class UsuariosDePruebaInicializador implements ApplicationRunner {
 		usuario.setContrasenaHash(codificador.encode(contrasena));
 		usuario.setRol(rol);
 		usuarios.save(usuario);
+		if (rol == Rol.CLIENTE && !clientes.existsByDocumento(DOCUMENTO_CLIENTE)) {
+			Instant ahora = Instant.now();
+			Cliente cliente = new Cliente();
+			cliente.setNombre("Cliente");
+			cliente.setApellido("de prueba");
+			cliente.setDocumento(DOCUMENTO_CLIENTE);
+			cliente.setCelular("3000000000");
+			cliente.setAceptoTratamientoDatos(true);
+			cliente.setFechaAceptacionDatos(ahora);
+			cliente.setFechaRegistro(ahora);
+			cliente.setUsuario(usuario);
+			clientes.save(cliente);
+			log.info("Usuario de prueba creado: {} ({}), inicia sesión con el documento {}", correo, rol, DOCUMENTO_CLIENTE);
+			return;
+		}
 		log.info("Usuario de prueba creado: {} ({})", correo, rol);
 	}
 

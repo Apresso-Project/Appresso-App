@@ -39,7 +39,7 @@ class ExigirHttpsTest {
 	@Test
 	void elLoginPorHttpSeRechazaCon426AntesDeLeerLasCredenciales() throws Exception {
 		mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-						.content("{\"correo\":\"a@appresso.test\",\"contrasena\":\"x\"}"))
+						.content("{\"identificador\":\"a@appresso.test\",\"contrasena\":\"x\"}"))
 				.andExpect(status().is(FiltroExigirHttps.UPGRADE_REQUIRED))
 				.andExpect(jsonPath("$.mensaje").value(FiltroExigirHttps.MENSAJE));
 	}

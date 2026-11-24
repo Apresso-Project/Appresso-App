@@ -1,35 +1,14 @@
 package com.appresso.backend.fidelizacion;
 
-import java.time.Instant;
-
 /**
- * Datos públicos del cliente registrados en el sistema, incluyendo la trazabilidad del consentimiento
- * legal de la Ley 1581 de 2012.
+ * Lo que el personal ve de un cliente al buscarlo (RF-51, RF-57) y lo que el cliente ve de sí mismo
+ * (RF-55): solo lo necesario para identificarlo y sus puntos. El celular, el correo y los datos del
+ * consentimiento no salen de aquí (RNF-09).
  */
-public record ClienteRespuesta(
-		Long id,
-		String nombre,
-		String apellido,
-		String documento,
-		String celular,
-		int puntos,
-		boolean aceptoTratamientoDatos,
-		Instant fechaAceptacionDatos,
-		Instant fechaRegistro
-) {
+public record ClienteRespuesta(Long id, String nombre, String apellido, String documento, int puntos) {
 
 	public static ClienteRespuesta desde(Cliente c) {
-		return new ClienteRespuesta(
-				c.getId(),
-				c.getNombre(),
-				c.getApellido(),
-				c.getDocumento(),
-				c.getCelular(),
-				c.getPuntos(),
-				c.isAceptoTratamientoDatos(),
-				c.getFechaAceptacionDatos(),
-				c.getFechaRegistro()
-		);
+		return new ClienteRespuesta(c.getId(), c.getNombre(), c.getApellido(), c.getDocumento(), c.getPuntos());
 	}
 
 }

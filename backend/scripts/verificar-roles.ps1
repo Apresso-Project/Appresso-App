@@ -30,7 +30,7 @@ $usuarios = [ordered]@{
     CAJERO        = @{ Correo = 'cajero@appresso.test'; Clave = $ClaveUsuarios }
     MESERO        = @{ Correo = 'mesero@appresso.test'; Clave = $ClaveUsuarios }
     COCINERO      = @{ Correo = 'cocinero@appresso.test'; Clave = $ClaveUsuarios }
-    CLIENTE       = @{ Correo = 'cliente@appresso.test'; Clave = $ClaveUsuarios }
+    CLIENTE       = @{ Correo = '1000000001'; Clave = $ClaveUsuarios } # el cliente entra con su documento
 }
 
 $reglas = @(
@@ -69,12 +69,11 @@ $reglas = @(
     @{ Metodo = 'GET'; Ruta = '/api/jornadas'; Permitidos = @('ADMINISTRADOR', 'CAJERO'); RF = 'RF-45, RF-48' },
     @{ Metodo = 'DELETE'; Ruta = '/api/jornadas/1'; Permitidos = @(); RF = '—' },
     @{ Metodo = 'GET'; Ruta = '/api/clientes/yo'; Permitidos = @('CLIENTE'); RF = 'RF-55' },
-    @{ Metodo = 'POST'; Ruta = '/api/clientes'; Permitidos = @('ADMINISTRADOR', 'MESERO'); RF = 'RF-50' },
-    @{ Metodo = 'POST'; Ruta = '/api/clientes/1/solicitar-eliminacion'; Permitidos = @('ADMINISTRADOR', 'MESERO'); RF = 'Ley 1581' },
-    @{ Metodo = 'DELETE'; Ruta = '/api/clientes/1'; Permitidos = @('ADMINISTRADOR'); RF = 'Ley 1581' },
+    # Sin cuerpo: al cliente le responde 400 y no elimina nada.
+    @{ Metodo = 'POST'; Ruta = '/api/clientes/yo/eliminacion'; Permitidos = @('CLIENTE'); RF = 'Ley 1581' },
     @{ Metodo = 'GET'; Ruta = '/api/clientes/1/consentimiento'; Permitidos = @('ADMINISTRADOR'); RF = 'Ley 1581' },
     @{ Metodo = 'GET'; Ruta = '/api/clientes/1234567890'; Permitidos = @('ADMINISTRADOR', 'MESERO'); RF = 'RF-51, RF-57' },
-    @{ Metodo = 'DELETE'; Ruta = '/api/clientes/1/otra'; Permitidos = @(); RF = '—' },
+    @{ Metodo = 'DELETE'; Ruta = '/api/clientes/1'; Permitidos = @(); RF = '—' },
     @{ Metodo = 'GET'; Ruta = '/api/recompensas'; Permitidos = @('ADMINISTRADOR', 'MESERO', 'CLIENTE'); RF = 'RF-56, RF-57, RF-58' },
     @{ Metodo = 'DELETE'; Ruta = '/api/recompensas/1'; Permitidos = @('ADMINISTRADOR'); RF = 'RF-54, RF-60' },
     @{ Metodo = 'GET'; Ruta = '/api/promociones'; Permitidos = @('ADMINISTRADOR', 'CLIENTE'); RF = 'RF-62' },
@@ -96,7 +95,7 @@ function Invocar([string] $metodo, [string] $ruta, [string] $token) {
 # 1. Iniciar sesión con los cinco roles
 $tokens = @{}
 foreach ($rol in $usuarios.Keys) {
-    $cuerpo = @{ correo = $usuarios[$rol].Correo; contrasena = $usuarios[$rol].Clave } | ConvertTo-Json
+    $cuerpo = @{ identificador = $usuarios[$rol].Correo; contrasena = $usuarios[$rol].Clave } | ConvertTo-Json
     try {
         $r = Invoke-RestMethod -Uri "$UrlBase/api/auth/login" -Method Post -ContentType 'application/json; charset=utf-8' -Body $cuerpo
     } catch {

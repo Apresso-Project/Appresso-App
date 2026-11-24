@@ -12,9 +12,9 @@ import retrofit2.Response
 /** Inicia sesión contra el backend y traduce cada respuesta del contrato a un [ResultadoLogin]. */
 class AuthRepositoryRemoto(private val api: AuthApi) : AuthRepository {
 
-    override suspend fun iniciarSesion(correo: String, contrasena: String): ResultadoLogin =
+    override suspend fun iniciarSesion(identificador: String, contrasena: String): ResultadoLogin =
         try {
-            traducir(api.login(LoginRequest(correo, contrasena)))
+            traducir(api.login(LoginRequest(identificador, contrasena)))
         } catch (e: IOException) {
             // Sin red, servidor inalcanzable, conexión caída o tiempo de espera agotado.
             ResultadoLogin.SinConexion

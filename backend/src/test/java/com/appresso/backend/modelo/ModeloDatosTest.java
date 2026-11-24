@@ -48,7 +48,7 @@ import jakarta.persistence.metamodel.EntityType;
 class ModeloDatosTest {
 
 	private static final Set<String> ENTIDADES_ESPERADAS = Set.of(
-			"Usuario", "DispositivoPush",
+			"Usuario", "DispositivoPush", "CodigoRecuperacion",
 			"Categoria", "Producto", "MovimientoInventario",
 			"Mesa", "Comanda", "DetalleComanda", "HistorialComanda",
 			"Jornada", "Pago", "MovimientoCaja", "SolicitudRetiro", "InformeCierre",

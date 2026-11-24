@@ -45,8 +45,11 @@ class PermisosTest {
     }
 
     @Test
-    fun `el cliente ve sus puntos y las recompensas`() {
-        assertEquals(listOf(Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES), opcionesPara(Rol.CLIENTE))
+    fun `el cliente ve sus puntos las recompensas y sus datos`() {
+        assertEquals(
+            listOf(Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES, Opcion.MIS_DATOS),
+            opcionesPara(Rol.CLIENTE),
+        )
     }
 
     @Test
@@ -76,18 +79,18 @@ class PermisosTest {
     }
 
     @Test
-    fun `los puntos de un cliente son solo del cliente`() {
+    fun `los puntos y los datos de un cliente son solo del cliente`() {
         Rol.entries.forEach { rol ->
-            assertEquals(rol.name, rol == Rol.CLIENTE, puede(rol, Accion.VER_MIS_PUNTOS))
+            SOLO_CLIENTE.forEach { assertEquals("$it / $rol", rol == Rol.CLIENTE, puede(rol, it)) }
         }
     }
 
     @Test
-    fun `el administrador puede hacer todo lo que hace cualquier otro rol salvo ver puntos de cliente`() {
-        Accion.entries.filter { it != Accion.VER_MIS_PUNTOS }.forEach { accion ->
+    fun `el administrador puede hacer todo lo que hace cualquier otro rol salvo lo propio del cliente`() {
+        Accion.entries.filter { it !in SOLO_CLIENTE }.forEach { accion ->
             assertTrue("ADMINISTRADOR / $accion", puede(Rol.ADMINISTRADOR, accion))
         }
-        assertFalse(puede(Rol.ADMINISTRADOR, Accion.VER_MIS_PUNTOS))
+        SOLO_CLIENTE.forEach { assertFalse(puede(Rol.ADMINISTRADOR, it)) }
     }
 
     // ---------------------------------------------------------------- coherencia
@@ -116,5 +119,9 @@ class PermisosTest {
     @Test
     fun `todos los roles tienen al menos una opcion`() {
         Rol.entries.forEach { rol -> assertTrue(rol.name, opcionesPara(rol).isNotEmpty()) }
+    }
+
+    private companion object {
+        val SOLO_CLIENTE = setOf(Accion.VER_MIS_PUNTOS, Accion.ELIMINAR_MIS_DATOS)
     }
 }

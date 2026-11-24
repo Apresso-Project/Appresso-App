@@ -2,11 +2,13 @@ package com.appresso.backend.fidelizacion;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,48 +17,52 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import com.appresso.backend.auditoria.RegistroAuditoria;
 import com.appresso.backend.auditoria.RegistroAuditoriaRepository;
+import com.appresso.backend.auth.CodigoRecuperacion;
 import com.appresso.backend.auth.JwtService;
 import com.appresso.backend.comandas.Comanda;
 import com.appresso.backend.comandas.Mesa;
+import com.appresso.backend.usuarios.DispositivoPush;
 import com.appresso.backend.usuarios.Rol;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
-import com.jayway.jsonpath.JsonPath;
 
 import jakarta.persistence.EntityManager;
 
 /**
- * Trazabilidad del consentimiento y supresión de datos personales (Ley 1581, SCRUM-101).
- * Cada prueba se revierte al terminar ({@code @Transactional}).
+ * Trazabilidad del consentimiento y eliminación de los datos por el propio cliente (Ley 1581,
+ * SCRUM-101), de punta a punta con la seguridad activa. Cada prueba se revierte al terminar.
  */
 @SpringBootTest
 @Transactional
 class ClienteSupresionTest {
 
+	private static final String CLAVE = "Clave-Cliente-1";
+
 	@Autowired WebApplicationContext context;
 	@Autowired ClienteRepository clientes;
 	@Autowired UsuarioRepository usuarios;
 	@Autowired RegistroAuditoriaRepository auditoria;
+	@Autowired PasswordEncoder codificador;
 	@Autowired JwtService jwt;
 	@Autowired EntityManager em;
 
 	MockMvc mvc;
-	Usuario admin;
 	String tokenAdmin;
 	String tokenMesero;
 
 	@BeforeEach
 	void preparar() {
 		mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
-		admin = usuario(Rol.ADMINISTRADOR);
-		tokenAdmin = jwt.generar(admin);
+		tokenAdmin = jwt.generar(usuario(Rol.ADMINISTRADOR));
 		tokenMesero = jwt.generar(usuario(Rol.MESERO));
 	}
 
@@ -64,37 +70,37 @@ class ClienteSupresionTest {
 
 	@Test
 	void elConsentimientoQuedaEnAuditoriaConLaVersionDelTextoYSinDatosPersonales() throws Exception {
-		Long id = registrarPorApi("Ana", "Gomez", documentoUnico());
+		Cliente c = registrarPorApi();
 
-		RegistroAuditoria registro = auditoriaDe(id, ClienteService.OPERACION_CONSENTIMIENTO).get(0);
+		RegistroAuditoria registro = auditoriaDe(c.getId(), ClienteService.OPERACION_CONSENTIMIENTO).get(0);
 
 		assertThat(registro.getDetalle())
 				.contains("Ley 1581")
 				.contains(ClienteService.VERSION_TEXTO_AUTORIZACION)
-				.doesNotContain("Ana")
-				.doesNotContain("Gomez");
-		assertThat(registro.getUsuario()).isNotNull();
+				.doesNotContain("Marta", "Lopez", c.getDocumento(), c.getCelular(), c.getUsuario().getCorreo());
+		assertThat(registro.getUsuario().getId()).isEqualTo(c.getUsuario().getId());
 		assertThat(registro.getFecha()).isNotNull();
 	}
 
 	@Test
 	void elAdministradorConsultaElHistorialDeConsentimiento() throws Exception {
-		Long id = registrarPorApi("Luis", "Rojas", documentoUnico());
+		Cliente c = registrarPorApi();
 
-		mvc.perform(get("/api/clientes/" + id + "/consentimiento").header("Authorization", "Bearer " + tokenAdmin))
+		historial(c.getId(), tokenAdmin)
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(1))
 				.andExpect(jsonPath("$[0].operacion").value(ClienteService.OPERACION_CONSENTIMIENTO))
 				.andExpect(jsonPath("$[0].fecha").isNotEmpty())
-				.andExpect(jsonPath("$[0].usuarioId").isNotEmpty());
+				.andExpect(jsonPath("$[0].usuarioId").value(c.getUsuario().getId()));
 	}
 
 	@Test
 	void elHistorialMuestraElConsentimientoYLaSupresionAunqueElClienteYaNoExista() throws Exception {
-		Long id = registrarPorApi("Sofia", "Diaz", documentoUnico());
-		solicitarEliminacion(id, tokenAdmin, "Solicitud por correo");
+		Cliente c = registrarPorApi();
+		eliminarMisDatos(c, CLAVE).andExpect(status().isNoContent());
+		assertThat(clientes.findById(c.getId())).isEmpty();
 
-		mvc.perform(get("/api/clientes/" + id + "/consentimiento").header("Authorization", "Bearer " + tokenAdmin))
+		historial(c.getId(), tokenAdmin)
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(2))
 				.andExpect(jsonPath("$[0].operacion").value(ClienteService.OPERACION_CONSENTIMIENTO))
@@ -102,30 +108,36 @@ class ClienteSupresionTest {
 	}
 
 	@Test
-	void elMeseroNoVeElHistorialDeConsentimiento() throws Exception {
-		Long id = registrarPorApi("Eva", "Mora", documentoUnico());
+	void soloElAdministradorVeElHistorialDeConsentimiento() throws Exception {
+		Cliente c = cliente();
 
-		mvc.perform(get("/api/clientes/" + id + "/consentimiento").header("Authorization", "Bearer " + tokenMesero))
-				.andExpect(status().isForbidden());
+		historial(c.getId(), tokenMesero).andExpect(status().isForbidden());
+		historial(c.getId(), tokenDe(c)).andExpect(status().isForbidden());
 	}
 
 	@Test
 	void historialDeUnClienteQueNuncaExistioResponde404() throws Exception {
-		mvc.perform(get("/api/clientes/999999/consentimiento").header("Authorization", "Bearer " + tokenAdmin))
-				.andExpect(status().isNotFound());
+		historial(999999L, tokenAdmin).andExpect(status().isNotFound());
 	}
 
-	// ---------------------------------------------------------------- supresión
+	// ---------------------------------------------------------------- eliminación por el propio cliente
 
 	@Test
-	void sinHistorialComercialElClienteYSusNotificacionesSeEliminan() throws Exception {
+	void sinHistorialComercialSeBorranElClienteSusNotificacionesSusDispositivosYSusCodigos() throws Exception {
 		Cliente c = cliente();
+		Long cuentaId = c.getUsuario().getId();
 		notificacionPara(c);
+		dispositivoDe(c.getUsuario());
+		codigoDe(c.getUsuario());
 
-		solicitarEliminacion(c.getId(), tokenAdmin, null);
+		eliminarMisDatos(c, CLAVE).andExpect(status().isNoContent());
 
+		em.flush();
+		em.clear();
 		assertThat(clientes.findById(c.getId())).isEmpty();
-		assertThat(notificacionesDe(c.getId())).isZero();
+		assertThat(contar("Notificacion n where n.cliente.id", c.getId())).isZero();
+		assertThat(contar("DispositivoPush n where n.usuario.id", cuentaId)).isZero();
+		assertThat(contar("CodigoRecuperacion n where n.usuario.id", cuentaId)).isZero();
 		assertThat(auditoriaDe(c.getId(), ClienteService.OPERACION_SUPRESION).get(0).getDetalle())
 				.contains("datos eliminados");
 	}
@@ -135,98 +147,147 @@ class ClienteSupresionTest {
 		Cliente c = cliente();
 		Comanda comanda = comandaDe(c);
 
-		solicitarEliminacion(c.getId(), tokenAdmin, "El titular lo pidió en caja");
+		eliminarMisDatos(c, CLAVE).andExpect(status().isNoContent());
 
+		em.flush();
+		em.clear();
 		Cliente anonimo = clientes.findById(c.getId()).orElseThrow();
 		assertThat(anonimo.getNombre()).isEqualTo(ClienteService.NOMBRE_SUPRIMIDO);
 		assertThat(anonimo.getApellido()).isEqualTo(ClienteService.APELLIDO_SUPRIMIDO);
 		assertThat(anonimo.getCelular()).isEqualTo(ClienteService.CELULAR_SUPRIMIDO);
 		assertThat(anonimo.getDocumento()).isEqualTo(ClienteService.PREFIJO_DOCUMENTO_SUPRIMIDO + c.getId());
 		assertThat(anonimo.isAceptoTratamientoDatos()).isFalse();
+		assertThat(anonimo.getUsuario()).isNull();
 		assertThat(em.find(Comanda.class, comanda.getId()).getCliente().getId()).isEqualTo(c.getId());
 		assertThat(auditoriaDe(c.getId(), ClienteService.OPERACION_SUPRESION).get(0).getDetalle())
-				.contains("anonimizados")
-				.contains("El titular lo pidió en caja");
+				.contains("anonimizados");
 	}
 
 	@Test
-	void laCuentaDeUsuarioDelClienteSeDesactivaYAnonimiza() throws Exception {
-		Usuario cuenta = usuario(Rol.CLIENTE);
+	void laCuentaSeDesactivaYAnonimizaYNoQuedaNiElHashDeLaContrasena() throws Exception {
 		Cliente c = cliente();
-		c.setUsuario(cuenta);
-		clientes.save(c);
+		Long cuentaId = c.getUsuario().getId();
+		String hashAnterior = c.getUsuario().getContrasenaHash();
 
-		solicitarEliminacion(c.getId(), tokenAdmin, null);
+		eliminarMisDatos(c, CLAVE).andExpect(status().isNoContent());
 
-		Usuario despues = usuarios.findById(cuenta.getId()).orElseThrow();
+		em.flush();
+		em.clear();
+		Usuario despues = usuarios.findById(cuentaId).orElseThrow();
 		assertThat(despues.isActivo()).isFalse();
-		assertThat(despues.getCorreo()).isEqualTo("eliminado-" + cuenta.getId() + "@appresso.invalid");
+		assertThat(despues.getCorreo()).isEqualTo("eliminado-" + cuentaId + "@appresso.invalid");
 		assertThat(despues.getNombre()).isEqualTo(ClienteService.NOMBRE_SUPRIMIDO);
+		assertThat(despues.getContrasenaHash()).startsWith("$2").isNotEqualTo(hashAnterior);
+		assertThat(codificador.matches(CLAVE, despues.getContrasenaHash())).isFalse();
+	}
+
+	@Test
+	void despuesDeEliminarElTokenYaNoSirveYNoSePuedeIniciarSesion() throws Exception {
+		Cliente c = cliente();
+		String token = tokenDe(c);
+		String documento = c.getDocumento();
+		eliminarMisDatos(c, CLAVE).andExpect(status().isNoContent());
+
+		mvc.perform(get("/api/clientes/yo").header("Authorization", "Bearer " + token))
+				.andExpect(status().isUnauthorized());
+		mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+						.content("{\"identificador\":\"" + documento + "\",\"contrasena\":\"" + CLAVE + "\"}"))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void conElMismoDocumentoYCorreoSePuedeVolverARegistrar() throws Exception {
+		Cliente c = cliente();
+		comandaDe(c); // aunque el registro anterior se conserve anónimo
+		String documento = c.getDocumento();
+		String correo = c.getUsuario().getCorreo();
+		eliminarMisDatos(c, CLAVE).andExpect(status().isNoContent());
+
+		registrar(documento, correo).andExpect(status().isCreated());
 	}
 
 	@Test
 	void laAuditoriaDeSupresionNoGuardaDatosPersonales() throws Exception {
 		Cliente c = cliente();
-		comandaDe(c); // se anonimiza: el registro del cliente se conserva
+		String documento = c.getDocumento();
+		String correo = c.getUsuario().getCorreo();
 
-		solicitarEliminacion(c.getId(), tokenAdmin, null);
+		eliminarMisDatos(c, CLAVE).andExpect(status().isNoContent());
 
-		String detalle = auditoriaDe(c.getId(), ClienteService.OPERACION_SUPRESION).get(0).getDetalle();
-		assertThat(detalle).doesNotContain("Marta").doesNotContain("Lopez").doesNotContain(c.getCelular());
+		assertThat(auditoriaDe(c.getId(), ClienteService.OPERACION_SUPRESION).get(0).getDetalle())
+				.doesNotContain("Marta", "Lopez", documento, correo, "3209998877");
 	}
 
 	@Test
-	void elDeleteDelAdministradorTambienSuprime() throws Exception {
+	void conLaContrasenaEquivocadaNoSeEliminaNadaYLaSesionSigueSirviendo() throws Exception {
 		Cliente c = cliente();
 
-		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-						.delete("/api/clientes/" + c.getId()).header("Authorization", "Bearer " + tokenAdmin))
-				.andExpect(status().isNoContent());
+		eliminarMisDatos(c, "otra-clave-1")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.mensaje").value("La contraseña no es correcta."))
+				.andExpect(jsonPath("$.campos.contrasena").value("La contraseña no es correcta."));
 
-		assertThat(clientes.findById(c.getId())).isEmpty();
+		assertThat(clientes.findById(c.getId()).orElseThrow().getNombre()).isEqualTo("Marta");
+		mvc.perform(get("/api/clientes/yo").header("Authorization", "Bearer " + tokenDe(c)))
+				.andExpect(status().isOk());
 	}
 
 	@Test
-	void unMotivoDeMasDe500CaracteresSeRechaza() throws Exception {
+	void sinContrasenaSePideYNoSeEliminaNada() throws Exception {
 		Cliente c = cliente();
 
-		mvc.perform(post("/api/clientes/" + c.getId() + "/solicitar-eliminacion")
-						.header("Authorization", "Bearer " + tokenAdmin)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"motivo\": \"" + "x".repeat(501) + "\"}"))
+		eliminarMisDatos(c, "  ")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.mensaje").value("Escribe tu contraseña para confirmar."));
+		mvc.perform(post("/api/clientes/yo/eliminacion").header("Authorization", "Bearer " + tokenDe(c)))
 				.andExpect(status().isBadRequest());
 
 		assertThat(clientes.findById(c.getId())).isPresent();
 	}
 
 	@Test
-	void suprimirUnClienteQueNoExisteResponde404() throws Exception {
-		mvc.perform(post("/api/clientes/999999/solicitar-eliminacion").header("Authorization", "Bearer " + tokenAdmin))
-				.andExpect(status().isNotFound());
+	void elPersonalNoPuedeEliminarClientes() throws Exception {
+		Cliente c = cliente();
+
+		for (String token : List.of(tokenAdmin, tokenMesero)) {
+			mvc.perform(delete("/api/clientes/" + c.getId()).header("Authorization", "Bearer " + token))
+					.andExpect(status().isForbidden());
+			mvc.perform(post("/api/clientes/" + c.getId() + "/eliminacion").header("Authorization", "Bearer " + token))
+					.andExpect(status().isForbidden());
+			mvc.perform(post("/api/clientes/yo/eliminacion").header("Authorization", "Bearer " + token)
+							.contentType(MediaType.APPLICATION_JSON).content("{\"contrasena\":\"x\"}"))
+					.andExpect(status().isForbidden());
+		}
+
+		assertThat(clientes.findById(c.getId())).isPresent();
 	}
 
 	// ---------------------------------------------------------------- ayudas
 
-	private Long registrarPorApi(String nombre, String apellido, String documento) throws Exception {
-		String cuerpo = """
-				{"nombre": "%s", "apellido": "%s", "documento": "%s", "celular": "3001112233",
-				 "aceptoTratamientoDatos": true}
-				""".formatted(nombre, apellido, documento);
-		String respuesta = mvc.perform(post("/api/clientes")
-						.header("Authorization", "Bearer " + tokenMesero)
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(cuerpo))
-				.andExpect(status().isCreated())
-				.andReturn().getResponse().getContentAsString();
-		return ((Number) JsonPath.read(respuesta, "$.id")).longValue();
+	private ResultActions registrar(String documento, String correo) throws Exception {
+		return mvc.perform(post("/api/auth/registro").contentType(MediaType.APPLICATION_JSON).content("""
+				{"nombre": "Marta", "apellido": "Lopez", "documento": "%s", "celular": "3209998877",
+				 "correo": "%s", "contrasena": "%s", "aceptoTratamientoDatos": true}
+				""".formatted(documento, correo, CLAVE)));
 	}
 
-	private void solicitarEliminacion(Long id, String token, String motivo) throws Exception {
-		var peticion = post("/api/clientes/" + id + "/solicitar-eliminacion").header("Authorization", "Bearer " + token);
-		if (motivo != null) {
-			peticion.contentType(MediaType.APPLICATION_JSON).content("{\"motivo\": \"" + motivo + "\"}");
-		}
-		mvc.perform(peticion).andExpect(status().isNoContent());
+	private Cliente registrarPorApi() throws Exception {
+		String documento = documentoUnico();
+		registrar(documento, UUID.randomUUID() + "@correo.test").andExpect(status().isCreated());
+		return clientes.findByDocumento(documento).orElseThrow();
+	}
+
+	private ResultActions eliminarMisDatos(Cliente c, String contrasena) throws Exception {
+		return mvc.perform(post("/api/clientes/yo/eliminacion").header("Authorization", "Bearer " + tokenDe(c))
+				.contentType(MediaType.APPLICATION_JSON).content("{\"contrasena\":\"" + contrasena + "\"}"));
+	}
+
+	private ResultActions historial(Long clienteId, String token) throws Exception {
+		return mvc.perform(get("/api/clientes/" + clienteId + "/consentimiento").header("Authorization", "Bearer " + token));
+	}
+
+	private String tokenDe(Cliente c) {
+		return jwt.generar(c.getUsuario());
 	}
 
 	private List<RegistroAuditoria> auditoriaDe(Long clienteId, String operacion) {
@@ -239,10 +300,10 @@ class ClienteSupresionTest {
 		Usuario u = new Usuario();
 		u.setNombre("Prueba " + rol);
 		u.setCorreo(rol.name().toLowerCase() + "." + UUID.randomUUID() + "@appresso.test");
-		u.setContrasenaHash("bcrypt-hash");
+		u.setContrasenaHash(codificador.encode(CLAVE));
 		u.setRol(rol);
 		u.setActivo(true);
-		return usuarios.save(u);
+		return usuarios.saveAndFlush(u);
 	}
 
 	private Cliente cliente() {
@@ -252,11 +313,12 @@ class ClienteSupresionTest {
 		c.setDocumento(documentoUnico());
 		c.setCelular("3209998877");
 		c.setAceptoTratamientoDatos(true);
-		return clientes.save(c);
+		c.setUsuario(usuario(Rol.CLIENTE));
+		return clientes.saveAndFlush(c);
 	}
 
 	private static String documentoUnico() {
-		return String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits()) % 10_000_000_000L);
+		return String.valueOf(1_000_000_000L + Math.abs(UUID.randomUUID().getMostSignificantBits() % 8_000_000_000L));
 	}
 
 	private void notificacionPara(Cliente c) {
@@ -269,9 +331,27 @@ class ClienteSupresionTest {
 		em.flush();
 	}
 
-	private long notificacionesDe(Long clienteId) {
-		return em.createQuery("select count(n) from Notificacion n where n.cliente.id = :id", Long.class)
-				.setParameter("id", clienteId).getSingleResult();
+	private void dispositivoDe(Usuario cuenta) {
+		DispositivoPush d = new DispositivoPush();
+		d.setUsuario(cuenta);
+		d.setTokenFcm(UUID.randomUUID().toString());
+		em.persist(d);
+		em.flush();
+	}
+
+	private void codigoDe(Usuario cuenta) {
+		CodigoRecuperacion codigo = new CodigoRecuperacion();
+		codigo.setUsuario(cuenta);
+		codigo.setCodigoHash("hash");
+		codigo.setFechaCreacion(Instant.now());
+		codigo.setExpira(Instant.now().plusSeconds(900));
+		em.persist(codigo);
+		em.flush();
+	}
+
+	private long contar(String desde, Long id) {
+		return em.createQuery("select count(n) from " + desde + " = :id", Long.class)
+				.setParameter("id", id).getSingleResult();
 	}
 
 	private Comanda comandaDe(Cliente c) {

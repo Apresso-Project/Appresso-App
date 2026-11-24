@@ -14,8 +14,9 @@ import com.appresso.app.data.auth.Rol.MESERO
  * igual rechazaría con 403. Ocultar no es la seguridad (esa la da el backend); es para que cada
  * rol vea solo lo suyo. Si cambia una regla en el backend, se cambia también aquí.
  *
- * El administrador puede hacer lo que hace cualquier otro rol (decisión del equipo), salvo ver los
- * puntos de un cliente, que no aplica a su cuenta.
+ * El administrador puede hacer lo que hace cualquier otro rol del personal, salvo lo que es de la
+ * cuenta de un cliente (sus puntos y la eliminación de sus datos). Nadie del personal registra ni
+ * elimina clientes: cada cliente lo hace desde la app; el mesero y el administrador solo los buscan.
  *
  * Cómo usarlo en una pantalla:
  * ```
@@ -55,9 +56,9 @@ enum class Accion(vararg permitidos: Rol) {
     VER_INFORMES_CIERRE(ADMINISTRADOR, CAJERO),
 
     // Fidelización
-    REGISTRAR_CLIENTE(ADMINISTRADOR, MESERO),
     BUSCAR_CLIENTE(ADMINISTRADOR, MESERO),
     VER_MIS_PUNTOS(CLIENTE),
+    ELIMINAR_MIS_DATOS(CLIENTE),
     VER_RECOMPENSAS(ADMINISTRADOR, MESERO, CLIENTE),
     GESTIONAR_RECOMPENSAS(ADMINISTRADOR),
     VER_PROMOCIONES(ADMINISTRADOR, CLIENTE),
@@ -86,11 +87,12 @@ enum class Opcion(vararg incluidas: Accion) {
         Accion.CERRAR_CAJA, Accion.REGISTRAR_BASE, Accion.ABRIR_JORNADA, Accion.VER_INFORMES_CIERRE,
     ),
     SOLICITUDES_RETIRO(Accion.SOLICITAR_RETIRO, Accion.VER_SOLICITUDES_RETIRO, Accion.DECIDIR_RETIRO),
-    CLIENTES(Accion.BUSCAR_CLIENTE, Accion.REGISTRAR_CLIENTE, Accion.VER_RECOMPENSAS),
+    CLIENTES(Accion.BUSCAR_CLIENTE, Accion.VER_RECOMPENSAS),
     RECOMPENSAS_Y_PROMOCIONES(
         Accion.VER_RECOMPENSAS, Accion.GESTIONAR_RECOMPENSAS, Accion.VER_PROMOCIONES, Accion.GESTIONAR_PROMOCIONES,
     ),
     MIS_PUNTOS(Accion.VER_MIS_PUNTOS),
+    MIS_DATOS(Accion.ELIMINAR_MIS_DATOS),
     ;
 
     val acciones: Set<Accion> = incluidas.toSet()
@@ -117,7 +119,7 @@ fun opcionesPara(rol: Rol): List<Opcion> = when (rol) {
     CAJERO -> listOf(Opcion.COBROS, Opcion.PEDIDOS, Opcion.CAJA, Opcion.SOLICITUDES_RETIRO)
     MESERO -> listOf(Opcion.MESAS_Y_COMANDAS, Opcion.COBROS, Opcion.CLIENTES)
     COCINERO -> listOf(Opcion.COCINA)
-    CLIENTE -> listOf(Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES)
+    CLIENTE -> listOf(Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES, Opcion.MIS_DATOS)
 }
 
 /** ¿El rol puede abrir esta sección? */
