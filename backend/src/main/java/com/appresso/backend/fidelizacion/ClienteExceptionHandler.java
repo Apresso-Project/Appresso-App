@@ -13,6 +13,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.appresso.backend.auth.CredencialesInvalidasException;
+import com.appresso.backend.auth.CuentaBloqueadaException;
 import com.appresso.backend.auth.ErrorRespuesta;
 import com.appresso.backend.fidelizacion.ClienteService.ClienteNoEncontradoException;
 import com.appresso.backend.fidelizacion.ClienteService.DatoDuplicadoException;
@@ -68,6 +70,21 @@ public class ClienteExceptionHandler {
 	@ExceptionHandler(ClienteNoEncontradoException.class)
 	public ResponseEntity<ErrorRespuesta> noEncontrado(ClienteNoEncontradoException e) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorRespuesta(e.getMessage()));
+	}
+
+	/**
+	 * La contraseña con la que el cliente confirma la eliminación no es la suya. Es 400 y no 401
+	 * porque su sesión sigue siendo válida: con 401 la app la cerraría.
+	 */
+	@ExceptionHandler(CredencialesInvalidasException.class)
+	public ResponseEntity<ErrorRespuesta> contrasenaIncorrecta() {
+		return ResponseEntity.badRequest().body(new ErrorRespuesta(ClienteService.MENSAJE_CONTRASENA_INCORRECTA,
+				Map.of("contrasena", ClienteService.MENSAJE_CONTRASENA_INCORRECTA)));
+	}
+
+	@ExceptionHandler(CuentaBloqueadaException.class)
+	public ResponseEntity<ErrorRespuesta> cuentaBloqueada(CuentaBloqueadaException e) {
+		return ResponseEntity.status(HttpStatus.LOCKED).body(new ErrorRespuesta(e.mensajeVisible()));
 	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)

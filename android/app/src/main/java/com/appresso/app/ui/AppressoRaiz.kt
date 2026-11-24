@@ -31,6 +31,8 @@ import com.appresso.app.permisos.Accion
 import com.appresso.app.permisos.Opcion
 import com.appresso.app.ui.clientes.ClientesRoute
 import com.appresso.app.ui.clientes.ClientesViewModel
+import com.appresso.app.ui.cuenta.MisDatosRoute
+import com.appresso.app.ui.cuenta.MisDatosViewModel
 import com.appresso.app.ui.cuenta.RecuperarContrasenaRoute
 import com.appresso.app.ui.cuenta.RecuperarContrasenaViewModel
 import com.appresso.app.ui.cuenta.RegistroClienteRoute
@@ -202,6 +204,18 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
             ClientesRoute(
                 viewModel = viewModel,
                 onVolver = onVolver,
+            )
+        }
+
+        Opcion.MIS_DATOS -> {
+            val viewModel: MisDatosViewModel = viewModel(
+                key = "mis-datos-$token",
+                factory = MisDatosViewModel.factory(contenedor.misDatosRepository),
+            )
+            MisDatosRoute(
+                viewModel = viewModel,
+                onVolver = onVolver,
+                onCerrarSesion = { contenedor.almacenSesion.borrar() },
             )
         }
 

@@ -54,14 +54,32 @@ public class AuthService {
 	 */
 	@Transactional(noRollbackFor = CredencialesInvalidasException.class)
 	public LoginResponse iniciarSesion(String identificador, String contrasena) {
-		Instant ahora = reloj.instant();
-
 		Usuario usuario = buscarCuenta(identificador.trim());
 		if (usuario == null || !usuario.isActivo()) {
 			coincide(contrasena, hashFicticio);
 			throw new CredencialesInvalidasException();
 		}
+		comprobarContrasena(usuario, contrasena);
+		return new LoginResponse(jwt.generar(usuario), usuario.getRol(), usuario.getNombre());
+	}
 
+	/**
+	 * Confirma la contraseña de quien ya inició sesión, antes de una operación delicada. Cuenta los
+	 * fallos y bloquea igual que el inicio de sesión: un token robado no sirve para adivinarla. Quien
+	 * la llame dentro de su propia transacción tampoco debe revertirla con
+	 * {@link CredencialesInvalidasException}. La fila de la cuenta queda bloqueada.
+	 */
+	@Transactional(noRollbackFor = CredencialesInvalidasException.class)
+	public void confirmarContrasena(Long usuarioId, String contrasena) {
+		Usuario usuario = usuarios.buscarPorIdBloqueandoFila(usuarioId)
+				.filter(Usuario::isActivo)
+				.orElseThrow(CredencialesInvalidasException::new);
+		comprobarContrasena(usuario, contrasena);
+	}
+
+	/** Compara la contraseña, con el bloqueo temporal de RNF-26. */
+	private void comprobarContrasena(Usuario usuario, String contrasena) {
+		Instant ahora = reloj.instant();
 		Instant bloqueadoHasta = usuario.getBloqueadoHasta();
 		if (bloqueadoHasta != null) {
 			if (bloqueadoHasta.isAfter(ahora)) {
@@ -84,7 +102,6 @@ public class AuthService {
 
 		usuario.setIntentosFallidos(0);
 		usuarios.save(usuario);
-		return new LoginResponse(jwt.generar(usuario), usuario.getRol(), usuario.getNombre());
 	}
 
 	/** La cuenta que corresponde al identificador, con su fila bloqueada, o {@code null}. */

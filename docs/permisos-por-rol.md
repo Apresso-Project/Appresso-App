@@ -84,6 +84,8 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 | Método | Ruta | Admin | Cajero | Mesero | Cocinero | Cliente | RF |
 |---|---|:-:|:-:|:-:|:-:|:-:|---|
 | GET | `/api/clientes/yo` (mis puntos) | | | | | ✅ | RF-55 |
+| POST | `/api/clientes/yo/eliminacion` (el cliente pide eliminar sus datos) | | | | | ✅ | Ley 1581 |
+| GET | `/api/clientes/*/consentimiento` (historial de consentimiento) | ✅ | | | | | Ley 1581 |
 | GET | `/api/clientes/**` (buscar por documento) | ✅ | | ✅ | | | RF-51, RF-57 |
 | Otros | `/api/clientes/**` (el personal no registra, edita ni elimina clientes) | | | | | | — |
 | GET | `/api/recompensas/**` | ✅ | | ✅ | | ✅ | RF-56, RF-57, RF-58 |
@@ -95,7 +97,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 
 La matriz sigue los requerimientos, con la decisión del punto 1 (el administrador entra a todo). Estos puntos no están claros en los RF y hay que confirmarlos:
 
-1. ~~¿El administrador puede hacer las tareas operativas de otros roles?~~ **Resuelta:** sí. El administrador puede hacer lo que hace cualquier otro rol (crear comandas, cobrar en efectivo, cambiar el estado de preparación…). Única excepción: `GET /api/clientes/yo` (los puntos de un cliente), porque su cuenta no tiene registro de cliente. Ojo: el RF-29 ("exclusivamente a los cajeros") y el RF-25 quedan **desactualizados** frente a esta decisión; conviene corregirlos en el documento de requerimientos.
+1. ~~¿El administrador puede hacer las tareas operativas de otros roles?~~ **Resuelta:** sí. El administrador puede hacer lo que hace cualquier otro rol (crear comandas, cobrar en efectivo, cambiar el estado de preparación…). Única excepción: `/api/clientes/yo` (los puntos de un cliente y la eliminación de sus datos), porque su cuenta no tiene registro de cliente. Ojo: el RF-29 ("exclusivamente a los cajeros") y el RF-25 quedan **desactualizados** frente a esta decisión; conviene corregirlos en el documento de requerimientos.
 2. ~~Registro de clientes (RF-50)~~ **Resuelta:** el cliente crea su cuenta desde la app con `POST /api/auth/registro`, que es público. El personal (incluido el administrador) no registra, edita ni elimina clientes; el mesero y el administrador solo los buscan por documento. Las cuentas de cliente tampoco se gestionan en `/api/usuarios`.
 3. **¿Quién abre la jornada (RF-49)?** Hoy: administrador y cajero.
 4. **¿El cajero y el cocinero necesitan ver el catálogo de productos?** Hoy solo administrador y mesero.

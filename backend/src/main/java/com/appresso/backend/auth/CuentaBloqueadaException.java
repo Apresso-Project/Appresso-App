@@ -13,4 +13,10 @@ public class CuentaBloqueadaException extends RuntimeException {
 		return minutosRestantes;
 	}
 
+	/** El texto que ve la persona. */
+	public String mensajeVisible() {
+		return "Cuenta bloqueada temporalmente por demasiados intentos fallidos. "
+				+ "Intenta de nuevo en " + minutosRestantes + (minutosRestantes == 1 ? " minuto." : " minutos.");
+	}
+
 }

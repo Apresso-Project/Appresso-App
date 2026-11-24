@@ -22,6 +22,14 @@ public interface CodigoRecuperacionRepository extends JpaRepository<CodigoRecupe
 	int invalidarSinUsar(@Param("usuarioId") Long usuarioId);
 
 	/**
+	 * Borra todos los códigos de la cuenta, al suprimir los datos del cliente (Ley 1581). Vacía el
+	 * contexto de persistencia: cargar después lo que se vaya a usar.
+	 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from CodigoRecuperacion c where c.usuario.id = :usuarioId")
+	int borrarDeCuenta(@Param("usuarioId") Long usuarioId);
+
+	/**
 	 * Los códigos sin usar de la cuenta, el más reciente primero, con sus filas bloqueadas hasta que
 	 * termine la transacción: dos intentos simultáneos no pueden saltarse el límite de intentos.
 	 */

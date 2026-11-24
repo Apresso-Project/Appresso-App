@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SOLO compilaciones debug: reemplaza a src/main/res/xml/network_security_config.xml.
+  El backend local responde por http:// (localhost con adb reverse, 10.0.2.2 en el emulador o la IP
+  del PC en la Wi-Fi). Cuando el manifest declara networkSecurityConfig, Android ignora
+  android:usesCleartextTraffic, así que sin este archivo la app debug no podría conectarse al
+  backend local ("Sin conexión a Internet").
+  El release usa el de src/main, que prohíbe el tráfico sin cifrar (8.4.1).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -125,6 +125,8 @@
     <string name="opcion_recompensas_promociones_desc">Beneficios disponibles para los clientes.</string>
     <string name="opcion_mis_puntos">Mis puntos</string>
     <string name="opcion_mis_puntos_desc">Tus puntos de fidelidad acumulados.</string>
+    <string name="opcion_mis_datos">Mis datos</string>
+    <string name="opcion_mis_datos_desc">Tu autorización y la eliminación de tus datos personales.</string>
 
     <!-- Cuenta del cliente: registro (RF-50) y recuperación de contraseña (RF-65) -->
     <string name="cuenta_volver">Volver</string>
@@ -161,8 +163,26 @@
     <string name="registro_error_acepto">Debes aceptar el tratamiento de datos personales.</string>
 
     <string name="cliente_autorizacion_titulo">Autorización de Datos Personales (Ley 1581 de 2012)</string>
-    <string name="cliente_autorizacion_texto">De conformidad con la Ley Estatutaria 1581 de 2012 y el Decreto Reglamentario 1377 de 2013 de Colombia, autorizo de manera voluntaria, previa, explícita e informada a Cafetería CaffeBar (Appresso) para recolectar, almacenar, procesar y utilizar mis datos personales (nombre, apellidos, documento de identidad, número de celular y correo electrónico) con la finalidad de gestionar mi registro en el programa de fidelización, registrar la acumulación y canje de puntos por compras, permitirme recuperar el acceso a mi cuenta y remitir notificaciones sobre promociones y recompensas vigentes.\n\nComo titular de los datos, manifiesto que fui informado sobre mis derechos a conocer, actualizar, rectificar y solicitar la supresión de mis datos personales en cualquier momento mediante los mecanismos dispuestos en la aplicación o a través del canal oficial de atención (privacidad@appresso.com). El tiempo máximo legal de respuesta a solicitudes de supresión es de 15 días hábiles conforme al artículo 15 de la Ley 1581.</string>
+    <string name="cliente_autorizacion_texto">De conformidad con la Ley Estatutaria 1581 de 2012 y el Decreto Reglamentario 1377 de 2013 de Colombia, autorizo de manera voluntaria, previa, explícita e informada a Cafetería CaffeBar (Appresso), como responsable del tratamiento, para recolectar, almacenar, procesar y utilizar mis datos personales (nombre, apellidos, documento de identidad, número de celular y correo electrónico) con la finalidad de gestionar mi registro en el programa de fidelización, registrar la acumulación y canje de puntos por compras, permitirme recuperar el acceso a mi cuenta y remitir notificaciones sobre promociones y recompensas vigentes.\n\nComo titular de los datos, fui informado de que tengo derecho a: conocer, actualizar y rectificar mis datos personales; solicitar prueba de esta autorización; ser informado sobre el uso que se ha dado a mis datos; presentar quejas ante la Superintendencia de Industria y Comercio por infracciones a la ley; y revocar la autorización y solicitar la supresión de mis datos en cualquier momento. Puedo ejercer estos derechos mediante los mecanismos dispuestos en la aplicación o a través del canal oficial de atención (privacidad@appresso.com). El plazo máximo de respuesta a mis reclamos, incluidos los de supresión, es de 15 días hábiles conforme al artículo 15 de la Ley 1581.\n\nNo se recolectan datos sensibles. Mi autorización es voluntaria, pero sin ella no es posible registrarme como cliente.</string>
     <string name="cliente_checkbox_aceptacion">Acepto explícitamente el tratamiento de mis datos personales conforme a la Ley 1581 de 2012.</string>
+
+    <!-- Mis datos: eliminación de los datos por el propio cliente (Ley 1581, 8.4.1) -->
+    <string name="misdatos_titulo">Mis datos</string>
+    <string name="misdatos_subtitulo">La autorización que diste y cómo eliminar tus datos personales.</string>
+    <string name="misdatos_eliminar_titulo">Eliminar mis datos</string>
+    <string name="misdatos_eliminar_texto">Se borran tu nombre, documento, celular y correo, tus notificaciones y tu cuenta, y pierdes los puntos acumulados. Las compras que la ley obliga a conservar quedan sin ningún dato que te identifique. Ocurre de inmediato y no se puede deshacer.</string>
+    <string name="misdatos_contrasena">Contraseña</string>
+    <string name="misdatos_contrasena_placeholder">Escríbela para confirmar que eres tú</string>
+    <string name="misdatos_eliminar">Eliminar mis datos</string>
+    <string name="misdatos_eliminando">Eliminando</string>
+    <string name="misdatos_confirmar_titulo">¿Eliminar tus datos?</string>
+    <string name="misdatos_confirmar_texto">Tu cuenta dejará de existir y perderás tus puntos. Esta acción no se puede deshacer.</string>
+    <string name="misdatos_confirmar_si">Sí, eliminar</string>
+    <string name="misdatos_confirmar_no">Cancelar</string>
+    <string name="misdatos_exito">Tus datos personales se eliminaron y tu cuenta se cerró.</string>
+    <string name="misdatos_entendido">Entendido</string>
+    <string name="misdatos_error_contrasena">Escribe tu contraseña para confirmar.</string>
+    <string name="misdatos_error_rechazado">No se pudo confirmar tu contraseña.</string>
 
     <string name="recuperar_titulo">Recupera tu contraseña</string>
     <string name="recuperar_subtitulo_documento">Escribe tu número de documento y te enviaremos un código al correo de tu cuenta.</string>

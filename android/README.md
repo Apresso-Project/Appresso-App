@@ -68,7 +68,7 @@ app/src/main/java/com/appresso/app/
 ├── ContenedorApp.kt       # reúne los objetos compartidos (almacén de sesión, acceso al backend)
 ├── data/
 │   ├── auth/              # Rol, Sesion, ResultadoLogin, AuthRepository (+ remoto) y AlmacenSesion
-│   ├── cuenta/            # registro y recuperación de contraseña del cliente (CuentaClienteRepository + remoto) y ReglasCuenta
+│   ├── cuenta/            # registro, recuperación de contraseña y eliminación de los datos del cliente, y ReglasCuenta
 │   ├── clientes/          # búsqueda de clientes por documento (ClientesRepository + remoto)
 │   └── remote/            # AuthApi, CuentaApi, ClientesApi (Retrofit), los DTO, ClienteHttp (OkHttp, tiempos de espera) e InterceptorSesion (token y 401)
 ├── permisos/              # Permisos.kt: qué acciones y opciones tiene cada rol (con pruebas)
@@ -78,7 +78,7 @@ app/src/main/java/com/appresso/app/
     ├── PantallaProvisional.kt   # marco de las secciones provisionales
     ├── theme/             # colores, tipografías y tema (guía de estilo de Figma)
     ├── login/             # LoginScreen (dibuja), LoginRoute (la conecta), LoginViewModel (decide) y CampoTexto
-    ├── cuenta/            # pantallas públicas del cliente: registro y recuperación de contraseña
+    ├── cuenta/            # pantallas del cliente: registro, recuperación de contraseña y «Mis datos»
     ├── clientes/          # búsqueda de clientes por documento (mesero y administrador)
     └── inicio/            # InicioScreen (menú de cada rol) y SeccionProvisionalScreen
 ```
@@ -91,11 +91,13 @@ El contrato del inicio de sesión que consume la app está en [`docs/api-auth.md
 - `LoginScreen` solo dibuja: recibe lo escrito y el error y avisa de lo que hace el usuario.
 - `LoginViewModel` es el dueño del estado: valida lo escrito con las mismas reglas del servidor (si trae `@`, correo con formato y máx. 150 caracteres; si no, número de documento de 5 a 20 letras o números; contraseña de máx. 72), evita enviar dos veces seguidas, llama al repositorio y guarda la sesión. Si falla (por ejemplo sin conexión), **conserva lo escrito** para reintentar; si funciona, descarta la contraseña. La contraseña vive solo en el ViewModel, no en el estado guardado de Android.
 - `LoginRoute` traduce cada error a un texto de `strings.xml`. Los mensajes del servidor en 400 y 423 se muestran tal cual.
-- **Sesión:** `AlmacenSesion` es una interfaz; hoy se usa `AlmacenSesionEnMemoria`, así que la sesión **se pierde al cerrar la app** y hay que volver a iniciar sesión. Es provisional a propósito: guardar el token en disco sin cifrar sería peor. El almacenamiento cifrado (Android Keystore) llega con 8.4.1 y bastará con otra implementación de la interfaz. Al implementarlo hay que revisar `android:allowBackup` del manifest, que hoy está activo.
+- **Sesión:** `AlmacenSesion` es una interfaz; la app usa `AlmacenSesionKeystore`, que guarda la sesión cifrada (AES-256/GCM) con una clave de Android Keystore, así que **sigue abierta al cerrar la app** hasta que se cierre o venza el token. El cifrado está en `CifradorSesion`. Si el cifrado falla, la sesión queda solo en memoria. El manifest excluye los datos de la app de las copias de seguridad. Pruebas: `CifradorSesionTest` y `AlmacenSesionKeystoreTest` (en la JVM, con una clave por software) y `AlmacenSesionKeystoreInstrumentedTest` (con el Keystore real; necesita un teléfono o emulador: `./gradlew connectedDebugAndroidTest`). Más en [`docs/seguridad-y-ley-1581.md`](../docs/seguridad-y-ley-1581.md).
 
 **Cuenta del cliente (7.1.1).** El personal entra con su correo y el cliente con su número de documento, en el mismo campo. Desde el login, el cliente abre «Crear cuenta» (`RegistroClienteRoute`: nombre, apellido, documento, celular, correo, contraseña y la autorización de la Ley 1581) y «¿Olvidaste tu contraseña?» (`RecuperarContrasenaRoute`: pide un código de 6 dígitos al correo y cambia la contraseña). Al terminar, vuelve al login con el documento ya escrito. `AppressoRaiz` elige entre las tres pantallas cuando no hay sesión. Contratos en [`docs/api-clientes.md`](../docs/api-clientes.md) y [`docs/api-auth.md`](../docs/api-auth.md).
 
 **Clientes (mesero y administrador).** La sección «Clientes» solo busca por documento (`GET /api/clientes/{documento}`) y muestra nombre y puntos, o «Cliente no encontrado» con la indicación de registrarse desde la app. El personal no registra clientes.
+
+**Mis datos (cliente).** `MisDatosRoute` muestra la autorización que dio el cliente y le permite eliminar sus datos (Ley 1581): escribe su contraseña, confirma en un diálogo y, si el servidor acepta (`POST /api/clientes/yo/eliminacion`), la sesión se cierra.
 
 Las pruebas unitarias (`app/src/test`) corren en la JVM, sin emulador ni backend: el repositorio se prueba contra un servidor HTTP simulado (MockWebServer) que responde lo que respondería el real.
 
