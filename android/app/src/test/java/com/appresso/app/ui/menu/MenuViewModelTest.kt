@@ -38,12 +38,13 @@ class MenuViewModelTest {
     private val bebidas = MenuCategoria(1, "Bebidas", listOf(producto(1, "Latte"), producto(2, "Té", 2, pocas = true)))
     private val postres = MenuCategoria(2, "Postres", listOf(producto(3, "Brownie")))
 
+    private val dispatcher = UnconfinedTestDispatcher()
     private val repo = RepositorioFalso()
     private lateinit var vm: MenuViewModel
 
     @Before
     fun iniciar() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(dispatcher)
         repo.resultado = ResultadoCatalogo.Exito(listOf(bebidas, postres))
         vm = MenuViewModel(repo)
     }
@@ -184,14 +185,90 @@ class MenuViewModelTest {
         Unit
     }
 
+    // ------------------------------------------------------------ revisión del PR #25
+
+    @Test
+    fun `un cambio de stock durante la carga inicial no se descarta y el producto agotado desaparece`() {
+        val inicial = CompletableDeferred<ResultadoCatalogo<List<MenuCategoria>>>()
+        repo.enEspera = inicial
+        val otro = MenuViewModel(repo) // carga inicial en curso, con el stock anterior
+
+        otro.recargarEnSilencio() // llega el evento de stock: el producto 2 se agotó
+
+        repo.enEspera = null
+        repo.resultado = ResultadoCatalogo.Exito(listOf(bebidas.copy(productos = listOf(producto(1, "Latte")))))
+        inicial.complete(ResultadoCatalogo.Exito(listOf(bebidas, postres))) // respuesta armada antes del cambio
+
+        // La consulta se repitió y la pantalla no se queda con el stock viejo.
+        assertEquals(listOf(1L), otro.estado.value.categorias.single().productos.map { it.id })
+        assertFalse(otro.estado.value.cargando)
+    }
+
+    @Test
+    fun `las recargas en silencio no se solapan y una respuesta vieja no pisa la nueva`() {
+        val vieja = CompletableDeferred<ResultadoCatalogo<List<MenuCategoria>>>()
+        repo.enEspera = vieja
+        vm.recargarEnSilencio() // consulta en curso (la del setUp ya terminó)
+        repeat(4) { vm.recargarEnSilencio() } // llegan más cambios mientras tanto
+
+        repo.enEspera = null
+        repo.resultado = ResultadoCatalogo.Exito(listOf(postres))
+        vieja.complete(ResultadoCatalogo.Exito(listOf(bebidas)))
+
+        assertEquals(1, repo.maxActivas)
+        assertEquals(listOf("Postres"), estado.categorias.map { it.nombre })
+    }
+
+    @Test
+    fun `si una actualizacion en silencio falla avisa que esta desactualizado y reintenta solo`() {
+        repo.resultado = ResultadoCatalogo.SinConexion
+        vm.recargarEnSilencio()
+        assertTrue(estado.desactualizado)
+        assertEquals(2, estado.categorias.size) // conserva el último menú
+
+        val antes = repo.consultas
+        repo.resultado = ResultadoCatalogo.Exito(listOf(postres))
+        dispatcher.scheduler.advanceTimeBy(1_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(antes + 1, repo.consultas)
+        assertFalse(estado.desactualizado)
+        assertEquals(listOf("Postres"), estado.categorias.map { it.nombre })
+
+        dispatcher.scheduler.advanceTimeBy(120_000)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(antes + 1, repo.consultas)
+    }
+
+    @Test
+    fun `un fallo que no se arregla reintentando no se reintenta`() {
+        repo.resultado = ResultadoCatalogo.SinPermiso("No")
+        vm.recargarEnSilencio()
+        val antes = repo.consultas
+
+        dispatcher.scheduler.advanceTimeBy(120_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(antes, repo.consultas)
+        assertFalse(estado.desactualizado)
+    }
+
     private class RepositorioFalso : MenuRepository {
         var resultado: ResultadoCatalogo<List<MenuCategoria>> = ResultadoCatalogo.Exito(emptyList())
         var enEspera: CompletableDeferred<ResultadoCatalogo<List<MenuCategoria>>>? = null
         var consultas = 0
+        var activas = 0
+        var maxActivas = 0
 
         override suspend fun consultar(): ResultadoCatalogo<List<MenuCategoria>> {
             consultas++
-            return enEspera?.await() ?: resultado
+            activas++
+            maxActivas = maxOf(maxActivas, activas)
+            try {
+                return enEspera?.await() ?: resultado
+            } finally {
+                activas--
+            }
         }
     }
 }

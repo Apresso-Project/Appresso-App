@@ -75,6 +75,8 @@ fun MenuScreen(
         // Con una sola categoría el filtro no aporta nada.
         if (estado.categorias.size > 1) FiltroCategorias(estado, onFiltrar)
 
+        if (estado.desactualizado) MensajeConBorde(stringResource(R.string.menu_desactualizado))
+
         when {
             estado.cargando && estado.categorias.isEmpty() -> Centrado {
                 val descripcion = stringResource(R.string.menu_cargando)

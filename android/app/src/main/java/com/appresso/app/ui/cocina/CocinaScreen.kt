@@ -76,6 +76,20 @@ fun CocinaScreen(
         ) { Text(stringResource(R.string.cocina_volver), style = MaterialTheme.typography.titleMedium) }
 
         IndicadorConexion(conexion)
+        if (estado.desactualizada) {
+            // La conexión puede figurar como activa y aun así la última actualización haber fallado.
+            Text(
+                text = stringResource(R.string.cocina_desactualizada),
+                color = Ink,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(White)
+                    .border(1.5.dp, Error, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+        }
 
         when {
             estado.cargando && estado.comandas.isEmpty() -> Centrado {

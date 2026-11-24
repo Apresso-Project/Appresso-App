@@ -361,7 +361,13 @@ private fun MenuSeccion(contenedor: ContenedorApp, token: String?, onVolver: () 
         }
     }
     val cambios = remember(tiempoReal) {
-        merge(tiempoReal.eventos.cambiosDeCatalogo(), tiempoReal.resincronizar.map { })
+        // `suscripcionesActivas`: la consulta inicial puede terminar antes de que la suscripción esté activa,
+        // y un cambio en ese intervalo no llegaría ni en la lista ni como evento.
+        merge(
+            tiempoReal.eventos.cambiosDeCatalogo(),
+            tiempoReal.resincronizar.map { },
+            tiempoReal.suscripcionesActivas.map { },
+        )
     }
     // La clave evita que otra cuenta, o una visita posterior, herede el menú anterior.
     val visita = rememberSaveable { UUID.randomUUID().toString() }
@@ -392,7 +398,13 @@ private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: (
         }
     }
     val cambios = remember(tiempoReal) {
-        merge(tiempoReal.eventos.cambiosDeCocina(), tiempoReal.resincronizar.comoResincronizacion())
+        // `suscripcionesActivas`: la consulta inicial puede terminar antes de que la primera suscripción esté
+        // activa; una comanda enviada en ese intervalo no llegaría ni en la lista ni como evento.
+        merge(
+            tiempoReal.eventos.cambiosDeCocina(),
+            tiempoReal.resincronizar.comoResincronizacion(),
+            tiempoReal.suscripcionesActivas.comoResincronizacion(),
+        )
     }
     // Mide cada cambio (SCRUM-93) y escribe una línea por muestra en logcat: `adb logcat -s Cocina`.
     val medidor = remember { MedidorCocina(registro = { Log.i("Cocina", it) }) }

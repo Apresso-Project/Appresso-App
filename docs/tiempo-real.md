@@ -98,6 +98,7 @@ Qué hace el cliente por su cuenta:
 - **Suscripciones:** se recuerdan y se restauran después de cada reconexión.
 - **Caídas:** cierre o error del socket, mensaje `ERROR`, falta de `CONNECTED` en 10 s, o más de 25 s sin recibir nada (2,5 latidos). Al volver la red (`onAvailable`) reintenta de inmediato y reinicia el retroceso; al perderla (`onLost`) no espera a los latidos.
 - **Resincronización:** avisa por `resincronizar` al reconectar, cuando la `secuencia` salta o cuando baja (servidor reiniciado). La app debe responder consultando por REST. La detección de saltos solo vale si el cliente escucha **todos** los tópicos, porque la secuencia es global; con un solo tópico se desactiva sola (`ConexionTiempoReal` lo decide).
+- **Suscripciones activas:** cada `SUBSCRIBE` pide un `RECEIPT`. Cuando el servidor confirma todas (o pasan 1,5 s sin confirmación) se emite por `suscripcionesActivas`, en la primera conexión y en cada reconexión. Una pantalla que cargó su lista por REST antes de ese aviso debe volver a pedirla: lo ocurrido entre su consulta y la suscripción no llegó ni en la lista ni como evento. No es una resincronización por pérdida (`resincronizar`), así que la primera conexión sigue sin emitir ésa.
 - **Duplicados:** un `id` ya visto se ignora.
 
 Las dependencias nuevas son OkHttp, Gson y coroutines (`android/gradle/libs.versions.toml`). El manifiesto pide `INTERNET` y `ACCESS_NETWORK_STATE`; la versión de depuración permite `ws://` sin TLS (en producción se usará `wss://`).

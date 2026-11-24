@@ -315,6 +315,7 @@
     <string name="menu_vacio">Por ahora no hay productos disponibles.</string>
     <string name="menu_filtro_todas">Todas</string>
     <string name="menu_stock_disponible">Disponible: %1$d</string>
+    <string name="menu_desactualizado">No se pudo actualizar el menú. Se muestra el último recibido; reintentando.</string>
     <string name="menu_stock_pocas">Pocas unidades: %1$d</string>
 
     <!-- Pantalla de cocina (3.3.1, SCRUM-92) -->
@@ -325,6 +326,7 @@
     <string name="cocina_conectando">Conectando para recibir comandas al instante…</string>
     <string name="cocina_sin_conexion">Sin conexión. Las comandas pueden estar desactualizadas; reintentando.</string>
     <string name="cocina_sin_conexion_reintento">Sin conexión. Las comandas pueden estar desactualizadas; reintentando en %1$d s.</string>
+    <string name="cocina_desactualizada">No se pudo actualizar la lista. Se muestra la última recibida y puede estar atrasada; reintentando.</string>
     <string name="cocina_enviada_a_las">Enviada a las %1$s</string>
     <string name="cocina_estado_pendiente">Pendiente</string>
     <string name="cocina_estado_en_preparacion">En preparación</string>

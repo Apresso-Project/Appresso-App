@@ -25,6 +25,14 @@ interface EscuchaCliente {
      * perder eventos: se reconectó, la secuencia saltó o el servidor se reinició.
      */
     fun alNecesitarResincronizacion(motivo: String) {}
+
+    /**
+     * Las suscripciones de esta conexión ya están activas en el servidor (confirmadas con `RECEIPT`, o
+     * pasado un plazo corto si el servidor no confirma): desde ahora todo cambio llega como evento.
+     * Una consulta REST hecha **antes** de este aviso pudo perder un cambio ocurrido en el intervalo,
+     * así que la app debe volver a consultar. Se avisa en la primera conexión y en cada reconexión.
+     */
+    fun alActivarseLasSuscripciones() {}
 }
 
 /**
@@ -58,6 +66,7 @@ class ClienteStomp(
     private val esperaConnectedMs: Long = 10_000,
     private val detectarSaltos: Boolean = true,
     private val token: () -> String? = { null },
+    private val esperaReciboMs: Long = 1_500,
 ) {
     private val lock = Any()
 
@@ -77,6 +86,8 @@ class ClienteStomp(
     private var tareaReintento: Cancelable? = null
     private var tareaConnected: Cancelable? = null
     private var tareaLatido: Cancelable? = null
+    private var tareaRecibos: Cancelable? = null
+    private val recibosPendientes = HashSet<String>()
 
     fun estadoActual(): EstadoConexion = synchronized(lock) { estado }
 
@@ -199,6 +210,7 @@ class ClienteStomp(
         when (marco.comando) {
             "CONNECTED" -> alConectado()
             "MESSAGE" -> alMensaje(marco)
+            "RECEIPT" -> alRecibo(marco.cabeceras["receipt-id"])
             "ERROR" -> manejarCaida("Error del servidor: ${marco.cabeceras["message"] ?: marco.cuerpo}")
         }
     }
@@ -210,10 +222,45 @@ class ClienteStomp(
         val esReconexion = haConectadoAntes
         haConectadoAntes = true
         cambiarEstado(EstadoConexion.CONECTADO, null, null)
-        for ((destino, id) in suscripciones) enviarSuscripcion(destino, id) // restaura suscripciones
+        recibosPendientes.clear()
+        for ((destino, id) in suscripciones) {
+            recibosPendientes.add(idRecibo(id))
+            enviarSuscripcion(destino, id) // restaura suscripciones
+        }
+        esperarSuscripciones(generacion)
         programarLatido(generacion)
         if (esReconexion) {
             escucha.alNecesitarResincronizacion("Se reconectó: pudo perder eventos mientras estuvo sin conexión")
+        }
+    }
+
+    private fun idRecibo(idSuscripcion: String) = "recibo-$idSuscripcion"
+
+    /**
+     * El servidor confirma cada SUBSCRIBE con un RECEIPT cuando ya la registró. Cuando llegan todas,
+     * se avisa a la app. Si el servidor no confirma, se avisa igual pasado [esperaReciboMs], para no
+     * dejar a la app sin sincronizar.
+     */
+    private fun esperarSuscripciones(miGeneracion: Int) {
+        if (recibosPendientes.isEmpty()) {
+            escucha.alActivarseLasSuscripciones()
+            return
+        }
+        tareaRecibos = programador.programar(esperaReciboMs) {
+            synchronized(lock) {
+                if (miGeneracion != generacion || recibosPendientes.isEmpty()) return@synchronized
+                recibosPendientes.clear()
+                escucha.alActivarseLasSuscripciones()
+            }
+        }
+    }
+
+    private fun alRecibo(id: String?) {
+        if (id == null || !recibosPendientes.remove(id)) return
+        if (recibosPendientes.isEmpty()) {
+            tareaRecibos?.cancelar()
+            tareaRecibos = null
+            escucha.alActivarseLasSuscripciones()
         }
     }
 
@@ -237,7 +284,10 @@ class ClienteStomp(
     private fun enviarSuscripcion(destino: String, id: String) {
         conexion?.enviar(
             CodecoStomp.codificar(
-                MarcoStomp("SUBSCRIBE", linkedMapOf("id" to id, "destination" to destino, "ack" to "auto")),
+                MarcoStomp(
+                    "SUBSCRIBE",
+                    linkedMapOf("id" to id, "destination" to destino, "ack" to "auto", "receipt" to idRecibo(id)),
+                ),
             ),
         )
     }
@@ -285,6 +335,9 @@ class ClienteStomp(
         tareaReintento?.cancelar()
         tareaConnected?.cancelar()
         tareaLatido?.cancelar()
+        tareaRecibos?.cancelar()
+        recibosPendientes.clear()
+        tareaRecibos = null
         tareaReintento = null
         tareaConnected = null
         tareaLatido = null

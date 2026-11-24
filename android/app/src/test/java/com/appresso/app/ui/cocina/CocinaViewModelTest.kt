@@ -30,12 +30,13 @@ class CocinaViewModelTest {
 
     private val cambio = CambioCocina("COMANDA_ESTADO_CAMBIADO", null, Instant.parse("2026-11-22T20:15:03Z"))
 
+    private val dispatcher = UnconfinedTestDispatcher()
     private val repo = RepositorioFalso()
     private lateinit var vm: CocinaViewModel
 
     @Before
     fun iniciar() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(dispatcher)
         repo.resultado = ResultadoCatalogo.Exito(listOf(comanda(1), comanda(2)))
         vm = CocinaViewModel(repo)
     }
@@ -212,14 +213,138 @@ class CocinaViewModelTest {
         assertEquals(2, repo.consultas)
     }
 
+    // ------------------------------------------------------------ revisión del PR #25
+
+    @Test
+    fun `nunca hay dos consultas a la vez aunque lleguen varios cambios seguidos`() {
+        val espera = CompletableDeferred<ResultadoCatalogo<List<ComandaCocina>>>()
+        repo.enEspera = espera
+        val otro = CocinaViewModel(repo)
+
+        repeat(5) { otro.alCambiar(cambio) }
+        repo.enEspera = null
+        espera.complete(ResultadoCatalogo.Exito(listOf(comanda(1))))
+
+        assertEquals(1, repo.maxActivas)
+    }
+
+    @Test
+    fun `una respuesta vieja no pisa la nueva`() {
+        val vieja = CompletableDeferred<ResultadoCatalogo<List<ComandaCocina>>>()
+        repo.enEspera = vieja
+        val otro = CocinaViewModel(repo)
+        otro.alCambiar(cambio) // llega un cambio mientras la consulta vieja sigue en curso
+
+        repo.enEspera = null
+        repo.resultado = ResultadoCatalogo.Exito(listOf(comanda(1, EstadoCocina.LISTA)))
+        vieja.complete(ResultadoCatalogo.Exito(listOf(comanda(1, EstadoCocina.PENDIENTE))))
+
+        assertEquals(EstadoCocina.LISTA, otro.estado.value.comandas.single().estado)
+    }
+
+    @Test
+    fun `si una actualizacion en silencio falla avisa que esta desactualizada y reintenta sola con esperas crecientes`() {
+        repo.resultado = ResultadoCatalogo.SinConexion
+        vm.alCambiar(cambio)
+        assertTrue(estado.desactualizada)
+        assertEquals(listOf(1L, 2L), estado.comandas.map { it.id }) // conserva la última lista
+        assertEquals(2, repo.consultas)
+
+        dispatcher.scheduler.advanceTimeBy(999)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(2, repo.consultas) // aún no
+        dispatcher.scheduler.advanceTimeBy(1)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(3, repo.consultas) // primer reintento a 1 s; sigue fallando
+
+        dispatcher.scheduler.advanceTimeBy(1_999)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(3, repo.consultas) // la siguiente espera es de 2 s
+        repo.resultado = ResultadoCatalogo.Exito(listOf(comanda(3, EstadoCocina.LISTA)))
+        dispatcher.scheduler.advanceTimeBy(1)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(4, repo.consultas)
+        assertFalse(estado.desactualizada)
+        assertEquals(listOf(3L), estado.comandas.map { it.id })
+
+        dispatcher.scheduler.advanceTimeBy(120_000) // ya no reintenta
+        dispatcher.scheduler.runCurrent()
+        assertEquals(4, repo.consultas)
+    }
+
+    @Test
+    fun `un error del servidor tambien se reintenta`() {
+        repo.resultado = ResultadoCatalogo.ErrorDelServidor
+        vm.alCambiar(cambio)
+        assertTrue(estado.desactualizada)
+
+        repo.resultado = ResultadoCatalogo.Exito(listOf(comanda(7)))
+        dispatcher.scheduler.advanceTimeBy(1_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertFalse(estado.desactualizada)
+        assertEquals(listOf(7L), estado.comandas.map { it.id })
+    }
+
+    @Test
+    fun `un evento nuevo cancela la espera y consulta de inmediato`() {
+        repo.resultado = ResultadoCatalogo.SinConexion
+        vm.alCambiar(cambio)
+        val antes = repo.consultas
+        repo.resultado = ResultadoCatalogo.Exito(listOf(comanda(8)))
+
+        vm.alCambiar(cambio)
+
+        assertEquals(antes + 1, repo.consultas)
+        assertFalse(estado.desactualizada)
+        dispatcher.scheduler.advanceTimeBy(60_000)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(antes + 1, repo.consultas) // el reintento anterior ya no corre
+    }
+
+    @Test
+    fun `un fallo que no se arregla reintentando no se reintenta ni marca desactualizada`() {
+        repo.resultado = ResultadoCatalogo.SinPermiso("No")
+        vm.alCambiar(cambio)
+        val antes = repo.consultas
+
+        dispatcher.scheduler.advanceTimeBy(120_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(antes, repo.consultas)
+        assertFalse(estado.desactualizada)
+    }
+
+    @Test
+    fun `un fallo de la primera carga no reintenta solo, muestra el error con su boton`() {
+        repo.resultado = ResultadoCatalogo.SinConexion
+        val otro = CocinaViewModel(repo)
+        val antes = repo.consultas
+
+        dispatcher.scheduler.advanceTimeBy(120_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(ErrorCocina.SinConexion, otro.estado.value.error)
+        assertEquals(antes, repo.consultas)
+    }
+
     private class RepositorioFalso : CocinaRepository {
         var resultado: ResultadoCatalogo<List<ComandaCocina>> = ResultadoCatalogo.Exito(emptyList())
         var enEspera: CompletableDeferred<ResultadoCatalogo<List<ComandaCocina>>>? = null
         var consultas = 0
+        var activas = 0
+        var maxActivas = 0
 
         override suspend fun consultar(): ResultadoCatalogo<List<ComandaCocina>> {
             consultas++
-            return enEspera?.await() ?: resultado
+            activas++
+            maxActivas = maxOf(maxActivas, activas)
+            try {
+                return enEspera?.await() ?: resultado
+            } finally {
+                activas--
+            }
         }
     }
 }
