@@ -64,6 +64,8 @@ fun ProductosScreen(
     onEditar: (Producto) -> Unit,
     onDesactivar: (Producto) -> Unit,
     onActivar: (Producto) -> Unit,
+    onAjustar: (Producto) -> Unit,
+    onVerHistorial: () -> Unit,
     onFiltrar: (Long?) -> Unit,
     onReintentar: () -> Unit,
     onVolver: () -> Unit,
@@ -87,6 +89,8 @@ fun ProductosScreen(
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text(stringResource(R.string.prod_ver_categorias), style = MaterialTheme.typography.titleMedium) }
         }
+
+        OutlinedButton(onClick = onVerHistorial) { Text(stringResource(R.string.inv_historial)) }
 
         estado.errorAccion?.let { MensajeConBorde(textoDe(it)) }
 
@@ -146,6 +150,7 @@ fun ProductosScreen(
                         onEditar = { onEditar(producto) },
                         onDesactivar = { onDesactivar(producto) },
                         onActivar = { onActivar(producto) },
+                        onAjustar = { onAjustar(producto) },
                     )
                 }
             }
@@ -212,6 +217,7 @@ private fun TarjetaProducto(
     onEditar: () -> Unit,
     onDesactivar: () -> Unit,
     onActivar: () -> Unit,
+    onAjustar: () -> Unit,
 ) {
     val forma = RoundedCornerShape(16.dp)
     Column(
@@ -263,6 +269,7 @@ private fun TarjetaProducto(
                 )
             }
         }
+        AccionTexto(R.string.inv_ajustar, Espresso, !ocupado, onAjustar)
     }
 }
 

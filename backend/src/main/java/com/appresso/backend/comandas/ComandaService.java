@@ -3,6 +3,7 @@ package com.appresso.backend.comandas;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -95,7 +96,7 @@ public class ComandaService {
 	 */
 	@Transactional
 	public Comanda cambiarEstado(Long comandaId, EstadoComanda nuevo, Long usuarioId) {
-		Comanda comanda = comandas.findById(comandaId).orElseThrow(() -> noExiste("Comanda", comandaId));
+		Comanda comanda = comandas.bloquearPorId(comandaId).orElseThrow(() -> noExiste("Comanda", comandaId));
 		Usuario usuario = usuarios.findById(usuarioId).orElseThrow(() -> noExiste("Usuario", usuarioId));
 		EstadoComanda anterior = comanda.getEstado();
 		if (nuevo.ordinal() != anterior.ordinal() + 1) {
@@ -116,7 +117,11 @@ public class ComandaService {
 				throw new IllegalStateException("No se puede enviar una comanda vacía");
 			}
 			comanda.setFechaEnvio(Instant.now());
-			for (DetalleComanda d : comanda.getDetalles()) {
+			// Las comandas toman los bloqueos de productos en el mismo orden.
+			List<DetalleComanda> detalles = comanda.getDetalles().stream()
+					.sorted(Comparator.comparing(d -> d.getProducto().getId()))
+					.toList();
+			for (DetalleComanda d : detalles) {
 				productoService.descontarPorVenta(d.getProducto().getId(), d.getCantidad(), comanda, usuario);
 			}
 		}
@@ -136,7 +141,7 @@ public class ComandaService {
 	 */
 	@Transactional
 	public Comanda agregarProducto(Long comandaId, ItemSolicitado item, Long usuarioId) {
-		Comanda comanda = comandas.findById(comandaId).orElseThrow(() -> noExiste("Comanda", comandaId));
+		Comanda comanda = comandas.bloquearPorId(comandaId).orElseThrow(() -> noExiste("Comanda", comandaId));
 		Usuario usuario = usuarios.findById(usuarioId).orElseThrow(() -> noExiste("Usuario", usuarioId));
 		if (comanda.getEstado() == EstadoComanda.CERRADA) {
 			throw new IllegalStateException("La comanda ya está pagada y no se puede modificar");
@@ -160,16 +165,16 @@ public class ComandaService {
 		if (item.observaciones() != null && item.observaciones().length() > 100) {
 			throw new IllegalArgumentException("Las observaciones no pueden superar 100 caracteres");
 		}
-		Producto producto = productos.findById(item.productoId())
+		Producto producto = (despuesDeEnvio ? productos.bloquearPorId(item.productoId()) : productos.findById(item.productoId()))
 				.orElseThrow(() -> noExiste("Producto", item.productoId()));
 		// Un producto de una categoría desactivada no aparece en el menú (3.1.1) y tampoco se puede pedir.
 		if (!producto.isActivo() || !producto.getCategoria().isActiva()) {
 			throw new IllegalStateException("El producto " + producto.getNombre() + " no está disponible");
 		}
 		// Mientras la comanda no se envía, el stock aún no se ha descontado: se suma lo ya pedido.
-		int yaPedido = despuesDeEnvio ? 0 : comanda.getDetalles().stream()
+		long yaPedido = despuesDeEnvio ? 0 : comanda.getDetalles().stream()
 				.filter(d -> d.getProducto().getId().equals(producto.getId()))
-				.mapToInt(DetalleComanda::getCantidad).sum();
+				.mapToLong(DetalleComanda::getCantidad).sum();
 		if (yaPedido + item.cantidad() > producto.getStockActual()) {
 			throw new IllegalStateException("No hay suficiente stock de " + producto.getNombre()
 					+ ": quedan " + producto.getStockActual());

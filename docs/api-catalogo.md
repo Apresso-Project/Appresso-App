@@ -33,7 +33,7 @@ Base: `/api`. Autenticación: `Authorization: Bearer <JWT>`. Permisos definidos 
 | `POST /productos/{id}/desactivar` / `activar` | Idempotentes | 200 |
 
 Crear: `{nombre ≤120, descripcion ≤255?, precio >0 (2 decimales), categoriaId, imagenUrl? (http/https ≤500), existenciasIniciales? 0..1.000.000, umbralMinimo? 0..1.000.000}`.
-Editar: igual sin `existenciasIniciales`; las existencias **no** se cambian aquí (solo con ajustes de inventario, RF-07); `umbralMinimo` ausente conserva el actual.
+Editar: igual sin `existenciasIniciales`. Para cambiar el stock se usa el [ajuste de inventario](api-inventario.md) de RF-07. Si falta `umbralMinimo`, se conserva el actual.
 `ProductoRespuesta`: `id, categoriaId, categoriaNombre, categoriaActiva, nombre, descripcion, precio, imagenUrl, stockActual, umbralMinimo, activo`.
 
 ## Errores (`{"mensaje", "campos"?}`)
