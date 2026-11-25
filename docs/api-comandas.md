@@ -37,6 +37,39 @@ Detalle (`ComandaRespuesta`). Lo pueden consultar administrador, cajero, mesero 
 
 `ComandaRespuesta`: `id, mesaId, mesaNombre, meseroId, clienteId, estado, lineas[{id, productoId, productoNombre, cantidad, precioUnitario, subtotal, observaciones, agregadoDespuesDeEnvio}], subtotal, descuento, total, fechaCreacion, fechaEnvio`.
 
+## Crear comanda (RF-15, RF-16, RF-17)
+
+### `POST /comandas`
+
+Administrador y mesero. El mesero queda registrado como autor. Cuerpo:
+
+```json
+{
+  "mesaId": 3,
+  "items": [ {"productoId": 7, "cantidad": 2, "observaciones": "sin azúcar"} ],
+  "clienteId": 12,
+  "recompensaId": 4
+}
+```
+
+`clienteId` y `recompensaId` son opcionales (el descuento exige cliente). La comanda nace `PENDIENTE`, la mesa pasa a `OCUPADA`, y la respuesta (`201` + `Location`) trae `lineas[].subtotal`, `subtotal`, `descuento` y `total`, para que el mesero los vea **antes** de confirmar. Para confirmar se envía a cocina con `PATCH /comandas/{id}/estado` (`ENVIADA`).
+
+### Cómo se calcula (`CalculadoraComanda`)
+
+- Subtotal de la línea = cantidad × precio unitario. El precio queda guardado en la línea: cambiar el precio del producto después no altera la comanda.
+- Subtotal = suma de los subtotales de las líneas. Total = subtotal − descuento. Todo en pesos con 2 decimales, redondeo HALF_UP.
+- Descuento autorizado = el de una **recompensa** de fidelización (RF-54, RF-58): `DESCUENTO_PORCENTAJE` → subtotal × valor / 100; `DESCUENTO_VALOR` → el valor, sin pasar del subtotal (el total nunca es negativo). La recompensa se guarda en la comanda (`recompensa_id`, migración V4), así que subtotal, descuento y total se **recalculan** cada vez que se agrega un producto.
+- Una recompensa **no autorizada** (no existe, no es de tipo descuento, está inactiva, fuera de su vigencia, o el cliente no tiene los puntos mínimos) o un descuento sin cliente se rechaza con **400** (`campos.recompensaId`) y no se crea la comanda: el total nunca se modifica.
+- Descontar los puntos del cliente (el canje) y aplicar una recompensa a una comanda ya creada son del módulo de fidelización (6.x, RF-58/RF-59); esta historia solo calcula y valida el descuento.
+
+### Errores
+
+| Código | Cuándo |
+|---|---|
+| **400** | Sin productos o `items` vacío (`campos.items`), cantidad < 1, observaciones > 100, `mesaId` / `clienteId` / producto / recompensa inexistente, descuento no autorizado |
+| **409** | La mesa ya tiene una comanda abierta (RF-15: una activa por mesa), producto desactivado o de categoría desactivada, más cantidad que el stock (RF-16) |
+| **401 / 403** | Sin sesión / rol sin permiso (cajero, cocinero, cliente) |
+
 ## Mesas (RF-64)
 
 | Método y ruta | Quién | Descripción | Respuesta |

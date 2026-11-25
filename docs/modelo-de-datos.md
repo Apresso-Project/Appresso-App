@@ -48,7 +48,7 @@ erDiagram
 | | `Producto` | Catálogo, precio, imagen (`imagenUrl`, URL opcional ≤500), stock y umbral mínimo | RF-06, RF-08 a RF-13 |
 | | `MovimientoInventario` | Entradas, salidas, ventas y mermas con responsable | RF-07, RF-14 |
 | `comandas` | `Mesa` | Mapa de mesas y su estado | RF-15 |
-| | `Comanda` | Pedido de una mesa, con subtotal, descuento y total | RF-15 a RF-22 |
+| | `Comanda` | Pedido de una mesa, con subtotal, descuento y total. Guarda la `recompensa` que dio el descuento (migración `V4`) para recalcularlo al cambiar los productos | RF-15 a RF-22 |
 | | `DetalleComanda` | Producto, cantidad, precio al momento y observaciones (máx. 100) | RF-16, RF-20, RF-21 |
 | | `HistorialComanda` | Cambios de estado y modificaciones (no se edita) | RF-27 |
 | `caja` | `Jornada` | Apertura y cierre de caja, base de la siguiente jornada | RF-44, RF-47, RF-49 |

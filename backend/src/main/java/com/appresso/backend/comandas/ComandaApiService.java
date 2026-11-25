@@ -21,6 +21,12 @@ public class ComandaApiService {
 	}
 
 	@Transactional
+	public ComandaRespuesta crear(ComandaCrearRequest solicitud, Long meseroId) {
+		return ComandaRespuesta.de(comandas.crear(solicitud.mesaId(), meseroId, solicitud.clienteId(),
+				solicitud.recompensaId(), solicitud.aItemsSolicitados()));
+	}
+
+	@Transactional
 	public ComandaRespuesta cambiarEstado(Long comandaId, EstadoComanda nuevo, Long usuarioId) {
 		return ComandaRespuesta.de(comandas.cambiarEstado(comandaId, nuevo, usuarioId));
 	}

@@ -1,9 +1,13 @@
 package com.appresso.backend.comandas;
 
+import java.net.URI;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,6 +29,18 @@ public class ComandaController {
 
 	public ComandaController(ComandaApiService servicio) {
 		this.servicio = servicio;
+	}
+
+	/**
+	 * Crea la comanda (PENDIENTE) y devuelve las líneas con su subtotal, el subtotal, el descuento y el
+	 * total, para que el mesero los vea antes de enviarla a cocina. Sin productos, 400; mesa ocupada o
+	 * producto sin stock, 409; descuento no autorizado o vencido, 400 sin crear nada.
+	 */
+	@PostMapping
+	public ResponseEntity<ComandaRespuesta> crear(@Valid @RequestBody ComandaCrearRequest solicitud,
+			@AuthenticationPrincipal UsuarioAutenticado yo) {
+		ComandaRespuesta creada = servicio.crear(solicitud, yo.id());
+		return ResponseEntity.created(URI.create("/api/comandas/" + creada.id())).body(creada);
 	}
 
 	@GetMapping("/{id}")

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.appresso.backend.fidelizacion.Cliente;
+import com.appresso.backend.fidelizacion.Recompensa;
 import com.appresso.backend.usuarios.Usuario;
 import jakarta.persistence.*;
 
@@ -32,6 +33,11 @@ public class Comanda {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "cliente_id")
 	private Cliente cliente;
+
+	/** Recompensa que dio el descuento autorizado de la comanda, si lo hay (RF-17). */
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "recompensa_id")
+	private Recompensa recompensa;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
@@ -83,6 +89,14 @@ public class Comanda {
 
 	public void setCliente(Cliente cliente) {
 		this.cliente = cliente;
+	}
+
+	public Recompensa getRecompensa() {
+		return recompensa;
+	}
+
+	public void setRecompensa(Recompensa recompensa) {
+		this.recompensa = recompensa;
 	}
 
 	public EstadoComanda getEstado() {
