@@ -205,6 +205,43 @@ class MenuViewModelTest {
     }
 
     @Test
+    fun `si falla la consulta encolada durante la carga inicial se reintenta sola`() {
+        val inicial = CompletableDeferred<ResultadoCatalogo<List<MenuCategoria>>>()
+        repo.enEspera = inicial
+        val otro = MenuViewModel(repo)
+        otro.recargarEnSilencio()
+        repo.enEspera = null
+        repo.resultado = ResultadoCatalogo.ErrorDelServidor
+        inicial.complete(ResultadoCatalogo.Exito(listOf(bebidas)))
+        assertTrue(otro.estado.value.desactualizado)
+
+        repo.resultado = ResultadoCatalogo.Exito(listOf(postres))
+        dispatcher.scheduler.advanceTimeBy(1_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(listOf(postres), otro.estado.value.categorias)
+        assertFalse(otro.estado.value.desactualizado)
+    }
+
+    @Test
+    fun `los reintentos se suspenden al salir del menu y se reanudan al volver`() {
+        repo.resultado = ResultadoCatalogo.SinConexion
+        vm.recargarEnSilencio()
+        vm.pausarActualizaciones()
+        val antes = repo.consultas
+
+        dispatcher.scheduler.advanceTimeBy(30_000)
+        dispatcher.scheduler.runCurrent()
+        vm.recargarEnSilencio()
+        assertEquals(antes, repo.consultas)
+
+        repo.resultado = ResultadoCatalogo.Exito(listOf(postres))
+        vm.reanudarActualizaciones()
+        assertEquals(antes + 1, repo.consultas)
+        assertFalse(estado.desactualizado)
+    }
+
+    @Test
     fun `las recargas en silencio no se solapan y una respuesta vieja no pisa la nueva`() {
         val vieja = CompletableDeferred<ResultadoCatalogo<List<MenuCategoria>>>()
         repo.enEspera = vieja

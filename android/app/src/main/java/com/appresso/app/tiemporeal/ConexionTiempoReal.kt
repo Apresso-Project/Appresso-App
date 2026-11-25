@@ -59,15 +59,6 @@ class ConexionTiempoReal(
     private val _resincronizar = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val resincronizar: SharedFlow<String> = _resincronizar.asSharedFlow()
 
-    private val _suscripcionesActivas = MutableSharedFlow<String>(extraBufferCapacity = 8)
-
-    /**
-     * Cada vez que las suscripciones quedan activas en el servidor (primera conexión y cada
-     * reconexión). Una pantalla que ya cargó su lista por REST debe volver a pedirla al recibir este
-     * aviso: lo ocurrido entre su consulta y la suscripción no llegó ni en la lista ni como evento.
-     */
-    val suscripcionesActivas: SharedFlow<String> = _suscripcionesActivas.asSharedFlow()
-
     private val cliente = ClienteStomp(
         url = url,
         fabrica = fabrica,
@@ -85,9 +76,6 @@ class ConexionTiempoReal(
                 _resincronizar.tryEmit(motivo)
             }
 
-            override fun alActivarseLasSuscripciones() {
-                _suscripcionesActivas.tryEmit("suscripciones activas")
-            }
         },
         // La secuencia es global: solo se puede vigilar si se escuchan todos los tópicos.
         detectarSaltos = topicos == Topicos.TODOS,

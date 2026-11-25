@@ -1,5 +1,7 @@
 package com.appresso.backend.tiemporeal;
 
+import com.appresso.backend.usuarios.Rol;
+
 /**
  * Direcciones de la capa de tiempo real. Los clientes (Android) usan estas
  * mismas cadenas; si cambian aquí, hay que avisar al equipo Android.
@@ -17,6 +19,15 @@ public final class Destinos {
 
 	/** Eventos del catálogo: productos y existencias. */
 	public static final String CATALOGO = PREFIJO_TOPICOS + "/catalogo";
+
+	/** Permisos de lectura de menú y comandas, sin destinos con comodines. */
+	public static boolean puedeSuscribirse(String destino, Rol rol) {
+		return switch (rol) {
+			case ADMINISTRADOR, MESERO -> COMANDAS.equals(destino) || CATALOGO.equals(destino);
+			case CAJERO, COCINERO -> COMANDAS.equals(destino);
+			case CLIENTE -> CATALOGO.equals(destino);
+		};
+	}
 
 	private Destinos() {
 	}

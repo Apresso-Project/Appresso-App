@@ -13,7 +13,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 - **Sin token, o con token vencido, alterado o de una cuenta desactivada → `401`** `{"mensaje": "Tu sesión no es válida o expiró. Inicia sesión de nuevo."}`. La app debe volver al login.
 - **Con token válido pero sin el rol necesario → `403`** `{"mensaje": "No tienes permiso para realizar esta acción."}`. La app muestra el mensaje y se queda donde está.
 - **Públicos (sin token):** `POST /api/auth/login`, `POST /api/auth/registro` (el cliente crea su cuenta), `POST /api/auth/recuperar` y `POST /api/auth/restablecer` (recuperación de la contraseña del cliente), `GET /api/health`, `GET /actuator/health`. Contratos en [`api-auth.md`](api-auth.md) y [`api-clientes.md`](api-clientes.md).
-- **WebSocket de tiempo real (`/ws/**`):** el apretón de manos HTTP es público, pero el marco `CONNECT` de STOMP debe llevar `Authorization: Bearer <token>`; sin token válido el servidor responde `ERROR` y cierra la conexión (`AutenticacionStomp`). Hoy cualquier rol autenticado puede suscribirse a los tópicos.
+- **WebSocket de tiempo real (`/ws/**`):** el marco `CONNECT` de STOMP exige `Authorization: Bearer <token>`. El servidor también autoriza cada `SUBSCRIBE`: catálogo para administrador, mesero y cliente, y comandas para administrador, mesero, cajero y cocinero. Una suscripción denegada devuelve `ERROR` (`AutenticacionStomp`).
 - **Emisor de pruebas (`/api/dev/**`, solo perfil `dev`):** solo el administrador (`@PreAuthorize`).
 - Las reglas se evalúan **en orden** y gana la primera que coincide.
 - Cada módulo termina con una regla **"cualquier otra operación → nadie"**: un endpoint nuevo que no esté en la política responde `403` en vez de quedar abierto.

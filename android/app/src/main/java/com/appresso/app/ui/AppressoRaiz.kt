@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appresso.app.ContenedorApp
@@ -58,6 +59,7 @@ import com.appresso.app.ui.menu.MenuViewModel
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
 import com.appresso.app.tiemporeal.MedidorCocina
+import com.appresso.app.tiemporeal.Topicos
 import com.appresso.app.tiemporeal.cambiosDeCatalogo
 import com.appresso.app.tiemporeal.EstadoConexion
 import com.appresso.app.tiemporeal.cambiosDeCocina
@@ -361,12 +363,11 @@ private fun MenuSeccion(contenedor: ContenedorApp, token: String?, onVolver: () 
         }
     }
     val cambios = remember(tiempoReal) {
-        // `suscripcionesActivas`: la consulta inicial puede terminar antes de que la suscripción esté activa,
-        // y un cambio en ese intervalo no llegaría ni en la lista ni como evento.
+        // CONECTADO solo se publica después del RECEIPT. Releer cubre posibles cambios previos.
         merge(
             tiempoReal.eventos.cambiosDeCatalogo(),
             tiempoReal.resincronizar.map { },
-            tiempoReal.suscripcionesActivas.map { },
+            tiempoReal.estado.filter { it.estado == EstadoConexion.CONECTADO }.map { },
         )
     }
     // La clave evita que otra cuenta, o una visita posterior, herede el menú anterior.
@@ -375,6 +376,10 @@ private fun MenuSeccion(contenedor: ContenedorApp, token: String?, onVolver: () 
         key = "menu-$token-$visita",
         factory = MenuViewModel.factory(contenedor.menuRepository),
     )
+    LifecycleStartEffect(viewModel) {
+        viewModel.reanudarActualizaciones()
+        onStopOrDispose { viewModel.pausarActualizaciones() }
+    }
     LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
     MenuRoute(viewModel = viewModel, onVolver = onVolver)
 }
@@ -389,7 +394,7 @@ private fun MenuSeccion(contenedor: ContenedorApp, token: String?, onVolver: () 
 private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     val contexto = LocalContext.current
     val ciclo = LocalLifecycleOwner.current.lifecycle
-    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto) }
+    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto, Topicos.COMANDAS) }
     DisposableEffect(tiempoReal, ciclo) {
         ciclo.addObserver(tiempoReal)
         onDispose {
@@ -398,12 +403,11 @@ private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: (
         }
     }
     val cambios = remember(tiempoReal) {
-        // `suscripcionesActivas`: la consulta inicial puede terminar antes de que la primera suscripción esté
-        // activa; una comanda enviada en ese intervalo no llegaría ni en la lista ni como evento.
+        // CONECTADO solo se publica después del RECEIPT. Releer cubre posibles cambios previos.
         merge(
             tiempoReal.eventos.cambiosDeCocina(),
             tiempoReal.resincronizar.comoResincronizacion(),
-            tiempoReal.suscripcionesActivas.comoResincronizacion(),
+            tiempoReal.estado.filter { it.estado == EstadoConexion.CONECTADO }.comoResincronizacion(),
         )
     }
     // Mide cada cambio (SCRUM-93) y escribe una línea por muestra en logcat: `adb logcat -s Cocina`.
@@ -414,6 +418,10 @@ private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: (
         key = "cocina-$token-$visita",
         factory = CocinaViewModel.factory(contenedor.cocinaRepository, medidor),
     )
+    LifecycleStartEffect(viewModel) {
+        viewModel.reanudarActualizaciones()
+        onStopOrDispose { viewModel.pausarActualizaciones() }
+    }
     LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.alCambiar(it) } }
     CocinaRoute(viewModel = viewModel, conexion = tiempoReal.estado, onVolver = onVolver)
 }

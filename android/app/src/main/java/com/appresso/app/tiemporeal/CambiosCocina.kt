@@ -30,7 +30,7 @@ fun Flow<EventoTiempoReal>.cambiosDeCocina(reloj: () -> Instant = Instant::now):
     filter { it.afectaACocina() }.map { CambioCocina(it.tipo, leerFecha(it.fecha), reloj()) }
 
 /** Cada aviso de reconexión o de secuencia saltada, como un cambio sin fecha. */
-fun Flow<String>.comoResincronizacion(reloj: () -> Instant = Instant::now): Flow<CambioCocina> =
+fun Flow<*>.comoResincronizacion(reloj: () -> Instant = Instant::now): Flow<CambioCocina> =
     map { CambioCocina(CambioCocina.RESINCRONIZACION, null, reloj()) }
 
 internal fun EventoTiempoReal.afectaACocina(): Boolean =

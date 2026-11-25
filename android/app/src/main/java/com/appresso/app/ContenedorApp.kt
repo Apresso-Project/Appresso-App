@@ -30,6 +30,7 @@ import com.appresso.app.data.remote.UsuariosApi
 import com.appresso.app.data.usuarios.UsuariosRepository
 import com.appresso.app.data.usuarios.UsuariosRepositoryRemoto
 import com.appresso.app.tiemporeal.ConexionTiempoReal
+import com.appresso.app.tiemporeal.Topicos
 import com.appresso.app.tiemporeal.urlTiempoReal
 import retrofit2.Retrofit
 
@@ -92,18 +93,20 @@ class ContenedorApp(
         MisDatosRepositoryRemoto(retrofit.create(MisDatosApi::class.java))
     }
 
-    private var tiempoReal: ConexionTiempoReal? = null
+    private val conexionesTiempoReal = mutableMapOf<String, ConexionTiempoReal>()
 
     /**
-     * Una sola conexión de tiempo real para toda la app (docs/tiempo-real.md), con el token de la
-     * sesión actual en cada CONNECT. Se crea la primera vez que una pantalla la pide; cada pantalla
-     * la conecta mientras está visible y la detiene al salir.
+     * Reutiliza la conexión del tópico que necesita cada pantalla. Cada CONNECT toma el token de
+     * la sesión actual. El menú y el inventario solo requieren eventos del catálogo.
      */
     @Synchronized
-    fun tiempoReal(context: Context): ConexionTiempoReal =
-        tiempoReal ?: ConexionTiempoReal(
-            context.applicationContext,
-            urlTiempoReal(urlBase),
-            token = { almacenSesion.sesion.value?.token },
-        ).also { tiempoReal = it }
+    fun tiempoReal(context: Context, topico: String = Topicos.CATALOGO): ConexionTiempoReal =
+        conexionesTiempoReal.getOrPut(topico) {
+            ConexionTiempoReal(
+                context.applicationContext,
+                urlTiempoReal(urlBase),
+                topicos = setOf(topico),
+                token = { almacenSesion.sesion.value?.token },
+            )
+        }
 }

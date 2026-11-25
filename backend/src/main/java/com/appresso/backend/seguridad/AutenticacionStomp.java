@@ -11,10 +11,12 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import com.appresso.backend.auth.JwtService;
+import com.appresso.backend.tiemporeal.Destinos;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -30,7 +32,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
  * <p>
  * Se valida una sola vez, al conectar: una conexión ya abierta sigue viva aunque después se
  * desactive la cuenta o venza el token (dura 12 horas). Al reconectar se vuelve a validar.
- * Todavía no hay permisos por tópico: cualquier rol autenticado puede suscribirse a los tópicos.
+ * Cada suscripción se autoriza según el rol de la sesión STOMP y el destino exacto.
  */
 @Component
 public class AutenticacionStomp implements ChannelInterceptor {
@@ -50,7 +52,18 @@ public class AutenticacionStomp implements ChannelInterceptor {
 	@Override
 	public Message<?> preSend(Message<?> mensaje, MessageChannel canal) {
 		StompHeaderAccessor cabeceras = MessageHeaderAccessor.getAccessor(mensaje, StompHeaderAccessor.class);
-		if (cabeceras == null || !StompCommand.CONNECT.equals(cabeceras.getCommand())) {
+		if (cabeceras == null) {
+			return mensaje;
+		}
+		if (StompCommand.SUBSCRIBE.equals(cabeceras.getCommand())) {
+			if (!(cabeceras.getUser() instanceof Authentication autenticacion)
+					|| !(autenticacion.getPrincipal() instanceof UsuarioAutenticado usuario)
+					|| !Destinos.puedeSuscribirse(cabeceras.getDestination(), usuario.rol())) {
+				throw new MessageDeliveryException(mensaje, "Tu rol no permite suscribirte a este tópico.");
+			}
+			return mensaje;
+		}
+		if (!StompCommand.CONNECT.equals(cabeceras.getCommand())) {
 			return mensaje;
 		}
 		Usuario usuario = usuarioDe(cabeceras.getFirstNativeHeader(ENCABEZADO))

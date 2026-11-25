@@ -13,10 +13,10 @@ Android no tiene un cliente STOMP oficial. La app usa su propio cliente (`androi
 
 Después de conectar, el cliente se **suscribe** a los tópicos que necesite:
 
-| Tópico | Eventos | Quién lo usa |
+| Tópico | Eventos | Roles autorizados |
 |---|---|---|
-| `/topic/comandas` | `COMANDA_CREADA`, `COMANDA_MODIFICADA`, `COMANDA_ESTADO_CAMBIADO` | cocina, meseros, administrador |
-| `/topic/catalogo` | `PRODUCTO_CREADO`, `PRODUCTO_ACTUALIZADO`, `EXISTENCIAS_ACTUALIZADAS`, `CATEGORIA_CREADA`, `CATEGORIA_ACTUALIZADA` | meseros, administrador |
+| `/topic/comandas` | `COMANDA_CREADA`, `COMANDA_MODIFICADA`, `COMANDA_ESTADO_CAMBIADO` | administrador, mesero, cajero y cocinero |
+| `/topic/catalogo` | `PRODUCTO_CREADO`, `PRODUCTO_ACTUALIZADO`, `EXISTENCIAS_ACTUALIZADAS`, `CATEGORIA_CREADA`, `CATEGORIA_ACTUALIZADA` | administrador, mesero y cliente |
 
 Los clientes solo **reciben**; no envían mensajes por el WebSocket. Los cambios se hacen por la API REST y el servidor los difunde.
 
@@ -61,8 +61,8 @@ El servidor **no guarda** los eventos que se envían mientras un dispositivo est
 
 1. **Detectar la caída.** Con los latidos de STOMP (cada 10 s) y con `ConnectivityManager.NetworkCallback` para reaccionar al instante. Mostrar el indicador «Sin conexión» (RNF-21).
 2. **Reintentar con retroceso exponencial:** esperar `min(30 s, 1 s × 2^intento)` con una variación aleatoria de ±20 %. Es decir: 1 s, 2 s, 4 s, 8 s, 16 s, 30 s, 30 s… El contador vuelve a cero cuando la conexión se logra.
-3. **Al reconectar:** volver a suscribirse a los tópicos y **volver a consultar el estado por REST** (comandas del día y catálogo) antes de seguir con los eventos nuevos.
-4. **Vigilar la `secuencia`:** si llega un número que no es el anterior + 1, o uno menor al último (el servidor se reinició), también hay que reconsultar por REST.
+3. **Al conectar o reconectar:** suscribirse a los tópicos necesarios y **volver a consultar el estado por REST** cuando el servidor confirme la suscripción.
+4. **Vigilar la `secuencia`:** una secuencia menor puede indicar que el servidor se reinició. Un salto hacia delante indica una posible pérdida de eventos si se escuchan ambos tópicos.
 
 > Las consultas REST de **menú** y de **comandas para cocina** ya existen (3.3.1, `api-menu-cocina.md`): `GET /api/menu` y `GET /api/comandas/cocina`. El listado general de comandas lo construye 4.2.1.
 
@@ -85,6 +85,7 @@ Cómo lo usa una pantalla:
 ```kotlin
 val tiempoReal = ConexionTiempoReal(
     applicationContext, "ws://192.168.1.10:8080/ws/websocket",
+    topicos = setOf(Topicos.CATALOGO),
     token = { contenedor.almacenSesion.sesion.value?.token }, // el servidor lo exige en el CONNECT
 )
 tiempoReal.adjuntar(lifecycle)                       // conecta y desconecta según la pantalla
@@ -98,7 +99,7 @@ Qué hace el cliente por su cuenta:
 - **Suscripciones:** se recuerdan y se restauran después de cada reconexión.
 - **Caídas:** cierre o error del socket, mensaje `ERROR`, falta de `CONNECTED` en 10 s, o más de 25 s sin recibir nada (2,5 latidos). Al volver la red (`onAvailable`) reintenta de inmediato y reinicia el retroceso; al perderla (`onLost`) no espera a los latidos.
 - **Resincronización:** avisa por `resincronizar` al reconectar, cuando la `secuencia` salta o cuando baja (servidor reiniciado). La app debe responder consultando por REST. La detección de saltos solo vale si el cliente escucha **todos** los tópicos, porque la secuencia es global; con un solo tópico se desactiva sola (`ConexionTiempoReal` lo decide).
-- **Suscripciones activas:** cada `SUBSCRIBE` pide un `RECEIPT`. Cuando el servidor confirma todas (o pasan 1,5 s sin confirmación) se emite por `suscripcionesActivas`, en la primera conexión y en cada reconexión. Una pantalla que cargó su lista por REST antes de ese aviso debe volver a pedirla: lo ocurrido entre su consulta y la suscripción no llegó ni en la lista ni como evento. No es una resincronización por pérdida (`resincronizar`), así que la primera conexión sigue sin emitir ésa.
+- **Suscripciones activas:** cada `SUBSCRIBE` pide un `RECEIPT`. El servidor lo envía tras registrar la suscripción en el broker. Solo después de recibir todos los recibos, `estado` publica `CONECTADO` y las pantallas vuelven a consultar por REST. Si falta un recibo tras 5 s, el cliente reintenta la conexión. Menú e inventario usan el tópico de catálogo y cocina usa el de comandas.
 - **Duplicados:** un `id` ya visto se ignora.
 
 Las dependencias nuevas son OkHttp, Gson y coroutines (`android/gradle/libs.versions.toml`). El manifiesto pide `INTERNET` y `ACCESS_NETWORK_STATE`; la versión de depuración permite `ws://` sin TLS (en producción se usará `wss://`).
@@ -228,6 +229,6 @@ La prueba de carga corre en una sola máquina, así que mide el servidor, no la 
 ## Límites actuales
 
 - **Resincronización parcial:** el cliente avisa cuándo consultar por REST. Ya existen las consultas del menú y de cocina (3.3.1); falta el listado general de comandas (4.2.1).
-- **Autenticación solo al conectar:** el `CONNECT` exige `Authorization: Bearer <token>` (2.3.1, `AutenticacionStomp`); sin token válido, o con una cuenta desactivada, el servidor responde `ERROR` y cierra. El token se valida una sola vez: una conexión abierta sigue viva aunque después se desactive la cuenta o venza el token (12 h); al reconectar se vuelve a validar. Tampoco hay permisos por tópico: cualquier rol autenticado puede suscribirse a `/topic/comandas` y `/topic/catalogo`. Decidir si el cliente debe verlos (RNF-07).
+- **Vigencia de la sesión:** el JWT y el estado de la cuenta se validan en cada `CONNECT`. Una conexión abierta conserva el rol obtenido al conectar y autoriza cada suscripción con ese rol.
 - **Broker en memoria:** sirve con un solo servidor. Con varios habría que usar un broker externo.
 - **Los eventos no se guardan:** la recuperación depende de reconsultar por REST.

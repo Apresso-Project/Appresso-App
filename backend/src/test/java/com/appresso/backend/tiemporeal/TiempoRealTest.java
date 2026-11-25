@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -122,6 +123,24 @@ class TiempoRealTest {
 		usuario.setActivo(false);
 		usuarios.save(usuario);
 		assertThatThrownBy(() -> conectarCon("Bearer " + token)).isInstanceOf(Exception.class);
+	}
+
+	@Test
+	void elClientePuedeSuscribirCatalogoPeroNoComandas() throws Exception {
+		var rechazo = new CompletableFuture<String>();
+		StompSession sesion = conectarCon("Bearer " + token(Rol.CLIENTE), new StompSessionHandlerAdapter() {
+			@Override
+			public void handleFrame(StompHeaders headers, Object payload) {
+				rechazo.complete(headers.getFirst("message"));
+			}
+		});
+		suscribir(sesion, Destinos.CATALOGO, mensaje -> {});
+
+		int antes = suscripciones(Destinos.COMANDAS);
+		sesion.subscribe(Destinos.COMANDAS, manejador(mensaje -> {}));
+
+		assertThat(rechazo.get(5, TimeUnit.SECONDS)).contains("Tu rol no permite suscribirte");
+		assertThat(suscripciones(Destinos.COMANDAS)).isEqualTo(antes);
 	}
 
 	@Test
@@ -241,6 +260,10 @@ class TiempoRealTest {
 
 	/** Conecta mandando {@code Authorization} en el CONNECT (o sin él si es {@code null}). */
 	private StompSession conectarCon(String autorizacion) throws Exception {
+		return conectarCon(autorizacion, new StompSessionHandlerAdapter() {});
+	}
+
+	private StompSession conectarCon(String autorizacion, StompSessionHandlerAdapter manejador) throws Exception {
 		WebSocketStompClient cliente = new WebSocketStompClient(new StandardWebSocketClient());
 		cliente.setMessageConverter(new TextoPlano());
 		cliente.setTaskScheduler(PLANIFICADOR);
@@ -250,32 +273,39 @@ class TiempoRealTest {
 			cabeceras.add("Authorization", autorizacion);
 		}
 		return cliente.connectAsync("ws://localhost:" + puerto + Destinos.ENDPOINT + "/websocket",
-				new WebSocketHttpHeaders(), cabeceras, new StompSessionHandlerAdapter() {
-				}).get(5, TimeUnit.SECONDS);
+				new WebSocketHttpHeaders(), cabeceras, manejador).get(5, TimeUnit.SECONDS);
 	}
 
 	/** Token de un usuario de prueba activo; el usuario se crea la primera vez y se borra al terminar. */
 	private String token() {
+		return token(Rol.MESERO);
+	}
+
+	private String token(Rol rol) {
 		if (usuario == null) {
 			Usuario u = new Usuario();
 			u.setNombre("Tiempo real");
 			u.setCorreo("tiemporeal." + System.nanoTime() + "@appresso.test");
 			u.setContrasenaHash("no-se-usa-en-esta-prueba");
-			u.setRol(Rol.MESERO);
+			u.setRol(rol);
 			usuario = usuarios.save(u);
 		}
 		return jwt.generar(usuario);
 	}
 
-	/**
-	 * Se suscribe y espera a que el broker registre la suscripción, para no publicar
-	 * antes de tiempo. (El broker simple de Spring no envía recibos STOMP, por eso se
-	 * consulta directamente su registro de suscripciones.)
-	 */
+	/** El RECEIPT debe llegar por WebSocket después de que el broker registra la suscripción. */
 	private void suscribir(StompSession sesion, String destino, java.util.function.Consumer<String> alRecibir)
 			throws InterruptedException {
 		int antes = suscripciones(destino);
-		sesion.subscribe(destino, new StompFrameHandler() {
+		sesion.setAutoReceipt(true);
+		CountDownLatch recibo = new CountDownLatch(1);
+		sesion.subscribe(destino, manejador(alRecibir)).addReceiptTask(recibo::countDown);
+		assertThat(recibo.await(5, TimeUnit.SECONDS)).as("RECEIPT de " + destino).isTrue();
+		assertThat(suscripciones(destino)).as("el broker registró la suscripción a " + destino).isGreaterThan(antes);
+	}
+
+	private StompFrameHandler manejador(java.util.function.Consumer<String> alRecibir) {
+		return new StompFrameHandler() {
 			@Override
 			public Type getPayloadType(StompHeaders headers) {
 				return String.class;
@@ -285,12 +315,7 @@ class TiempoRealTest {
 			public void handleFrame(StompHeaders headers, Object payload) {
 				alRecibir.accept((String) payload);
 			}
-		});
-		long limite = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-		while (suscripciones(destino) <= antes && System.nanoTime() < limite) {
-			Thread.sleep(10);
-		}
-		assertThat(suscripciones(destino)).as("el broker registró la suscripción a " + destino).isGreaterThan(antes);
+		};
 	}
 
 	/** Cuántas sesiones están suscritas ahora mismo a un destino. */

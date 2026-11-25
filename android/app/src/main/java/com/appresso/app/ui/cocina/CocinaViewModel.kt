@@ -71,6 +71,7 @@ class CocinaViewModel(
     private var otraVez = false
     private var reintento: Job? = null
     private var fallosSeguidos = 0
+    private var actualizacionesActivas = true
 
     /** Cambios recibidos que aún no se han visto reflejados en pantalla (para medir el plazo, SCRUM-93). */
     private val porMedir = ArrayList<CambioCocina>()
@@ -81,11 +82,25 @@ class CocinaViewModel(
 
     fun cargar() = consultar(silencioso = false)
 
+    fun pausarActualizaciones() {
+        actualizacionesActivas = false
+        otraVez = false
+        reintento?.cancel()
+        reintento = null
+    }
+
+    fun reanudarActualizaciones() {
+        if (actualizacionesActivas) return
+        actualizacionesActivas = true
+        if (_estado.value.desactualizada) consultar(silencioso = true)
+    }
+
     /**
      * Cocina cambió (un evento del WebSocket o una reconexión): vuelve a pedir la lista sin indicador
      * de carga ni avisos de error. La pantalla lo llama mientras está visible (ver `AppressoRaiz`).
      */
     fun alCambiar(cambio: CambioCocina) {
+        if (!actualizacionesActivas) return
         if (medidor != null) porMedir.add(cambio)
         consultar(silencioso = true)
     }
@@ -100,7 +115,7 @@ class CocinaViewModel(
         reintento = null
         if (!silencioso) _estado.update { it.copy(cargando = true, error = null) }
         viewModelScope.launch {
-            var fallo = false
+            var reintentar: Boolean
             try {
                 var silenciosa = silencioso
                 do {
@@ -112,7 +127,7 @@ class CocinaViewModel(
                     val resultado = repositorio.consultar()
                     val mostrada = aplicar(resultado, silenciosa)
                     if (mostrada) cubiertos.forEach { medidor?.alMostrarse(it) }
-                    fallo = !mostrada && resultado.esTransitorio()
+                    reintentar = silenciosa && !mostrada && resultado.esTransitorio()
                     silenciosa = true
                 } while (otraVez)
             } finally {
@@ -120,9 +135,9 @@ class CocinaViewModel(
                 _estado.update { it.copy(cargando = false) }
             }
             // Una lista que no se pudo actualizar no se deja así hasta el próximo evento.
-            if (fallo && silencioso) {
+            if (reintentar && actualizacionesActivas) {
                 programarReintento()
-            } else if (!fallo) {
+            } else {
                 fallosSeguidos = 0
             }
         }

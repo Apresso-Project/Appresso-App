@@ -243,6 +243,43 @@ class CocinaViewModelTest {
     }
 
     @Test
+    fun `si falla la consulta encolada durante la carga inicial se reintenta sola`() {
+        val inicial = CompletableDeferred<ResultadoCatalogo<List<ComandaCocina>>>()
+        repo.enEspera = inicial
+        val otro = CocinaViewModel(repo)
+        otro.alCambiar(cambio)
+        repo.enEspera = null
+        repo.resultado = ResultadoCatalogo.ErrorDelServidor
+        inicial.complete(ResultadoCatalogo.Exito(emptyList()))
+        assertTrue(otro.estado.value.desactualizada)
+
+        repo.resultado = ResultadoCatalogo.Exito(listOf(comanda(3)))
+        dispatcher.scheduler.advanceTimeBy(1_000)
+        dispatcher.scheduler.runCurrent()
+
+        assertEquals(listOf(3L), otro.estado.value.comandas.map { it.id })
+        assertFalse(otro.estado.value.desactualizada)
+    }
+
+    @Test
+    fun `los reintentos se suspenden al salir de cocina y se reanudan al volver`() {
+        repo.resultado = ResultadoCatalogo.SinConexion
+        vm.alCambiar(cambio)
+        vm.pausarActualizaciones()
+        val antes = repo.consultas
+
+        dispatcher.scheduler.advanceTimeBy(30_000)
+        dispatcher.scheduler.runCurrent()
+        vm.alCambiar(cambio)
+        assertEquals(antes, repo.consultas)
+
+        repo.resultado = ResultadoCatalogo.Exito(listOf(comanda(3)))
+        vm.reanudarActualizaciones()
+        assertEquals(antes + 1, repo.consultas)
+        assertFalse(estado.desactualizada)
+    }
+
+    @Test
     fun `si una actualizacion en silencio falla avisa que esta desactualizada y reintenta sola con esperas crecientes`() {
         repo.resultado = ResultadoCatalogo.SinConexion
         vm.alCambiar(cambio)

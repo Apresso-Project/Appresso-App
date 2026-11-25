@@ -69,16 +69,32 @@ class MenuViewModel(
     private var otraVez = false
     private var reintento: Job? = null
     private var fallosSeguidos = 0
+    private var actualizacionesActivas = true
 
     init {
         cargar()
-        viewModelScope.launch { cambios.collect { cargar(silencioso = true) } }
+        viewModelScope.launch { cambios.collect { recargarEnSilencio() } }
     }
 
     fun cargar() = cargar(silencioso = false)
 
     /** Vuelve a pedir el menú sin indicador de carga ni avisos de error (ver `AppressoRaiz`). */
-    fun recargarEnSilencio() = cargar(silencioso = true)
+    fun recargarEnSilencio() {
+        if (actualizacionesActivas) cargar(silencioso = true)
+    }
+
+    fun pausarActualizaciones() {
+        actualizacionesActivas = false
+        otraVez = false
+        reintento?.cancel()
+        reintento = null
+    }
+
+    fun reanudarActualizaciones() {
+        if (actualizacionesActivas) return
+        actualizacionesActivas = true
+        if (_estado.value.desactualizado) cargar(silencioso = true)
+    }
 
     private fun cargar(silencioso: Boolean) {
         if (enCurso) {
@@ -90,23 +106,23 @@ class MenuViewModel(
         reintento = null
         if (!silencioso) _estado.update { it.copy(cargando = true, error = null) }
         viewModelScope.launch {
-            var fallo = false
+            var reintentar: Boolean
             try {
                 var silenciosa = silencioso
                 do {
                     otraVez = false
                     val resultado = repositorio.consultar()
                     val aplicado = aplicar(resultado, silenciosa)
-                    fallo = !aplicado && resultado.esTransitorio()
+                    reintentar = silenciosa && !aplicado && resultado.esTransitorio()
                     silenciosa = true
                 } while (otraVez)
             } finally {
                 enCurso = false
                 _estado.update { it.copy(cargando = false) }
             }
-            if (fallo && silencioso) {
+            if (reintentar && actualizacionesActivas) {
                 programarReintento()
-            } else if (!fallo) {
+            } else {
                 fallosSeguidos = 0
             }
         }

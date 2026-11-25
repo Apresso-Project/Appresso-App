@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -328,8 +329,7 @@ class MenuTest {
 	/**
 	 * Criterio de 3.3.1: el menú responde en 2 segundos o menos. Se mide con un catálogo mucho más
 	 * grande que el de una cafetería (10 categorías × 100 productos) y la respuesta completa: seguridad,
-	 * consulta y conversión a JSON. La primera llamada calienta la conexión y las clases; se mide la
-	 * siguiente.
+	 * consulta y conversión a JSON. Se mide el percentil 95 de 20 consultas después del calentamiento.
 	 */
 	@Test
 	void conUnCatalogoGrandeElMenuRespondeEnDosSegundosOMenos() throws Exception {
@@ -350,14 +350,20 @@ class MenuTest {
 		}
 		productos.saveAll(lote);
 		productos.flush();
-		consultar(mesero); // calentamiento
+		String menu = consultar(mesero); // calentamiento
+		long[] tiemposNs = new long[20];
+		for (int i = 0; i < tiemposNs.length; i++) {
+			long inicio = System.nanoTime();
+			menu = consultar(mesero);
+			tiemposNs[i] = System.nanoTime() - inicio;
+		}
+		Arrays.sort(tiemposNs);
+		long p95Ns = tiemposNs[(int) Math.ceil(0.95 * tiemposNs.length) - 1];
 
-		long inicio = System.nanoTime();
-		String menu = consultar(mesero);
-		long ms = (System.nanoTime() - inicio) / 1_000_000;
-
-		System.out.println("Menú con " + lote.size() + " productos: " + ms + " ms");
-		assertThat(ms).as("tiempo de respuesta del menú (ms)").isLessThanOrEqualTo(PLAZO_MS);
+		System.out.println("Menú con " + lote.size() + " productos: p95=" + p95Ns / 1_000_000
+				+ " ms (" + tiemposNs.length + " consultas)");
+		assertThat(p95Ns).as("p95 del tiempo de respuesta del menú (ns)")
+				.isLessThanOrEqualTo(PLAZO_MS * 1_000_000);
 		// Y la respuesta es la correcta: 100 por categoría menos los agotados (j múltiplo de 7: 15 de 100).
 		for (Categoria c : grandes) {
 			assertThat(productosDe(menu, c)).hasSize(85);

@@ -85,7 +85,7 @@ class ClienteStompTest {
         val esperas = ArrayList<Long?>()
         val eventos = ArrayList<Pair<String, EventoTiempoReal>>()
         val resincronizaciones = ArrayList<String>()
-        var activaciones = 0
+        val activaciones get() = estados.count { it == EstadoConexion.CONECTADO }
 
         override fun alCambiarEstado(estado: EstadoConexion, esperaMs: Long?, motivo: String?) {
             estados.add(estado)
@@ -100,9 +100,6 @@ class ClienteStompTest {
             resincronizaciones.add(motivo)
         }
 
-        override fun alActivarseLasSuscripciones() {
-            activaciones++
-        }
     }
 
     private lateinit var reloj: ProgramadorFalso
@@ -121,9 +118,10 @@ class ClienteStompTest {
         cliente.suscribir(Topicos.CATALOGO)
     }
 
-    private fun conectarBien() {
+    private fun conectarBien(confirmar: Boolean = true) {
         red.ultimo.abrir()
         red.ultimo.responderConnected()
+        if (confirmar) red.ultimo.responderTodosLosRecibos()
     }
 
     // ------------------------------------------------------------ SCRUM-29: conexión y suscripción
@@ -140,6 +138,8 @@ class ClienteStompTest {
         assertEquals("10000,10000", connect.cabeceras["heart-beat"])
 
         red.ultimo.responderConnected()
+        assertEquals(EstadoConexion.CONECTANDO, cliente.estadoActual())
+        red.ultimo.responderTodosLosRecibos()
         assertEquals(EstadoConexion.CONECTADO, cliente.estadoActual())
         assertEquals(listOf(Topicos.COMANDAS, Topicos.CATALOGO), red.ultimo.suscritos())
     }
@@ -410,7 +410,7 @@ class ClienteStompTest {
     @Test
     fun alConfirmarTodasLasSuscripciones_AvisaQueEstanActivas_AunEnLaPrimeraConexion() {
         cliente.iniciar()
-        conectarBien()
+        conectarBien(confirmar = false)
         assertEquals(0, registro.activaciones) // todavía no confirmó el servidor
 
         val recibos = red.ultimo.recibos()
@@ -423,25 +423,30 @@ class ClienteStompTest {
     }
 
     @Test
-    fun siElServidorNoConfirma_AvisaPasadoElPlazo() {
+    fun siElServidorNoConfirma_ReintentaSinDarPorActivaLaConexion() {
         cliente.iniciar()
-        conectarBien()
+        conectarBien(confirmar = false)
 
-        reloj.avanzar(1_499)
+        reloj.avanzar(4_999)
+        assertEquals(EstadoConexion.CONECTANDO, cliente.estadoActual())
         assertEquals(0, registro.activaciones)
         reloj.avanzar(1)
+        assertEquals(EstadoConexion.ESPERANDO_REINTENTO, cliente.estadoActual())
+        assertEquals(0, registro.activaciones)
+        reloj.avanzar(1_000)
+        conectarBien()
         assertEquals(1, registro.activaciones)
     }
 
     @Test
-    fun unaConfirmacionTardiaNoAvisaDosVeces() {
+    fun unaConfirmacionTardiaDeUnaConexionCerradaNoSurteEfecto() {
         cliente.iniciar()
-        conectarBien()
-        reloj.avanzar(1_500)
+        conectarBien(confirmar = false)
+        reloj.avanzar(5_000)
 
         red.ultimo.responderTodosLosRecibos()
 
-        assertEquals(1, registro.activaciones)
+        assertEquals(0, registro.activaciones)
     }
 
     @Test
@@ -461,7 +466,7 @@ class ClienteStompTest {
     @Test
     fun siLaConexionSeCaeAntesDeConfirmar_NoAvisa() {
         cliente.iniciar()
-        conectarBien()
+        conectarBien(confirmar = false)
         red.ultimo.caerse()
 
         reloj.avanzar(1_500) // el plazo de la conexión caída ya no cuenta (la reconexión tarda 1 s y aún no responde)
@@ -472,7 +477,7 @@ class ClienteStompTest {
     @Test
     fun unReciboDesconocidoSeIgnora() {
         cliente.iniciar()
-        conectarBien()
+        conectarBien(confirmar = false)
 
         red.ultimo.responderRecibo("otro")
 
