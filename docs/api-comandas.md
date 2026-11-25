@@ -36,3 +36,14 @@ Cuerpo: `{"estado": "ENVIADA"}`. Entran administrador, cajero, mesero y cocinero
 Detalle (`ComandaRespuesta`). Lo pueden consultar administrador, cajero, mesero y cocinero.
 
 `ComandaRespuesta`: `id, mesaId, mesaNombre, meseroId, clienteId, estado, lineas[{id, productoId, productoNombre, cantidad, precioUnitario, subtotal, observaciones, agregadoDespuesDeEnvio}], subtotal, descuento, total, fechaCreacion, fechaEnvio`.
+
+## Mesas (RF-64)
+
+| Método y ruta | Quién | Descripción | Respuesta |
+|---|---|---|---|
+| `POST /mesas` `{"nombre"}` | Solo administrador | Crea la mesa; queda `DISPONIBLE` | 201 + `Location` |
+| `GET /mesas` | Administrador y mesero | Mapa de mesas, ordenado por nombre sin distinguir mayúsculas | 200 |
+
+`MesaRespuesta`: `id, nombre, estado` (`DISPONIBLE` / `OCUPADA`). El estado no se edita a mano: una mesa pasa a `OCUPADA` al crear su comanda y vuelve a `DISPONIBLE` al cerrarla.
+
+Nombre: obligatorio (vacío o solo espacios → **400** con `campos.nombre`), ≤30 caracteres (400), **único** sin distinguir mayúsculas ni espacios de los extremos (repetido → **409** con `campos.nombre`). Mesero, cajero, cocinero o cliente que intenten crear → **403**; sin sesión → **401**. Crear queda en la auditoría como `MESA_CREADA` (RNF-12). Las mesas no se editan ni se borran en esta historia.
