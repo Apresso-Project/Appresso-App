@@ -80,3 +80,14 @@ Administrador y mesero. El mesero queda registrado como autor. Cuerpo:
 `MesaRespuesta`: `id, nombre, estado` (`DISPONIBLE` / `OCUPADA`). El estado no se edita a mano: una mesa pasa a `OCUPADA` al crear su comanda y vuelve a `DISPONIBLE` al cerrarla.
 
 Nombre: obligatorio (vacío o solo espacios → **400** con `campos.nombre`), ≤30 caracteres (400), **único** sin distinguir mayúsculas ni espacios de los extremos (repetido → **409** con `campos.nombre`). Mesero, cajero, cocinero o cliente que intenten crear → **403**; sin sesión → **401**. Crear queda en la auditoría como `MESA_CREADA` (RNF-12). Las mesas no se editan ni se borran en esta historia.
+
+## Pruebas que cubren la historia (SCRUM-96)
+
+Todas corren con `cd backend && ./gradlew test` (H2, mismas migraciones de Flyway que producción):
+
+| Clase | Qué prueba |
+|---|---|
+| `CalculadoraComandaTest` | Subtotal por línea, suma, descuento por porcentaje y valor fijo, redondeo, total nunca negativo, total = subtotal − descuento y la validación del descuento autorizado (activo, vigente, puntos mínimos), contra cálculos hechos a mano |
+| `PoliticaTransicionesTest` | Los cinco estados; cada transición con cada uno de los cinco roles; ningún salto, retroceso ni repetición |
+| `ComandasControllerTest` | De punta a punta con la seguridad real: mesas (crear, nombre repetido/vacío/largo, 401/403, mapa), crear comanda (totales, descuentos válidos y rechazados sin crear nada, mesa ocupada, stock), ciclo completo con cada rol, transiciones inválidas con 400 sin cambiar el estado, comanda vacía, y el **contrato** (campos exactos del JSON y formato de error) |
+| `ServiciosTiempoRealTest` (existente) | Cada operación publica su evento de tiempo real |
