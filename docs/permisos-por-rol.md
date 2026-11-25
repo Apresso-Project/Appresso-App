@@ -53,7 +53,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 | Método | Ruta | Admin | Cajero | Mesero | Cocinero | Cliente | RF |
 |---|---|:-:|:-:|:-:|:-:|:-:|---|
 | GET | `/api/mesas/**` | ✅ | | ✅ | | | RF-15 |
-| PATCH | `/api/comandas/*/estado` | ✅ | | | ✅ | | RF-25 |
+| PATCH | `/api/comandas/*/estado` ([qué estado pone cada rol](api-comandas.md#ciclo-de-vida)) | ✅ | ✅ | ✅ | ✅ | | RF-25, RF-COMANDA-ESTADO |
 | POST | `/api/comandas` | ✅ | | ✅ | | | RF-15 |
 | POST | `/api/comandas/*/productos` | ✅ | | ✅ | | | RF-16, RF-20 |
 | POST | `/api/comandas/*/confirmar` | ✅ | | ✅ | | | RF-18 |

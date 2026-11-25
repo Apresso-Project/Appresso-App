@@ -92,7 +92,10 @@ public final class PoliticaPermisos {
 
 			// ---------------------------------------------------------------- Comandas y cocina (módulos 3 y 4)
 			regla(GET, "/api/mesas/**", "/api/mesas", solo(ADMINISTRADOR, MESERO), "RF-15"),
-			regla(PATCH, "/api/comandas/*/estado", "/api/comandas/1/estado", solo(ADMINISTRADOR, COCINERO), "RF-25"),
+			// Entran los cuatro roles del personal; qué estado puede poner cada uno lo decide
+			// PoliticaTransiciones (si no corresponde, 400).
+			regla(PATCH, "/api/comandas/*/estado", "/api/comandas/1/estado",
+					solo(ADMINISTRADOR, CAJERO, MESERO, COCINERO), "RF-25, RF-COMANDA-ESTADO"),
 			regla(POST, "/api/comandas", "/api/comandas", solo(ADMINISTRADOR, MESERO), "RF-15"),
 			regla(POST, "/api/comandas/*/productos", "/api/comandas/1/productos", solo(ADMINISTRADOR, MESERO), "RF-16, RF-20"),
 			regla(POST, "/api/comandas/*/confirmar", "/api/comandas/1/confirmar", solo(ADMINISTRADOR, MESERO), "RF-18"),

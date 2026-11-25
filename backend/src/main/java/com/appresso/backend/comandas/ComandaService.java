@@ -16,7 +16,6 @@ import com.appresso.backend.tiemporeal.ComandaEventoDatos;
 import com.appresso.backend.tiemporeal.ComandaEventoDatos.ItemAgregado;
 import com.appresso.backend.tiemporeal.PublicadorTiempoReal;
 import com.appresso.backend.tiemporeal.TipoEvento;
-import com.appresso.backend.usuarios.Rol;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
 
@@ -90,7 +89,8 @@ public class ComandaService {
 
 	/**
 	 * Mueve la comanda al estado siguiente (PENDIENTE → ENVIADA → EN_PREPARACION → LISTA → CERRADA).
-	 * Cada transición la ejecuta solo su rol: MESERO envía, COCINERO prepara y termina, CAJERO cierra.
+	 * Cada transición la ejecuta solo su rol (o el administrador), según {@link PoliticaTransiciones};
+	 * una transición inválida lanza {@link TransicionInvalidaException} (400).
 	 * Al enviarla se descuenta el inventario (RF-18) y se guarda la hora de envío; al cerrarla se
 	 * libera la mesa.
 	 */
@@ -99,23 +99,14 @@ public class ComandaService {
 		Comanda comanda = comandas.bloquearPorId(comandaId).orElseThrow(() -> noExiste("Comanda", comandaId));
 		Usuario usuario = usuarios.findById(usuarioId).orElseThrow(() -> noExiste("Usuario", usuarioId));
 		EstadoComanda anterior = comanda.getEstado();
-		if (nuevo.ordinal() != anterior.ordinal() + 1) {
-			throw new IllegalStateException("Transición no permitida: " + anterior + " → " + nuevo);
-		}
-		Rol requerido = switch (nuevo) {
-			case ENVIADA -> Rol.MESERO;
-			case EN_PREPARACION, LISTA -> Rol.COCINERO;
-			default -> Rol.CAJERO;
-		};
-		if (usuario.getRol() != requerido) {
-			throw new IllegalStateException("Solo el rol " + requerido + " puede pasar la comanda a " + nuevo);
+		PoliticaTransiciones.validar(anterior, nuevo, usuario.getRol());
+
+		if (nuevo == EstadoComanda.ENVIADA && comanda.getDetalles().isEmpty()) {
+			throw new TransicionInvalidaException("No se puede enviar una comanda vacía");
 		}
 
 		comanda.setEstado(nuevo);
 		if (nuevo == EstadoComanda.ENVIADA) {
-			if (comanda.getDetalles().isEmpty()) {
-				throw new IllegalStateException("No se puede enviar una comanda vacía");
-			}
 			comanda.setFechaEnvio(Instant.now());
 			// Las comandas toman los bloqueos de productos en el mismo orden.
 			List<DetalleComanda> detalles = comanda.getDetalles().stream()
