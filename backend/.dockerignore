@@ -1,0 +1,28 @@
+# Variables de entorno y secretos
+.env
+.env.*
+**/.env
+**/.env.*
+*.pem
+*.key
+*.p12
+*.jks
+
+# Archivos generados
+.gradle/
+build/
+out/
+
+# Control de versiones
+.git/
+.gitignore
+
+# Configuracion del IDE
+.idea/
+.vscode/
+*.iml
+
+# Archivos innecesarios
+*.log
+README.md
+docker-compose.yml
