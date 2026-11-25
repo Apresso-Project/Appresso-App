@@ -18,7 +18,7 @@ class PermisosTest {
     fun `el administrador ve todas las secciones de trabajo`() {
         assertEquals(
             listOf(
-                Opcion.USUARIOS, Opcion.PRODUCTOS_E_INVENTARIO, Opcion.MESAS_Y_COMANDAS, Opcion.COCINA,
+                Opcion.USUARIOS, Opcion.PRODUCTOS_E_INVENTARIO, Opcion.MENU, Opcion.MESAS_Y_COMANDAS, Opcion.COCINA,
                 Opcion.COBROS, Opcion.CAJA, Opcion.SOLICITUDES_RETIRO, Opcion.CLIENTES,
                 Opcion.RECOMPENSAS_Y_PROMOCIONES,
             ),
@@ -35,8 +35,11 @@ class PermisosTest {
     }
 
     @Test
-    fun `el mesero ve mesas y comandas cobros y clientes`() {
-        assertEquals(listOf(Opcion.MESAS_Y_COMANDAS, Opcion.COBROS, Opcion.CLIENTES), opcionesPara(Rol.MESERO))
+    fun `el mesero ve mesas y comandas menu cobros y clientes`() {
+        assertEquals(
+            listOf(Opcion.MESAS_Y_COMANDAS, Opcion.MENU, Opcion.COBROS, Opcion.CLIENTES),
+            opcionesPara(Rol.MESERO),
+        )
     }
 
     @Test
@@ -45,11 +48,21 @@ class PermisosTest {
     }
 
     @Test
-    fun `el cliente ve sus puntos las recompensas y sus datos`() {
+    fun `el cliente ve el menu sus puntos las recompensas y sus datos`() {
         assertEquals(
-            listOf(Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES, Opcion.MIS_DATOS),
+            listOf(Opcion.MENU, Opcion.MIS_PUNTOS, Opcion.RECOMPENSAS_Y_PROMOCIONES, Opcion.MIS_DATOS),
             opcionesPara(Rol.CLIENTE),
         )
+    }
+
+    @Test
+    fun `el menu lo ven administrador mesero y cliente pero no cajero ni cocinero`() {
+        // GET /api/menu del backend (PoliticaPermisos, RF-11).
+        Rol.entries.forEach { rol ->
+            val esperado = rol in setOf(Rol.ADMINISTRADOR, Rol.MESERO, Rol.CLIENTE)
+            assertEquals(rol.name, esperado, puedeVer(rol, Opcion.MENU))
+            assertEquals(rol.name, esperado, puede(rol, Accion.VER_MENU))
+        }
     }
 
     @Test

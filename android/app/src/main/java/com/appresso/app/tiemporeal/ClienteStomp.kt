@@ -25,6 +25,7 @@ interface EscuchaCliente {
      * perder eventos: se reconectó, la secuencia saltó o el servidor se reinició.
      */
     fun alNecesitarResincronizacion(motivo: String) {}
+
 }
 
 /**
@@ -58,6 +59,7 @@ class ClienteStomp(
     private val esperaConnectedMs: Long = 10_000,
     private val detectarSaltos: Boolean = true,
     private val token: () -> String? = { null },
+    private val esperaReciboMs: Long = 5_000,
 ) {
     private val lock = Any()
 
@@ -66,6 +68,7 @@ class ClienteStomp(
     private var intento = 0
     private var generacion = 0 // cambia en cada conexión; ignora avisos de sockets viejos
     private var conexion: Conexion? = null
+    private var stompConectado = false
     private var haConectadoAntes = false
     private var ultimaActividadMs = 0L
     private var ultimaSecuencia: Long? = null
@@ -77,6 +80,8 @@ class ClienteStomp(
     private var tareaReintento: Cancelable? = null
     private var tareaConnected: Cancelable? = null
     private var tareaLatido: Cancelable? = null
+    private var tareaRecibos: Cancelable? = null
+    private val recibosPendientes = HashSet<String>()
 
     fun estadoActual(): EstadoConexion = synchronized(lock) { estado }
 
@@ -94,12 +99,13 @@ class ClienteStomp(
     fun detener() {
         synchronized(lock) {
             quiereConexion = false
+            val enviarDisconnect = stompConectado
             cancelarTareas()
             generacion++
             val actual = conexion
             conexion = null
             if (actual != null) {
-                if (estado == EstadoConexion.CONECTADO) actual.enviar(CodecoStomp.codificar(MarcoStomp("DISCONNECT")))
+                if (enviarDisconnect) actual.enviar(CodecoStomp.codificar(MarcoStomp("DISCONNECT")))
                 actual.cerrar()
             }
             cambiarEstado(EstadoConexion.DESCONECTADO, null, null)
@@ -112,15 +118,19 @@ class ClienteStomp(
             if (suscripciones.containsKey(destino)) return@synchronized
             val id = "sub-${contadorSuscripciones++}"
             suscripciones[destino] = id
-            if (estado == EstadoConexion.CONECTADO) enviarSuscripcion(destino, id)
+            if (stompConectado) {
+                enviarSuscripcion(destino, id)
+                esperarSuscripciones()
+            }
         }
     }
 
     fun desuscribir(destino: String) {
         synchronized(lock) {
             val id = suscripciones.remove(destino) ?: return@synchronized
-            if (estado == EstadoConexion.CONECTADO) {
+            if (stompConectado) {
                 conexion?.enviar(CodecoStomp.codificar(MarcoStomp("UNSUBSCRIBE", mapOf("id" to id))))
+                alRecibo(idRecibo(id))
             }
         }
     }
@@ -199,21 +209,56 @@ class ClienteStomp(
         when (marco.comando) {
             "CONNECTED" -> alConectado()
             "MESSAGE" -> alMensaje(marco)
+            "RECEIPT" -> alRecibo(marco.cabeceras["receipt-id"])
             "ERROR" -> manejarCaida("Error del servidor: ${marco.cabeceras["message"] ?: marco.cuerpo}")
         }
     }
 
     private fun alConectado() {
-        if (estado != EstadoConexion.CONECTANDO) return
+        if (estado != EstadoConexion.CONECTANDO || stompConectado) return
         tareaConnected?.cancelar()
-        intento = 0
-        val esReconexion = haConectadoAntes
-        haConectadoAntes = true
-        cambiarEstado(EstadoConexion.CONECTADO, null, null)
-        for ((destino, id) in suscripciones) enviarSuscripcion(destino, id) // restaura suscripciones
+        stompConectado = true
+        for ((destino, id) in suscripciones) {
+            enviarSuscripcion(destino, id) // restaura suscripciones
+        }
+        esperarSuscripciones()
         programarLatido(generacion)
-        if (esReconexion) {
-            escucha.alNecesitarResincronizacion("Se reconectó: pudo perder eventos mientras estuvo sin conexión")
+    }
+
+    private fun idRecibo(idSuscripcion: String) = "recibo-$idSuscripcion"
+
+    private fun esperarSuscripciones() {
+        if (recibosPendientes.isEmpty()) {
+            confirmarSuscripciones()
+            return
+        }
+        if (tareaRecibos != null) return
+        val miGeneracion = generacion
+        tareaRecibos = programador.programar(esperaReciboMs) {
+            synchronized(lock) {
+                if (miGeneracion != generacion || recibosPendientes.isEmpty()) return@synchronized
+                manejarCaida("El servidor no confirmó las suscripciones")
+            }
+        }
+    }
+
+    private fun alRecibo(id: String?) {
+        if (id == null || !recibosPendientes.remove(id)) return
+        if (recibosPendientes.isEmpty()) {
+            confirmarSuscripciones()
+        }
+    }
+
+    private fun confirmarSuscripciones() {
+        tareaRecibos?.cancelar()
+        tareaRecibos = null
+        if (estado == EstadoConexion.CONECTANDO) {
+            intento = 0
+            cambiarEstado(EstadoConexion.CONECTADO, null, null)
+            if (haConectadoAntes) {
+                escucha.alNecesitarResincronizacion("Se reconectó: pudo perder eventos mientras estuvo sin conexión")
+            }
+            haConectadoAntes = true
         }
     }
 
@@ -235,9 +280,14 @@ class ClienteStomp(
     }
 
     private fun enviarSuscripcion(destino: String, id: String) {
+        val recibo = idRecibo(id)
+        recibosPendientes.add(recibo)
         conexion?.enviar(
             CodecoStomp.codificar(
-                MarcoStomp("SUBSCRIBE", linkedMapOf("id" to id, "destination" to destino, "ack" to "auto")),
+                MarcoStomp(
+                    "SUBSCRIBE",
+                    linkedMapOf("id" to id, "destination" to destino, "ack" to "auto", "receipt" to recibo),
+                ),
             ),
         )
     }
@@ -247,7 +297,7 @@ class ClienteStomp(
     private fun programarLatido(miGeneracion: Int) {
         tareaLatido = programador.programar(latidoMs) {
             synchronized(lock) {
-                if (miGeneracion != generacion || estado != EstadoConexion.CONECTADO) return@synchronized
+                if (miGeneracion != generacion || !stompConectado) return@synchronized
                 if (programador.ahoraMs() - ultimaActividadMs > latidoMs * 5 / 2) {
                     manejarCaida("No llegan latidos del servidor")
                 } else {
@@ -282,9 +332,13 @@ class ClienteStomp(
     }
 
     private fun cancelarTareas() {
+        stompConectado = false
         tareaReintento?.cancelar()
         tareaConnected?.cancelar()
         tareaLatido?.cancelar()
+        tareaRecibos?.cancelar()
+        recibosPendientes.clear()
+        tareaRecibos = null
         tareaReintento = null
         tareaConnected = null
         tareaLatido = null

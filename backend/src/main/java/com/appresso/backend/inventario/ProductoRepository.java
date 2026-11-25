@@ -20,6 +20,17 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
 	@Query("select p from Producto p join fetch p.categoria")
 	List<Producto> findAllConCategoria();
 
+	/**
+	 * Lo que se puede pedir ahora (RF-11, RF-13): producto activo, de categoría activa y con al menos una
+	 * unidad. Ya sale ordenado por categoría y luego por producto, sin distinguir mayúsculas.
+	 */
+	@Query("""
+			select p from Producto p join fetch p.categoria c
+			where p.activo = true and c.activa = true and p.stockActual > 0
+			order by lower(c.nombre), c.id, lower(p.nombre), p.id
+			""")
+	List<Producto> findDelMenu();
+
 	@Query("""
 			select p from Producto p join fetch p.categoria
 			where p.activo = true and p.stockActual <= p.umbralMinimo

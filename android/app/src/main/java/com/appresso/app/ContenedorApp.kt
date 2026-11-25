@@ -12,6 +12,12 @@ import com.appresso.app.data.cuenta.MisDatosRepository
 import com.appresso.app.data.cuenta.MisDatosRepositoryRemoto
 import com.appresso.app.data.catalogo.CatalogoRepository
 import com.appresso.app.data.catalogo.CatalogoRepositoryRemoto
+import com.appresso.app.data.cocina.CocinaRepository
+import com.appresso.app.data.cocina.CocinaRepositoryRemoto
+import com.appresso.app.data.menu.MenuRepository
+import com.appresso.app.data.menu.MenuRepositoryRemoto
+import com.appresso.app.data.remote.CocinaApi
+import com.appresso.app.data.remote.MenuApi
 import com.appresso.app.data.catalogo.InventarioRepository
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.CatalogoApi
@@ -24,6 +30,7 @@ import com.appresso.app.data.remote.UsuariosApi
 import com.appresso.app.data.usuarios.UsuariosRepository
 import com.appresso.app.data.usuarios.UsuariosRepositoryRemoto
 import com.appresso.app.tiemporeal.ConexionTiempoReal
+import com.appresso.app.tiemporeal.Topicos
 import com.appresso.app.tiemporeal.urlTiempoReal
 import retrofit2.Retrofit
 
@@ -61,6 +68,15 @@ class ContenedorApp(
         CatalogoRepositoryRemoto(retrofit.create(CatalogoApi::class.java))
     }
 
+    /** Menú de solo lectura para mesero y cliente (3.3.1). */
+    val menuRepository: MenuRepository by lazy {
+        MenuRepositoryRemoto(retrofit.create(MenuApi::class.java))
+    }
+
+    /** Comandas activas para la pantalla de cocina (3.3.1). */
+    val cocinaRepository: CocinaRepository by lazy {
+        CocinaRepositoryRemoto(retrofit.create(CocinaApi::class.java))
+    }
     val catalogoRepository: CatalogoRepository get() = catalogoRemoto
     val inventarioRepository: InventarioRepository get() = catalogoRemoto
 
@@ -77,18 +93,20 @@ class ContenedorApp(
         MisDatosRepositoryRemoto(retrofit.create(MisDatosApi::class.java))
     }
 
-    private var tiempoReal: ConexionTiempoReal? = null
+    private val conexionesTiempoReal = mutableMapOf<String, ConexionTiempoReal>()
 
     /**
-     * Una sola conexión de tiempo real para toda la app (docs/tiempo-real.md), con el token de la
-     * sesión actual en cada CONNECT. Se crea la primera vez que una pantalla la pide; cada pantalla
-     * la conecta mientras está visible y la detiene al salir.
+     * Reutiliza la conexión del tópico que necesita cada pantalla. Cada CONNECT toma el token de
+     * la sesión actual. El menú y el inventario solo requieren eventos del catálogo.
      */
     @Synchronized
-    fun tiempoReal(context: Context): ConexionTiempoReal =
-        tiempoReal ?: ConexionTiempoReal(
-            context.applicationContext,
-            urlTiempoReal(urlBase),
-            token = { almacenSesion.sesion.value?.token },
-        ).also { tiempoReal = it }
+    fun tiempoReal(context: Context, topico: String = Topicos.CATALOGO): ConexionTiempoReal =
+        conexionesTiempoReal.getOrPut(topico) {
+            ConexionTiempoReal(
+                context.applicationContext,
+                urlTiempoReal(urlBase),
+                topicos = setOf(topico),
+                token = { almacenSesion.sesion.value?.token },
+            )
+        }
 }

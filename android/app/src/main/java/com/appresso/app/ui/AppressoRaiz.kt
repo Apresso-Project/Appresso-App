@@ -1,5 +1,6 @@
 package com.appresso.app.ui
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appresso.app.ContenedorApp
@@ -32,6 +34,8 @@ import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Accion
 import com.appresso.app.permisos.Opcion
 import com.appresso.app.ui.clientes.ClientesRoute
+import com.appresso.app.ui.cocina.CocinaRoute
+import com.appresso.app.ui.cocina.CocinaViewModel
 import com.appresso.app.ui.clientes.ClientesViewModel
 import com.appresso.app.ui.cuenta.MisDatosRoute
 import com.appresso.app.ui.cuenta.MisDatosViewModel
@@ -50,15 +54,22 @@ import com.appresso.app.ui.inicio.InicioScreen
 import com.appresso.app.ui.inicio.SeccionProvisionalScreen
 import com.appresso.app.ui.login.LoginRoute
 import com.appresso.app.ui.login.LoginViewModel
+import com.appresso.app.ui.menu.MenuRoute
+import com.appresso.app.ui.menu.MenuViewModel
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
+import com.appresso.app.tiemporeal.MedidorCocina
+import com.appresso.app.tiemporeal.Topicos
 import com.appresso.app.tiemporeal.cambiosDeCatalogo
 import com.appresso.app.tiemporeal.EstadoConexion
+import com.appresso.app.tiemporeal.cambiosDeCocina
+import com.appresso.app.tiemporeal.comoResincronizacion
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import java.util.UUID
 
 /**
  * Raíz de la app: elige la pantalla según la sesión y la sección abierta (ver [destinoPara]).
@@ -213,13 +224,17 @@ private fun PantallasPublicas(contenedor: ContenedorApp) {
 @Composable
 private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     when (destino.opcion) {
-        // Solo el administrador gestiona el catálogo; el menú de solo lectura del mesero (3.3.1) aún
-        // no existe y queda en la pantalla provisional.
+        // Solo el administrador gestiona el catálogo; el mesero y el cliente ven el menú de solo
+        // lectura desde su propia opción (Opcion.MENU).
         Opcion.PRODUCTOS_E_INVENTARIO -> if (puede(destino.rol, Accion.GESTIONAR_CATALOGO)) {
             Catalogo(contenedor, token, onVolver)
         } else {
             SeccionProvisionalScreen(opcion = destino.opcion, onVolver = onVolver)
         }
+
+        Opcion.MENU -> MenuSeccion(contenedor, token, onVolver)
+
+        Opcion.COCINA -> CocinaSeccion(contenedor, token, onVolver)
 
         Opcion.USUARIOS -> {
             // La clave evita que otra cuenta que inicie sesión después herede la lista anterior.
@@ -328,4 +343,85 @@ private fun Catalogo(contenedor: ContenedorApp, token: String?, onVolver: () -> 
         LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
         CategoriasRoute(viewModel = viewModel, onVerProductos = { enProductos = true }, onVolver = onVolver)
     }
+}
+
+/**
+ * Menú de solo lectura (3.3.1) del administrador, el mesero y el cliente. Con la sección abierta y la
+ * app en primer plano escucha `/topic/catalogo`: un cambio de precio, de stock o de disponibilidad en
+ * otro dispositivo (o una reconexión, que pudo perder eventos) vuelve a pedir el menú en silencio.
+ */
+@Composable
+private fun MenuSeccion(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
+    val contexto = LocalContext.current
+    val ciclo = LocalLifecycleOwner.current.lifecycle
+    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto) }
+    DisposableEffect(tiempoReal, ciclo) {
+        ciclo.addObserver(tiempoReal)
+        onDispose {
+            ciclo.removeObserver(tiempoReal)
+            tiempoReal.detener()
+        }
+    }
+    val cambios = remember(tiempoReal) {
+        // CONECTADO solo se publica después del RECEIPT. Releer cubre posibles cambios previos.
+        merge(
+            tiempoReal.eventos.cambiosDeCatalogo(),
+            tiempoReal.resincronizar.map { },
+            tiempoReal.estado.filter { it.estado == EstadoConexion.CONECTADO }.map { },
+        )
+    }
+    // La clave evita que otra cuenta, o una visita posterior, herede el menú anterior.
+    val visita = rememberSaveable { UUID.randomUUID().toString() }
+    val viewModel: MenuViewModel = viewModel(
+        key = "menu-$token-$visita",
+        factory = MenuViewModel.factory(contenedor.menuRepository),
+    )
+    LifecycleStartEffect(viewModel) {
+        viewModel.reanudarActualizaciones()
+        onStopOrDispose { viewModel.pausarActualizaciones() }
+    }
+    LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.recargarEnSilencio() } }
+    MenuRoute(viewModel = viewModel, onVolver = onVolver)
+}
+
+/**
+ * Pantalla de cocina (3.3.1, RF-26): las comandas activas, que se actualizan solas. Mientras la
+ * sección está abierta y la app en primer plano, la conexión STOMP escucha `/topic/comandas`; cada
+ * cambio de estado o producto agregado vuelve a pedir la lista, y una reconexión (que pudo perder
+ * eventos) también. El indicador de la pantalla avisa cuando no hay conexión en vivo (RNF-21).
+ */
+@Composable
+private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
+    val contexto = LocalContext.current
+    val ciclo = LocalLifecycleOwner.current.lifecycle
+    val tiempoReal = remember(contenedor) { contenedor.tiempoReal(contexto, Topicos.COMANDAS) }
+    DisposableEffect(tiempoReal, ciclo) {
+        ciclo.addObserver(tiempoReal)
+        onDispose {
+            ciclo.removeObserver(tiempoReal)
+            tiempoReal.detener()
+        }
+    }
+    val cambios = remember(tiempoReal) {
+        // CONECTADO solo se publica después del RECEIPT. Releer cubre posibles cambios previos.
+        merge(
+            tiempoReal.eventos.cambiosDeCocina(),
+            tiempoReal.resincronizar.comoResincronizacion(),
+            tiempoReal.estado.filter { it.estado == EstadoConexion.CONECTADO }.comoResincronizacion(),
+        )
+    }
+    // Mide cada cambio (SCRUM-93) y escribe una línea por muestra en logcat: `adb logcat -s Cocina`.
+    val medidor = remember { MedidorCocina(registro = { Log.i("Cocina", it) }) }
+    // La clave evita que otra cuenta, o una visita posterior, herede la lista anterior.
+    val visita = rememberSaveable { UUID.randomUUID().toString() }
+    val viewModel: CocinaViewModel = viewModel(
+        key = "cocina-$token-$visita",
+        factory = CocinaViewModel.factory(contenedor.cocinaRepository, medidor),
+    )
+    LifecycleStartEffect(viewModel) {
+        viewModel.reanudarActualizaciones()
+        onStopOrDispose { viewModel.pausarActualizaciones() }
+    }
+    LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.alCambiar(it) } }
+    CocinaRoute(viewModel = viewModel, conexion = tiempoReal.estado, onVolver = onVolver)
 }

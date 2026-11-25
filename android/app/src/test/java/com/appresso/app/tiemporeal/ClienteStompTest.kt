@@ -59,6 +59,9 @@ class FabricaFalsa : FabricaConexion {
         // Lo que haría el servidor
         fun abrir() = escucha.alAbrir()
         fun responderConnected() = escucha.alRecibirTexto("CONNECTED\nversion:1.2\nheart-beat:10000,10000\n\n\u0000")
+        fun recibos() = enviados.filter { it?.comando == "SUBSCRIBE" }.map { it!!.cabeceras["receipt"]!! }
+        fun responderRecibo(id: String) = escucha.alRecibirTexto("RECEIPT\nreceipt-id:$id\n\n\u0000")
+        fun responderTodosLosRecibos() = recibos().forEach(::responderRecibo)
         fun latidoDelServidor() = escucha.alRecibirTexto("\n")
         fun evento(destino: String, id: String, secuencia: Long, tipo: String = "COMANDA_CREADA") = escucha.alRecibirTexto(
             "MESSAGE\nsubscription:sub-0\nmessage-id:m$secuencia\ndestination:$destino\n\n" +
@@ -82,6 +85,7 @@ class ClienteStompTest {
         val esperas = ArrayList<Long?>()
         val eventos = ArrayList<Pair<String, EventoTiempoReal>>()
         val resincronizaciones = ArrayList<String>()
+        val activaciones get() = estados.count { it == EstadoConexion.CONECTADO }
 
         override fun alCambiarEstado(estado: EstadoConexion, esperaMs: Long?, motivo: String?) {
             estados.add(estado)
@@ -95,6 +99,7 @@ class ClienteStompTest {
         override fun alNecesitarResincronizacion(motivo: String) {
             resincronizaciones.add(motivo)
         }
+
     }
 
     private lateinit var reloj: ProgramadorFalso
@@ -113,9 +118,10 @@ class ClienteStompTest {
         cliente.suscribir(Topicos.CATALOGO)
     }
 
-    private fun conectarBien() {
+    private fun conectarBien(confirmar: Boolean = true) {
         red.ultimo.abrir()
         red.ultimo.responderConnected()
+        if (confirmar) red.ultimo.responderTodosLosRecibos()
     }
 
     // ------------------------------------------------------------ SCRUM-29: conexión y suscripción
@@ -132,6 +138,8 @@ class ClienteStompTest {
         assertEquals("10000,10000", connect.cabeceras["heart-beat"])
 
         red.ultimo.responderConnected()
+        assertEquals(EstadoConexion.CONECTANDO, cliente.estadoActual())
+        red.ultimo.responderTodosLosRecibos()
         assertEquals(EstadoConexion.CONECTADO, cliente.estadoActual())
         assertEquals(listOf(Topicos.COMANDAS, Topicos.CATALOGO), red.ultimo.suscritos())
     }
@@ -386,5 +394,93 @@ class ClienteStompTest {
         val antes = registro.resincronizaciones.size // 1: por reconexión
         red.ultimo.evento(Topicos.COMANDAS, "b", 30)
         assertEquals(antes, registro.resincronizaciones.size)
+    }
+
+    // ------------------------------------------------------------ suscripciones activas (revisión del PR #25)
+
+    @Test
+    fun cadaSUBSCRIBE_PideUnRECEIPT() {
+        cliente.iniciar()
+        conectarBien()
+
+        assertEquals(2, red.ultimo.recibos().size)
+        assertEquals(2, red.ultimo.recibos().toSet().size)
+    }
+
+    @Test
+    fun alConfirmarTodasLasSuscripciones_AvisaQueEstanActivas_AunEnLaPrimeraConexion() {
+        cliente.iniciar()
+        conectarBien(confirmar = false)
+        assertEquals(0, registro.activaciones) // todavía no confirmó el servidor
+
+        val recibos = red.ultimo.recibos()
+        red.ultimo.responderRecibo(recibos[0])
+        assertEquals(0, registro.activaciones) // falta una
+
+        red.ultimo.responderRecibo(recibos[1])
+        assertEquals(1, registro.activaciones)
+        assertTrue(registro.resincronizaciones.isEmpty()) // la primera conexión no es una resincronización
+    }
+
+    @Test
+    fun siElServidorNoConfirma_ReintentaSinDarPorActivaLaConexion() {
+        cliente.iniciar()
+        conectarBien(confirmar = false)
+
+        reloj.avanzar(4_999)
+        assertEquals(EstadoConexion.CONECTANDO, cliente.estadoActual())
+        assertEquals(0, registro.activaciones)
+        reloj.avanzar(1)
+        assertEquals(EstadoConexion.ESPERANDO_REINTENTO, cliente.estadoActual())
+        assertEquals(0, registro.activaciones)
+        reloj.avanzar(1_000)
+        conectarBien()
+        assertEquals(1, registro.activaciones)
+    }
+
+    @Test
+    fun unaConfirmacionTardiaDeUnaConexionCerradaNoSurteEfecto() {
+        cliente.iniciar()
+        conectarBien(confirmar = false)
+        reloj.avanzar(5_000)
+
+        red.ultimo.responderTodosLosRecibos()
+
+        assertEquals(0, registro.activaciones)
+    }
+
+    @Test
+    fun alReconectar_VuelveAAvisarCuandoSeReactivanLasSuscripciones() {
+        cliente.iniciar()
+        conectarBien()
+        red.ultimo.responderTodosLosRecibos()
+
+        red.ultimo.cerrarElServidor()
+        reloj.avanzar(1_000)
+        conectarBien()
+        red.ultimo.responderTodosLosRecibos()
+
+        assertEquals(2, registro.activaciones)
+    }
+
+    @Test
+    fun siLaConexionSeCaeAntesDeConfirmar_NoAvisa() {
+        cliente.iniciar()
+        conectarBien(confirmar = false)
+        red.ultimo.caerse()
+
+        reloj.avanzar(1_500) // el plazo de la conexión caída ya no cuenta (la reconexión tarda 1 s y aún no responde)
+
+        assertEquals(0, registro.activaciones)
+    }
+
+    @Test
+    fun unReciboDesconocidoSeIgnora() {
+        cliente.iniciar()
+        conectarBien(confirmar = false)
+
+        red.ultimo.responderRecibo("otro")
+
+        assertEquals(0, registro.activaciones)
     }
 }

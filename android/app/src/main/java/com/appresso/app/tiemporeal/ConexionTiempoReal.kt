@@ -75,6 +75,7 @@ class ConexionTiempoReal(
             override fun alNecesitarResincronizacion(motivo: String) {
                 _resincronizar.tryEmit(motivo)
             }
+
         },
         // La secuencia es global: solo se puede vigilar si se escuchan todos los tópicos.
         detectarSaltos = topicos == Topicos.TODOS,

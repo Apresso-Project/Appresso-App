@@ -4,7 +4,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 
 > **Fuente de verdad:** `backend/src/main/java/com/appresso/backend/seguridad/PoliticaPermisos.java`. Este documento es su versión legible: si cambias una regla allá, actualízala aquí en el mismo Pull Request. `PoliticaPermisosTest` prueba cada fila con los cinco roles (SCRUM-45).
 >
-> **En la app Android** la misma política está en `android/app/src/main/java/com/appresso/app/permisos/Permisos.kt` (SCRUM-48): decide qué opciones ve cada rol en su inicio y qué botones mostrar. Si cambias una regla aquí, cámbiala también allá.
+> **En la app Android** la misma política está en `android/app/src/main/java/com/appresso/app/permisos/Permisos.kt` (SCRUM-48): decide qué opciones ve cada rol en su inicio y qué botones mostrar. Si cambias una regla aquí, cámbiala también allá. La acción `VER_MENU` / opción `MENU` (administrador, mesero y cliente) corresponde a `GET /api/menu`.
 
 ## Cómo funciona
 
@@ -13,7 +13,7 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 - **Sin token, o con token vencido, alterado o de una cuenta desactivada → `401`** `{"mensaje": "Tu sesión no es válida o expiró. Inicia sesión de nuevo."}`. La app debe volver al login.
 - **Con token válido pero sin el rol necesario → `403`** `{"mensaje": "No tienes permiso para realizar esta acción."}`. La app muestra el mensaje y se queda donde está.
 - **Públicos (sin token):** `POST /api/auth/login`, `POST /api/auth/registro` (el cliente crea su cuenta), `POST /api/auth/recuperar` y `POST /api/auth/restablecer` (recuperación de la contraseña del cliente), `GET /api/health`, `GET /actuator/health`. Contratos en [`api-auth.md`](api-auth.md) y [`api-clientes.md`](api-clientes.md).
-- **WebSocket de tiempo real (`/ws/**`):** el apretón de manos HTTP es público, pero el marco `CONNECT` de STOMP debe llevar `Authorization: Bearer <token>`; sin token válido el servidor responde `ERROR` y cierra la conexión (`AutenticacionStomp`). Hoy cualquier rol autenticado puede suscribirse a los tópicos.
+- **WebSocket de tiempo real (`/ws/**`):** el marco `CONNECT` de STOMP exige `Authorization: Bearer <token>`. El servidor también autoriza cada `SUBSCRIBE`: catálogo para administrador, mesero y cliente, y comandas para administrador, mesero, cajero y cocinero. Una suscripción denegada devuelve `ERROR` (`AutenticacionStomp`).
 - **Emisor de pruebas (`/api/dev/**`, solo perfil `dev`):** solo el administrador (`@PreAuthorize`).
 - Las reglas se evalúan **en orden** y gana la primera que coincide.
 - Cada módulo termina con una regla **"cualquier otra operación → nadie"**: un endpoint nuevo que no esté en la política responde `403` en vez de quedar abierto.
@@ -40,6 +40,13 @@ Política de control de acceso del backend (entregable 2.3.1, SCRUM-47). Dice qu
 | GET | `/api/productos/**` | ✅ | | ✅ | | | RF-06, RF-11, RF-13 |
 | Otros | `/api/productos/**` (incluye umbral mínimo) | ✅ | | | | | RF-06, RF-09 |
 | Cualquiera | `/api/inventario/**` ([ajustes, movimientos y alertas](api-inventario.md)) | ✅ | | | | | RF-07, RF-10, RF-14 |
+
+### Menú
+
+| Método | Ruta | Admin | Cajero | Mesero | Cocinero | Cliente | RF |
+|---|---|:-:|:-:|:-:|:-:|:-:|---|
+| GET | `/api/menu/**` | ✅ | | ✅ | | ✅ | RF-11, RF-13 |
+| Otros | `/api/menu/**` | | | | | | — |
 
 ### Comandas y cocina
 

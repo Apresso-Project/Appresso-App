@@ -105,6 +105,8 @@
     <!-- Opciones del menú (ver permisos/Permisos.kt) -->
     <string name="opcion_usuarios">Usuarios</string>
     <string name="opcion_usuarios_desc">Crea, edita y desactiva las cuentas del equipo.</string>
+    <string name="opcion_menu">Menú</string>
+    <string name="opcion_menu_desc">Productos disponibles con su precio y existencias.</string>
     <string name="opcion_productos_inventario">Productos e inventario</string>
     <string name="opcion_productos_inventario_desc">Catálogo, existencias, alertas y movimientos.</string>
     <string name="opcion_mesas_comandas">Mesas y comandas</string>
@@ -305,6 +307,34 @@
     </plurals>
     <string name="prod_error_numero">Escribe un número entero entre 0 y %1$d.</string>
     <string name="prod_error_no_encontrado">Ese producto ya no existe. Se actualizó la lista.</string>
+
+    <!-- Menú de solo lectura (3.3.1, SCRUM-91) -->
+    <string name="menu_titulo">Menú</string>
+    <string name="menu_volver">Volver al inicio</string>
+    <string name="menu_cargando">Cargando el menú</string>
+    <string name="menu_vacio">Por ahora no hay productos disponibles.</string>
+    <string name="menu_filtro_todas">Todas</string>
+    <string name="menu_stock_disponible">Disponible: %1$d</string>
+    <string name="menu_desactualizado">No se pudo actualizar el menú. Se muestra el último recibido; reintentando.</string>
+    <string name="menu_stock_pocas">Pocas unidades: %1$d</string>
+
+    <!-- Pantalla de cocina (3.3.1, SCRUM-92) -->
+    <string name="cocina_titulo">Cocina</string>
+    <string name="cocina_volver">Volver al inicio</string>
+    <string name="cocina_cargando">Cargando las comandas</string>
+    <string name="cocina_vacio">No hay comandas en cocina por ahora.</string>
+    <string name="cocina_conectando">Conectando para recibir comandas al instante…</string>
+    <string name="cocina_sin_conexion">Sin conexión. Las comandas pueden estar desactualizadas; reintentando.</string>
+    <string name="cocina_sin_conexion_reintento">Sin conexión. Las comandas pueden estar desactualizadas; reintentando en %1$d s.</string>
+    <string name="cocina_desactualizada">No se pudo actualizar la lista. Se muestra la última recibida y puede estar atrasada; reintentando.</string>
+    <string name="cocina_enviada_a_las">Enviada a las %1$s</string>
+    <string name="cocina_estado_pendiente">Pendiente</string>
+    <string name="cocina_estado_en_preparacion">En preparación</string>
+    <string name="cocina_estado_lista">Lista</string>
+    <string name="cocina_item">%1$d × %2$s</string>
+    <string name="cocina_agregado">Agregado</string>
+    <string name="cocina_observaciones">Observaciones: %1$s</string>
+
     <string name="inv_ajustar">Ajustar existencias</string>
     <string name="inv_ajuste_titulo">Ajustar existencias de %1$s</string>
     <string name="inv_stock_actual">Existencias actuales: %1$d</string>

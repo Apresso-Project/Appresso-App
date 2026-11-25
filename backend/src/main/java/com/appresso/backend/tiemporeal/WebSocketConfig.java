@@ -31,9 +31,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	private static final long LATIDO_MS = 10_000;
 
 	private final AutenticacionStomp autenticacion;
+	private final ConfirmacionSuscripcionStomp confirmacion;
 
-	public WebSocketConfig(AutenticacionStomp autenticacion) {
+	public WebSocketConfig(AutenticacionStomp autenticacion, ConfirmacionSuscripcionStomp confirmacion) {
 		this.autenticacion = autenticacion;
+		this.confirmacion = confirmacion;
 	}
 
 	@Override
@@ -46,10 +48,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 				.withSockJS();
 	}
 
-	/** Todo marco que manda el cliente pasa primero por la autenticación del CONNECT. */
+	/** Autentica la sesión y confirma cada suscripción después de registrarla en el broker. */
 	@Override
 	public void configureClientInboundChannel(ChannelRegistration registration) {
-		registration.interceptors(autenticacion);
+		registration.interceptors(autenticacion, confirmacion);
 	}
 
 	@Override
