@@ -134,11 +134,17 @@ class ComandasRepositoryRemotoTest {
         assertNull(almacen.sesion.value)
     }
 
+    // Van en pruebas separadas a propósito: tras un DISCONNECT_AT_START, OkHttp puede reintentar la
+    // petición por su cuenta (en Linux sí lo hace), y ese reintento se quedaría con la siguiente
+    // respuesta encolada en el mismo servidor simulado.
     @Test
-    fun `sin conexion y error del servidor no lanzan excepciones`() = runTest {
+    fun `sin conexion no lanza excepciones`() = runTest {
         servidor.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
         assertEquals(ResultadoCatalogo.SinConexion, repositorio.listarMesas())
+    }
 
+    @Test
+    fun `un error del servidor no lanza excepciones`() = runTest {
         servidor.enqueue(json(500, "{}"))
         assertEquals(ResultadoCatalogo.ErrorDelServidor, repositorio.listarMesas())
     }
