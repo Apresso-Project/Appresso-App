@@ -34,6 +34,12 @@ import com.appresso.app.data.remote.EventoRed
 import com.appresso.app.permisos.Accion
 import com.appresso.app.permisos.Opcion
 import com.appresso.app.ui.clientes.ClientesRoute
+import com.appresso.app.ui.comandas.ComandaRoute
+import com.appresso.app.ui.comandas.ComandaViewModel
+import com.appresso.app.ui.comandas.MesasRoute
+import com.appresso.app.ui.comandas.MesasViewModel
+import com.appresso.app.ui.comandas.PasoComanda
+import com.appresso.app.data.auth.Rol
 import com.appresso.app.ui.cocina.CocinaRoute
 import com.appresso.app.ui.cocina.CocinaViewModel
 import com.appresso.app.ui.clientes.ClientesViewModel
@@ -236,6 +242,8 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
 
         Opcion.COCINA -> CocinaSeccion(contenedor, token, onVolver)
 
+        Opcion.MESAS_Y_COMANDAS -> MesasYComandasSeccion(destino.rol, contenedor, token, onVolver)
+
         Opcion.USUARIOS -> {
             // La clave evita que otra cuenta que inicie sesión después herede la lista anterior.
             val viewModel: UsuariosViewModel = viewModel(
@@ -424,4 +432,51 @@ private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: (
     }
     LaunchedEffect(viewModel, cambios) { cambios.collect { viewModel.alCambiar(it) } }
     CocinaRoute(viewModel = viewModel, conexion = tiempoReal.estado, onVolver = onVolver)
+}
+
+/**
+ * Mesas y comandas (4.1.1): el mapa de mesas y, al tocar una mesa disponible, la pantalla para armar su
+ * comanda. El administrador además crea mesas desde el mapa. Al volver de una comanda, el mapa se
+ * vuelve a pedir en silencio (la mesa pudo quedar ocupada). Cada comanda abierta tiene su propio
+ * ViewModel: abrir otra mesa, u otra vez la misma, empieza de cero.
+ */
+@Composable
+private fun MesasYComandasSeccion(rol: Rol, contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
+    var mesaId by rememberSaveable(token) { mutableStateOf<Long?>(null) }
+    var mesaNombre by rememberSaveable(token) { mutableStateOf("") }
+    var visita by rememberSaveable(token) { mutableIntStateOf(0) }
+    val mesas: MesasViewModel = viewModel(
+        key = "mesas-$token",
+        factory = MesasViewModel.factory(contenedor.comandasRepository),
+    )
+
+    val abierta = mesaId
+    if (abierta == null) {
+        MesasRoute(
+            viewModel = mesas,
+            puedeCrearMesa = puede(rol, Accion.CREAR_MESA),
+            puedeCrearComanda = puede(rol, Accion.CREAR_COMANDA),
+            onAbrirMesa = {
+                visita++
+                mesaNombre = it.nombre
+                mesaId = it.id
+            },
+            onVolver = onVolver,
+        )
+    } else {
+        val comanda: ComandaViewModel = viewModel(
+            key = "comanda-$token-$abierta-$visita",
+            factory = ComandaViewModel.factory(abierta, mesaNombre, contenedor.menuRepository, contenedor.comandasRepository),
+        )
+        val alMapa = {
+            mesaId = null
+            mesas.recargarEnSilencio()
+        }
+        val estado by comanda.estado.collectAsStateWithLifecycle()
+        // Atrás desde el resumen vuelve a editar; desde armar o ya enviada, al mapa de mesas.
+        BackHandler {
+            if (estado.paso == PasoComanda.RESUMEN && estado.editable) comanda.seguirEditando() else alMapa()
+        }
+        ComandaRoute(viewModel = comanda, onVolverAMesas = alMapa)
+    }
 }

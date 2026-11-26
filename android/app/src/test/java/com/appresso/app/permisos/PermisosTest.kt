@@ -82,12 +82,21 @@ class PermisosTest {
             Accion.CREAR_COMANDA to Rol.MESERO, // RF-15
             Accion.CERRAR_CAJA to Rol.CAJERO, // RF-44
             Accion.DECIDIR_RETIRO to Rol.ADMINISTRADOR, // RF-36
+            Accion.CREAR_MESA to Rol.ADMINISTRADOR, // RF-64
         )
         // El administrador puede además hacer lo de los demás roles (decisión del equipo).
         exclusivas.forEach { (accion, unico) ->
             Rol.entries.forEach { rol ->
                 assertEquals("$accion / $rol", rol == unico || rol == Rol.ADMINISTRADOR, puede(rol, accion))
             }
+        }
+    }
+
+    @Test
+    fun `el mapa de mesas lo ven administrador y mesero pero solo el administrador crea mesas`() {
+        Rol.entries.forEach { rol ->
+            assertEquals(rol.name, rol == Rol.ADMINISTRADOR || rol == Rol.MESERO, puede(rol, Accion.VER_MESAS))
+            assertEquals(rol.name, rol == Rol.ADMINISTRADOR, puede(rol, Accion.CREAR_MESA))
         }
     }
 

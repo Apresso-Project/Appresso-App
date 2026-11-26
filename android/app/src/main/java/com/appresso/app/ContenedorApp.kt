@@ -13,6 +13,9 @@ import com.appresso.app.data.cuenta.MisDatosRepositoryRemoto
 import com.appresso.app.data.catalogo.CatalogoRepository
 import com.appresso.app.data.catalogo.CatalogoRepositoryRemoto
 import com.appresso.app.data.cocina.CocinaRepository
+import com.appresso.app.data.comandas.ComandasRepository
+import com.appresso.app.data.comandas.ComandasRepositoryRemoto
+import com.appresso.app.data.remote.ComandasApi
 import com.appresso.app.data.cocina.CocinaRepositoryRemoto
 import com.appresso.app.data.menu.MenuRepository
 import com.appresso.app.data.menu.MenuRepositoryRemoto
@@ -76,6 +79,11 @@ class ContenedorApp(
     /** Comandas activas para la pantalla de cocina (3.3.1). */
     val cocinaRepository: CocinaRepository by lazy {
         CocinaRepositoryRemoto(retrofit.create(CocinaApi::class.java))
+    }
+
+    /** Mesas y comandas: mapa de mesas, crear mesas y armar y enviar comandas (4.1.1). */
+    val comandasRepository: ComandasRepository by lazy {
+        ComandasRepositoryRemoto(retrofit.create(ComandasApi::class.java))
     }
     val catalogoRepository: CatalogoRepository get() = catalogoRemoto
     val inventarioRepository: InventarioRepository get() = catalogoRemoto
