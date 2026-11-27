@@ -44,6 +44,7 @@ data class MesaDto(
     val nombre: String,
     /** `DISPONIBLE` u `OCUPADA`. */
     val estado: String,
+    val comandaActivaId: Long? = null,
 )
 
 @Serializable
@@ -56,6 +57,7 @@ data class CrearComandaDto(
     val items: List<ItemComandaDto>,
     val clienteId: Long? = null,
     val recompensaId: Long? = null,
+    @Serializable(with = PrecioSerializer::class) val totalEsperado: BigDecimal? = null,
 )
 
 @Serializable

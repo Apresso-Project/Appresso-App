@@ -23,7 +23,7 @@ public class ComandaApiService {
 	@Transactional
 	public ComandaRespuesta crear(ComandaCrearRequest solicitud, Long meseroId) {
 		return ComandaRespuesta.de(comandas.crear(solicitud.mesaId(), meseroId, solicitud.clienteId(),
-				solicitud.recompensaId(), solicitud.aItemsSolicitados()));
+				solicitud.recompensaId(), solicitud.aItemsSolicitados(), solicitud.totalEsperado()));
 	}
 
 	@Transactional

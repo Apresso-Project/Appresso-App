@@ -1,5 +1,6 @@
 package com.appresso.backend.comandas;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -69,7 +70,7 @@ public class ComandaService {
 	/** Crea una comanda PENDIENTE sin cliente ni descuento. */
 	@Transactional
 	public Comanda crear(Long mesaId, Long meseroId, List<ItemSolicitado> items) {
-		return crear(mesaId, meseroId, null, null, items);
+		return crear(mesaId, meseroId, null, null, items, null);
 	}
 
 	/**
@@ -79,8 +80,9 @@ public class ComandaService {
 	 * se rechaza con 400 y no se crea nada.
 	 */
 	@Transactional
-	public Comanda crear(Long mesaId, Long meseroId, Long clienteId, Long recompensaId, List<ItemSolicitado> items) {
-		Mesa mesa = mesas.findById(mesaId).orElseThrow(() -> new SolicitudComandaInvalidaException("mesaId",
+	public Comanda crear(Long mesaId, Long meseroId, Long clienteId, Long recompensaId, List<ItemSolicitado> items,
+			BigDecimal totalEsperado) {
+		Mesa mesa = mesas.bloquearPorId(mesaId).orElseThrow(() -> new SolicitudComandaInvalidaException("mesaId",
 				"La mesa " + mesaId + " no existe"));
 		Usuario mesero = usuarios.findById(meseroId).orElseThrow(() -> noExiste("Usuario", meseroId));
 		if (items == null || items.isEmpty()) {
@@ -112,6 +114,9 @@ public class ComandaService {
 			agregados.add(aItem(item));
 		}
 		recalcular(comanda);
+		if (totalEsperado != null && totalEsperado.compareTo(comanda.getTotal()) != 0) {
+			throw new ConflictoComandaException("totalEsperado", "El total cambió. Revisa los precios actualizados.");
+		}
 		mesa.setEstado(EstadoMesa.OCUPADA);
 		comandas.save(comanda);
 		registrar(comanda, null, EstadoComanda.PENDIENTE, "Comanda creada", mesero);

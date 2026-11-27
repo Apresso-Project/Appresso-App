@@ -1,8 +1,10 @@
 package com.appresso.backend.comandas;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -14,9 +16,11 @@ import jakarta.validation.constraints.Size;
  */
 public record ComandaCrearRequest(
 		@NotNull(message = "La mesa es obligatoria") Long mesaId,
-		@NotEmpty(message = "La comanda debe tener al menos un producto") @Valid List<Item> items,
+		@NotEmpty(message = "La comanda debe tener al menos un producto")
+		List<@NotNull(message = "El producto es obligatorio") @Valid Item> items,
 		Long clienteId,
-		Long recompensaId) {
+		Long recompensaId,
+		@DecimalMin(value = "0.00", message = "El total esperado no puede ser negativo") BigDecimal totalEsperado) {
 
 	public record Item(
 			@NotNull(message = "El producto es obligatorio") Long productoId,

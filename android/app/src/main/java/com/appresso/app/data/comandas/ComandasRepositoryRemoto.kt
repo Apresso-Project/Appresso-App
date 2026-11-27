@@ -39,6 +39,7 @@ private fun MesaDto.aMesa() = Mesa(
     id = id,
     nombre = nombre,
     estado = if (estado == "DISPONIBLE") EstadoMesa.DISPONIBLE else EstadoMesa.OCUPADA,
+    comandaActivaId = comandaActivaId,
 )
 
 private fun NuevaComanda.aDto() = CrearComandaDto(
@@ -46,6 +47,7 @@ private fun NuevaComanda.aDto() = CrearComandaDto(
     items = items.map { ItemComandaDto(it.productoId, it.cantidad, it.observaciones?.trim()?.takeIf(String::isNotEmpty)) },
     clienteId = clienteId,
     recompensaId = recompensaId,
+    totalEsperado = totalEsperado,
 )
 
 /**

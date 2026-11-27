@@ -8,7 +8,7 @@ App móvil de Appresso, hecha con **Kotlin** y **Jetpack Compose**. Paquete `com
 |---|---|
 | **Android Studio** (reciente) | Abrir, compilar y ejecutar la app |
 | **JDK 21** | Lo exige el proyecto (`gradle/gradle-daemon-jvm.properties`); Android Studio ya trae uno compatible |
-| **Android SDK 36** | Se instala desde el SDK Manager de Android Studio |
+| **Android SDK 36.1** | Plataforma que usa la compilación (`compileSdk` 36, revisión menor 1) |
 
 Abre en Android Studio la carpeta **`android/`** (no la raíz del repositorio). Gradle viene incluido (`gradlew`).
 
@@ -20,11 +20,11 @@ Desde `android/`:
 # Git Bash, Linux o macOS
 ./gradlew assembleDebug testDebugUnitTest lintDebug
 
-# Windows (cmd o PowerShell)
-gradlew.bat assembleDebug testDebugUnitTest lintDebug
+# Windows (PowerShell)
+.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
 ```
 
-Es lo mismo que ejecuta el pipeline **CI android** (`.github/workflows/ci-android.yml`, check `build-android`) en cada Pull Request. Si pasa en tu máquina, casi seguro pasa en GitHub. La primera vez tarda varios minutos mientras Gradle descarga todo.
+El pipeline **CI Android** (`.github/workflows/ci-android.yml`, check `build-android`) ejecuta esas tareas. Para pruebas instrumentadas con un teléfono por USB, usa `.\gradlew.bat connectedDebugAndroidTest` desde PowerShell en `android/`.
 
 ## 3. A qué backend se conecta
 
@@ -33,9 +33,9 @@ La URL del backend se fija al compilar (`BuildConfig.API_BASE_URL`):
 | Compilación | URL |
 |---|---|
 | **debug** | La que configures (ver abajo). Por defecto `http://10.0.2.2:8080/`, el alias que tiene el **emulador** para el `localhost` de tu computador. |
-| **release** | `https://appresso.invalid/`, un marcador a propósito: todavía no hay servidor desplegado (entregable 8.5.1). |
+| **release** | `https://appresso.invalid/` hasta configurar el dominio de producción en 8.5.1. |
 
-Solo la compilación **debug** permite HTTP sin cifrar (`app/src/debug/AndroidManifest.xml`), porque el backend local no usa HTTPS. El release nunca lo permite.
+La variante **debug** permite el HTTP del backend local mediante `app/src/debug/res/xml/network_security_config.xml`. La configuración de **release** exige HTTPS. Con una URL base HTTPS, la app usa WSS para STOMP.
 
 ### Emulador
 
@@ -49,7 +49,7 @@ No hay que configurar nada: levanta el backend (ver `backend/README.md`) y ejecu
    ```
    appresso.api.baseUrl=http://192.168.1.50:8080
    ```
-   La barra final es opcional. Después sincroniza Gradle en Android Studio. También puedes pasarla sin tocar el archivo: `gradlew.bat assembleDebug -Pappresso.api.baseUrl=http://192.168.1.50:8080`.
+   La barra final es opcional. Vuelve a compilar y a instalar la variante `debug`. También puedes pasar la URL al compilar con `.\gradlew.bat assembleDebug "-Pappresso.api.baseUrl=http://192.168.1.50:8080/"` desde PowerShell.
 4. Levanta el backend. La primera vez, Windows pregunta si permite que Java reciba conexiones: acepta para **redes privadas**. Si no preguntó o dijiste que no, habilita el puerto 8080 de entrada en el Firewall de Windows.
 5. Comprueba desde el **navegador del teléfono** que `http://<tu IP>:8080/api/health` responde `{"status":"ok"}`. Si no responde, el problema es la red o el firewall, no la app.
 
@@ -57,7 +57,11 @@ No hay que configurar nada: levanta el backend (ver `backend/README.md`) y ejecu
 
 Si la red Wi-Fi aísla los dispositivos entre sí (pasa en redes de universidades o públicas), el paso 5 no funcionará. Alternativas: crear un punto de acceso desde otro teléfono, o usar el cable USB con `adb reverse tcp:8080 tcp:8080` y la URL `http://localhost:8080`.
 
-La IP del computador puede cambiar al reconectarte a la red: si la app deja de conectar, revísala primero.
+Si `/api/health` responde en el navegador y la app sigue mostrando «Sin conexión», comprueba la IP Wi-Fi actual, la variante instalada y la URL del APK. La URL queda fijada al compilar. Usa backend y APK de la misma revisión para comprobar también los recibos de suscripción de 3.3.1.
+
+### Entorno interno de Render
+
+Cuando el equipo tenga el servicio interno, configura `appresso.api.baseUrl=https://<servicio-interno>.onrender.com/` en `android/local.properties`, o pásala con `-Pappresso.api.baseUrl=...` al compilar. Reinstala la variante `debug` y verifica primero el `/api/health` de ese servicio por HTTPS. La app solo se comunica con el backend.
 
 ## 4. Qué hay en el código
 
@@ -70,8 +74,12 @@ app/src/main/java/com/appresso/app/
 │   ├── auth/              # Rol, Sesion, ResultadoLogin, AuthRepository (+ remoto) y AlmacenSesion
 │   ├── cuenta/            # registro, recuperación de contraseña y eliminación de los datos del cliente, y ReglasCuenta
 │   ├── clientes/          # búsqueda de clientes por documento (ClientesRepository + remoto)
+│   ├── catalogo/          # productos, categorías y control de existencias
+│   ├── menu/              # consulta del menú de solo lectura
+│   ├── cocina/            # consulta de comandas activas
 │   └── remote/            # AuthApi, CuentaApi, ClientesApi (Retrofit), los DTO, ClienteHttp (OkHttp, tiempos de espera) e InterceptorSesion (token y 401)
 ├── permisos/              # Permisos.kt: qué acciones y opciones tiene cada rol (con pruebas)
+├── tiemporeal/            # conexión STOMP, reintentos, eventos y medición
 └── ui/
     ├── AppressoRaiz.kt    # elige la pantalla según la sesión y la sección abierta
     ├── Destino.kt         # destinoPara(sesion): la regla de a dónde ir (con pruebas)
@@ -80,10 +88,13 @@ app/src/main/java/com/appresso/app/
     ├── login/             # LoginScreen (dibuja), LoginRoute (la conecta), LoginViewModel (decide) y CampoTexto
     ├── cuenta/            # pantallas del cliente: registro, recuperación de contraseña y «Mis datos»
     ├── clientes/          # búsqueda de clientes por documento (mesero y administrador)
+    ├── catalogo/          # gestión de productos, ajustes e historial de existencias
+    ├── menu/              # productos disponibles, agrupación, precio y filtro por categoría
+    ├── cocina/            # comandas activas, estado y observaciones
     └── inicio/            # InicioScreen (menú de cada rol) y SeccionProvisionalScreen
 ```
 
-**Después de iniciar sesión (SCRUM-48).** Cada rol llega a su **inicio**, con solo las opciones que le corresponden y un botón para cerrar sesión. Qué ve y qué puede hacer cada rol está en `permisos/Permisos.kt`: `opcionesPara(rol)` arma el menú y `puede(rol, Accion.X)` sirve para mostrar u ocultar botones dentro de una pantalla. Refleja la política del backend ([`docs/permisos-por-rol.md`](../docs/permisos-por-rol.md)); si cambia una regla allá, se cambia aquí. Las secciones aún son provisionales: cada módulo conecta su pantalla real en `AppressoRaiz` (función `Seccion`), por ejemplo `Opcion.USUARIOS -> UsuariosRoute(...)`. La sesión sigue solo en memoria: cerrar la app del todo vuelve al login.
+**Después de iniciar sesión (SCRUM-48).** Cada rol llega a su inicio. `opcionesPara(rol)` y `puede(rol, Accion.X)` en `Permisos.kt` determinan qué opciones y acciones muestra Android. `AppressoRaiz` conecta las pantallas disponibles y muestra una vista provisional para las que faltan. La sesión se conserva cifrada en Android Keystore. [Permisos por rol](../docs/permisos-por-rol.md)
 
 El contrato del inicio de sesión que consume la app está en [`docs/api-auth.md`](../docs/api-auth.md). `AuthRepositoryRemoto` traduce cada respuesta (200, 400, 401, 423, sin conexión, error del servidor) a un `ResultadoLogin`, y la pantalla solo conoce la interfaz `AuthRepository`.
 
@@ -99,7 +110,24 @@ El contrato del inicio de sesión que consume la app está en [`docs/api-auth.md
 
 **Mis datos (cliente).** `MisDatosRoute` muestra la autorización que dio el cliente y le permite eliminar sus datos (Ley 1581): escribe su contraseña, confirma en un diálogo y, si el servidor acepta (`POST /api/clientes/yo/eliminacion`), la sesión se cierra.
 
-**Mesas y comandas (4.1.1).** La sección «Mesas y comandas» (administrador y mesero) abre el **mapa de mesas** (`ui/comandas/MesasRoute`): cada mesa con su estado, disponible u ocupada. El administrador ve además «Nueva mesa»: el nombre se valida con las reglas del backend (obligatorio, máx. 30, único sin distinguir mayúsculas ni espacios) y un 409 del servidor se muestra en el campo. Al tocar una mesa disponible se arma su comanda (`ComandaRoute`): productos del menú con − / + (sin pasar de las existencias), subtotal por línea y total siempre a la vista, y un **resumen previo** con subtotal, descuento y total. La comanda vacía no puede ir al resumen ni enviarse. «Enviar a cocina» hace `POST /api/comandas` y luego `PATCH /api/comandas/{id}/estado` con `ENVIADA`; si el segundo paso falla, la comanda ya creada no se puede editar y «Reintentar envío» solo repite el envío. Los importes se calculan en `data/comandas/CalculadoraComanda` con las mismas reglas del backend (BigDecimal, 2 decimales, HALF_UP) y, ya enviada, se muestran los que devolvió el servidor. Contrato en [`docs/api-comandas.md`](../docs/api-comandas.md). Pruebas: `CalculadoraComandaTest`, `ComandasRepositoryRemotoTest`, `MesasViewModelTest` y `ComandaViewModelTest`.
+**Mesas y comandas (4.1.1).** El administrador crea mesas y el mapa permite a administradores y meseros armar una comanda en una mesa disponible o abrir el detalle de la comanda activa en una mesa ocupada. Cada producto admite una cantidad y observaciones opcionales de hasta 100 caracteres.
+
+El resumen previo muestra los subtotales y el total. Para guardar, el servidor recalcula el pedido y compara el importe con el total revisado en Android. Si cambió, la app actualiza el resumen y solicita una nueva confirmación. Si coincide, el pedido queda `PENDIENTE` y la app muestra los importes guardados. El envío a cocina corresponde a 4.2.1. [Contrato de comandas y mesas](../docs/api-comandas.md)
+
+**Existencias, menú y cocina.** El administrador ajusta stock, consulta el historial y ve alertas de stock bajo. El menú se actualiza con eventos de catálogo. Cocina muestra las comandas activas por orden de envío y refresca con eventos de comandas. Las pantallas releen por REST tras recibir la confirmación de suscripción y suspenden sus reintentos automáticos al salir o pasar a segundo plano. [Contrato de inventario](../docs/api-inventario.md) · [Contrato de menú y cocina](../docs/api-menu-cocina.md)
+
+### Pruebas en teléfono y evidencia
+
+Registra fecha, commit del backend y del APK, modelo, versión Android, red, resultado y evidencia. Usa cuentas y datos de prueba. Para repetir una prueba de conectividad entre teléfonos, usa el mismo backend y anota cuántos dispositivos estaban conectados.
+
+| Entregable | Evidencia pendiente en dispositivo |
+|---|---|
+| **2.3.1 · Permisos** | Completar las partes B y C con los cinco roles, navegación, cierre de sesión, error de conexión y recuperación. [Verificación por rol](../docs/verificacion-roles.md#parte-b--app-cada-rol-ve-solo-lo-suyo) |
+| **8.2.1 · Tiempo real** | Completar latencia de eventos (p95 y porcentaje bajo 3 s), caída, reconexión y segundo plano. Usar «Appresso Diagnóstico» con un administrador o mesero de prueba, autorizado para ambos tópicos. [Mediciones de tiempo real](../docs/tiempo-real.md#mediciones-en-dispositivo-real-scrum-31-y-scrum-32) |
+| **3.3.1 · Menú y cocina** | Prueba funcional con el backend y el APK actuales. Con dos cuentas, ajusta existencias como administrador y verifica que el mesero vea desaparecer y reaparecer un producto al pasar por cero. Revisa conexión, reconexión y recarga en Cocina. La tabla de tiempos de Cocina se llena cuando se retome la medición del SCRUM-93. [Medición de cocina](../docs/medicion-cocina.md#resultados) |
+| **8.4.1 · Keystore** | Completar los seis casos de sesión cifrada, incluida la prueba instrumentada, reapertura, cierre, cuenta desactivada y revisión de logs. [Pruebas de seguridad, parte D](../docs/pruebas-seguridad.md#parte-d--token-en-el-teléfono-android-keystore) |
+| **8.4.1 · Supresión** | Completar los nueve casos de «Mis datos» y supresión con cuentas de prueba desechables. [Eliminación de datos, sección 6](../docs/eliminacion-de-datos.md#6-verificación) |
+| **8.5.1 · Producción** | Completar la verificación de TLS y del APK firmado con el dominio real. [Pruebas en el servidor](../docs/pruebas-seguridad.md#por-repetir-en-el-servidor-851) |
 
 Las pruebas unitarias (`app/src/test`) corren en la JVM, sin emulador ni backend: el repositorio se prueba contra un servidor HTTP simulado (MockWebServer) que responde lo que respondería el real.
 
@@ -119,14 +147,14 @@ New-NetFirewallRule -DisplayName "Appresso backend 8080" -Direction Inbound -Pro
 
 Solo aplica a redes **Privadas** (la de tu casa). Para quitarla: `Remove-NetFirewallRule -DisplayName "Appresso backend 8080"`.
 
-**Dejó de conectar de un día para otro.** La IP del PC cambió (el router las reparte). Revisa con `ipconfig`, actualiza `appresso.api.baseUrl` en `android/local.properties` y **vuelve a instalar la app**: la URL queda escrita dentro del APK al compilar. No hace falta "sincronizar Gradle" para este cambio; basta con ejecutar de nuevo.
+**Dejó de conectar de un día para otro.** Comprueba con `ipconfig` la IP actual de Wi-Fi, actualiza `appresso.api.baseUrl` y vuelve a compilar e instalar `debug`. Si ya la actualizaste, revisa que un argumento `-Pappresso.api.baseUrl` de una compilación anterior o el APK que estás instalando usen la IP vigente.
 
 **Android Studio dice "el dispositivo no tiene suficiente poder de cómputo... encoding display".** Es el espejo de pantalla (*Running Devices*), no la app. En teléfonos modestos puede fallar y además estorbar la instalación. Desactívalo en *File → Settings → Tools → Running Devices* (la opción de activar el espejo al conectar un dispositivo físico) o cierra esa pestaña.
 
 **Run no instala la app.** Instala el APK a mano con `adb` (con el teléfono conectado y la depuración USB activa):
 
 ```bash
-gradlew.bat assembleDebug
+.\gradlew.bat assembleDebug
 "%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 

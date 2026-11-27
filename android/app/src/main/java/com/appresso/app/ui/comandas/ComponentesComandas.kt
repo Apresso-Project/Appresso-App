@@ -173,6 +173,7 @@ internal fun textoDe(error: ErrorComanda): String = when (error) {
     ErrorComanda.Vacia -> stringResource(R.string.comanda_error_vacia)
     ErrorComanda.SinConexion -> stringResource(R.string.error_sin_conexion)
     ErrorComanda.ErrorDelServidor -> stringResource(R.string.cat_error_servidor)
+    ErrorComanda.NoEncontrada -> stringResource(R.string.comanda_no_encontrada)
     is ErrorComanda.SinPermiso -> error.mensajeServidor ?: stringResource(R.string.error_prohibido)
     is ErrorComanda.DelServidor -> error.mensaje
 }

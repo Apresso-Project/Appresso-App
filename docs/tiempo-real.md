@@ -156,7 +156,7 @@ Reglas tomadas de los requisitos:
 
 **Regla de cliente (3.1.1):** si llega `CATEGORIA_ACTUALIZADA` con `activa=false`, el cliente oculta de inmediato todos los productos de esa categoría; con `activa=true` vuelven a mostrarse. Una categoría desactivada no desactiva sus productos.
 
-Pendiente para otras historias: controladores de inventario, convertir los errores en código 400, restringir `ajustarExistencias` al administrador (RF-07) y cancelación de comandas (la documentación no define ese estado).
+El ajuste de existencias por API y su permiso de administrador están documentados en [Control de existencias (3.2.1)](api-inventario.md). Las acciones de modificación y cancelación de comandas corresponden al entregable 4.2.2.
 
 ## Cómo probarlo
 
@@ -173,7 +173,7 @@ Cada prueba de reconexión del cliente comprueba, entre otras cosas: esperas de 
 
 1. Enciende el backend con el perfil `dev` (`backend/README.md`, pasos 1 a 3). Con ese perfil existe un emisor de eventos de prueba: `POST /api/dev/tiempo-real/emitir?cantidad=N&pausaMs=M`, que exige el token del **administrador** (`Authorization: Bearer <token>`). No existe en producción. Para obtener el token, inicia sesión con el administrador de prueba (`POST /api/auth/login`, ver `api-auth.md`).
 2. Instala la versión **debug** de la app. Aparece un segundo ícono, **Appresso Diagnóstico**.
-3. En la pantalla, pega el **token de sesión** de cualquier usuario activo (el del login: el servidor lo exige en el `CONNECT`) y escribe la dirección del servidor: `ws://10.0.2.2:8080/ws/websocket` en el emulador, o `ws://<IP del PC>:8080/ws/websocket` en un celular (mismo Wi-Fi que el PC; abre el puerto 8080 en el firewall de Windows). Pulsa **Conectar**: debe decir «🟢 Conectado».
+3. Usa el token de un **administrador o mesero de prueba**. «Appresso Diagnóstico» se suscribe a los dos tópicos y esos roles pueden leer ambos. Escribe `ws://10.0.2.2:8080/ws/websocket` para el emulador o `ws://<IP del PC>:8080/ws/websocket` para un teléfono en la misma red Wi-Fi. Pulsa **Conectar** y espera «🟢 Conectado», que aparece al confirmarse las suscripciones.
 4. **Latencia (SCRUM-31):** deja el reloj del celular en hora automática y emite eventos:
    ```bash
    curl -X POST "http://localhost:8080/api/dev/tiempo-real/emitir?cantidad=200&pausaMs=100"         -H "Authorization: Bearer <token del administrador>"
@@ -191,7 +191,7 @@ Cada prueba de reconexión del cliente comprueba, entre otras cosas: esperas de 
 
 > **COMPLETAR con lo medido.** Anota los valores tal cual; si algo no se pudo probar, escribe «no se probó» y el motivo.
 
-- **Fecha, red y equipos:** … (Wi-Fi o punto de acceso; modelo y Android de cada teléfono; cuántos dispositivos conectados a la vez).
+- **Fecha, commits, red y equipos:** … (backend y APK, Wi-Fi o punto de acceso, modelo y Android de cada teléfono, número de dispositivos conectados).
 - **Eventos emitidos:** … (cantidad y pausa usadas).
 
 | Dispositivo | Eventos recibidos | p95 (ms) | % bajo 3 s |

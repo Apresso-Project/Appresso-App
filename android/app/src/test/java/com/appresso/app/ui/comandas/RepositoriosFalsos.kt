@@ -15,10 +15,11 @@ internal class ComandasFalso : ComandasRepository {
     var mesas: ResultadoCatalogo<List<Mesa>> = ResultadoCatalogo.Exito(emptyList())
     var creada: ResultadoCatalogo<Mesa> = ResultadoCatalogo.ErrorDelServidor
     var comandaCreada: ResultadoCatalogo<Comanda> = ResultadoCatalogo.ErrorDelServidor
-    var estadoCambiado: ResultadoCatalogo<Comanda> = ResultadoCatalogo.ErrorDelServidor
+    var comandaConsultada: ResultadoCatalogo<Comanda> = ResultadoCatalogo.NoEncontrado
 
     val nombresCreados = mutableListOf<String>()
     val comandasCreadas = mutableListOf<NuevaComanda>()
+    val comandasConsultadas = mutableListOf<Long>()
     val cambios = mutableListOf<Pair<Long, EstadoComanda>>()
     var consultasMesas = 0
 
@@ -37,11 +38,14 @@ internal class ComandasFalso : ComandasRepository {
         return comandaCreada
     }
 
-    override suspend fun consultarComanda(id: Long): ResultadoCatalogo<Comanda> = ResultadoCatalogo.NoEncontrado
+    override suspend fun consultarComanda(id: Long): ResultadoCatalogo<Comanda> {
+        comandasConsultadas += id
+        return comandaConsultada
+    }
 
     override suspend fun cambiarEstado(id: Long, estado: EstadoComanda): ResultadoCatalogo<Comanda> {
         cambios += id to estado
-        return estadoCambiado
+        return ResultadoCatalogo.ErrorDelServidor
     }
 }
 

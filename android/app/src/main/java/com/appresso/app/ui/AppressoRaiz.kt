@@ -436,14 +436,14 @@ private fun CocinaSeccion(contenedor: ContenedorApp, token: String?, onVolver: (
 
 /**
  * Mesas y comandas (4.1.1): el mapa de mesas y, al tocar una mesa disponible, la pantalla para armar su
- * comanda. El administrador además crea mesas desde el mapa. Al volver de una comanda, el mapa se
- * vuelve a pedir en silencio (la mesa pudo quedar ocupada). Cada comanda abierta tiene su propio
- * ViewModel: abrir otra mesa, u otra vez la misma, empieza de cero.
+ * comanda. Si la mesa está ocupada, se abre la comanda activa del mapa. El administrador también
+ * crea mesas aquí. Al volver se vuelve a consultar el mapa.
  */
 @Composable
 private fun MesasYComandasSeccion(rol: Rol, contenedor: ContenedorApp, token: String?, onVolver: () -> Unit) {
     var mesaId by rememberSaveable(token) { mutableStateOf<Long?>(null) }
     var mesaNombre by rememberSaveable(token) { mutableStateOf("") }
+    var comandaActivaId by rememberSaveable(token) { mutableStateOf<Long?>(null) }
     var visita by rememberSaveable(token) { mutableIntStateOf(0) }
     val mesas: MesasViewModel = viewModel(
         key = "mesas-$token",
@@ -459,6 +459,7 @@ private fun MesasYComandasSeccion(rol: Rol, contenedor: ContenedorApp, token: St
             onAbrirMesa = {
                 visita++
                 mesaNombre = it.nombre
+                comandaActivaId = it.comandaActivaId
                 mesaId = it.id
             },
             onVolver = onVolver,
@@ -466,16 +467,23 @@ private fun MesasYComandasSeccion(rol: Rol, contenedor: ContenedorApp, token: St
     } else {
         val comanda: ComandaViewModel = viewModel(
             key = "comanda-$token-$abierta-$visita",
-            factory = ComandaViewModel.factory(abierta, mesaNombre, contenedor.menuRepository, contenedor.comandasRepository),
+            factory = ComandaViewModel.factory(
+                abierta, mesaNombre, contenedor.menuRepository, contenedor.comandasRepository, comandaActivaId,
+            ),
         )
         val alMapa = {
             mesaId = null
+            comandaActivaId = null
             mesas.recargarEnSilencio()
         }
         val estado by comanda.estado.collectAsStateWithLifecycle()
-        // Atrás desde el resumen vuelve a editar; desde armar o ya enviada, al mapa de mesas.
+        LaunchedEffect(estado.guardada?.id) {
+            estado.guardada?.let { comandaActivaId = it.id }
+        }
         BackHandler {
-            if (estado.paso == PasoComanda.RESUMEN && estado.editable) comanda.seguirEditando() else alMapa()
+            if (!estado.guardando) {
+                if (estado.paso == PasoComanda.RESUMEN) comanda.seguirEditando() else alMapa()
+            }
         }
         ComandaRoute(viewModel = comanda, onVolverAMesas = alMapa)
     }

@@ -308,6 +308,23 @@ class ComandasControllerTest {
 	}
 
 	@Test
+	void unTotalDistintoAlRevisadoRechazaLaComandaSinOcuparLaMesa() throws Exception {
+		long antes = comandas.count();
+		String cuerpo = """
+				{"mesaId":%d,"items":[%s],"totalEsperado":"4000.00"}
+				""".formatted(mesa.getId(), item(cafe, 1, null));
+
+		crearComanda(mesero, cuerpo).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.campos.totalEsperado").value("El total cambió. Revisa los precios actualizados."));
+		assertThat(comandas.count()).isEqualTo(antes);
+		assertThat(mesas.findById(mesa.getId()).orElseThrow().getEstado()).isEqualTo(EstadoMesa.DISPONIBLE);
+
+		crearComanda(mesero, cuerpo.replace("4000.00", "4500.00"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.estado").value("PENDIENTE"));
+	}
+
+	@Test
 	void elAdministradorTambienPuedeCrearComandas() throws Exception {
 		crearComanda(admin, cuerpoComanda(mesa, item(cafe, 1, null), null, null)).andExpect(status().isCreated());
 	}
@@ -323,6 +340,13 @@ class ComandasControllerTest {
 		}
 		assertThat(comandas.count()).isEqualTo(antes);
 		assertThat(mesas.findById(mesa.getId()).orElseThrow().getEstado()).isEqualTo(EstadoMesa.DISPONIBLE);
+	}
+
+	@Test
+	void unElementoNuloEnLaComandaSeRechazaCon400() throws Exception {
+		crearComanda(mesero, cuerpoComanda(mesa, "null", null, null))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.campos['items[0]']").exists());
 	}
 
 	@Test
@@ -458,6 +482,7 @@ class ComandasControllerTest {
 		pasarA(id, "CERRADA", cajero).andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("CERRADA"));
 
 		assertThat(mesas.findById(mesa.getId()).orElseThrow().getEstado()).isEqualTo(EstadoMesa.DISPONIBLE);
+		assertThat(comandasActivasDelMapa()).containsExactly((Number) null);
 		enviar(como(get("/api/comandas/" + id), cajero)).andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("CERRADA"));
 	}
 
@@ -567,7 +592,15 @@ class ComandasControllerTest {
 
 		ResultActions mesaJson = enviar(como(get("/api/mesas"), admin)).andExpect(status().isOk());
 		java.util.Map<String, Object> primera = JsonPath.read(mesaJson.andReturn().getResponse().getContentAsString(), "$[0]");
-		assertThat(primera.keySet()).containsExactlyInAnyOrder("id", "nombre", "estado");
+		assertThat(primera.keySet()).containsExactlyInAnyOrder("id", "nombre", "estado", "comandaActivaId");
+		assertThat(comandasActivasDelMapa()).singleElement()
+				.satisfies(activa -> assertThat(activa.longValue()).isEqualTo(id));
+	}
+
+	private java.util.List<Number> comandasActivasDelMapa() throws Exception {
+		String mapa = enviar(como(get("/api/mesas"), mesero)).andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+		return JsonPath.read(mapa, "$[?(@.id == %d)].comandaActivaId".formatted(mesa.getId()));
 	}
 
 	@Test

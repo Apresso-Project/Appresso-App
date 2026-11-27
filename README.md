@@ -39,11 +39,11 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 
 ## Stack tecnológico
 
-- **Frontend/Mobile:** Android (Kotlin/Java)
-- **Backend:** Spring Boot
-- **Tiempo real:** WebSocket STOMP sobre SockJS (para cocina y notificaciones)
-- **Notificaciones push:** Firebase Cloud Messaging (FCM)
-- **Red:** Requiere Wi-Fi local para comunicación cocina; admin puede acceder remotamente vía internet
+- **App:** Android 8.0 o superior, Kotlin y Jetpack Compose
+- **Backend:** Java 21, Spring Boot, PostgreSQL y migraciones Flyway
+- **Tiempo real:** STOMP sobre WebSocket para comandas y catálogo. Android usa WebSocket directo al endpoint SockJS del backend.
+- **Alojamiento acordado:** backend en Render y PostgreSQL gestionado en Neon
+- **Notificaciones push previstas:** Firebase Cloud Messaging (FCM)
 - **Seguridad:** Contraseñas con bcrypt, HTTPS, tokens en Android Keystore
 
 ---
@@ -58,7 +58,14 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 
 ---
 
-## Módulos principales
+## Estado del código y guías
+
+- `main` incorpora **3.2.1 Control de existencias** (PR #27) y **3.3.1 Menú y cocina** (PR #29). El control de existencias incluye ajustes e historial, alerta de stock bajo y descuento al confirmar una comanda. El menú oculta agotados. Cocina muestra comandas activas de solo lectura y recarga tras la confirmación de la suscripción en tiempo real.
+- El backend y la app también incluyen autenticación, administración del personal, permisos, catálogo, búsqueda de clientes y las funciones de cuenta y protección de datos de 7.1.1 y 8.4.1. Los módulos que se describen abajo incluyen funciones planificadas.
+- [Arranque local del backend y variables de despliegue](backend/README.md) · [Compilar Android y probar en teléfono](android/README.md) · [Evidencia pendiente de dispositivo](android/README.md#pruebas-en-teléfono-y-evidencia).
+- El equipo y el patrocinador aprobaron el **21/11/2026 (CC-03)** iniciar los despliegues internos continuos con Render y Neon durante el desarrollo. La **v1.0 de producción** corresponde al cierre de **8.5.1**. La evidencia del primer despliegue interno está pendiente en el seguimiento del proyecto.
+
+## Módulos del alcance
 
 ### Módulo 1 — Usuarios y permisos (RF-01 a RF-05)
 - Login: el personal con correo y contraseña; el cliente con su número de documento y contraseña
@@ -72,6 +79,7 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 - Ajustes manuales de inventario con justificación
 - Umbral mínimo de stock por producto → alerta visual al admin
 - Historial de movimientos de inventario con filtros
+- Menú de solo lectura por categoría con precio y existencias vigentes para mesero y cliente, también accesible al administrador
 
 ### Módulo 3 — Comandas y Pedidos (RF-15 a RF-27)
 - Mapa de mesas → abrir comanda por mesa
@@ -114,9 +122,9 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 | Hito | Fecha |
 |---|---|
 | Inicio de desarrollo (Sprint 0) | 28/10/2026 |
-| Módulos admin, pedidos y cocina terminados | 15/11/2026 |
-| Módulo fidelización + pago QR terminados | 29/11/2026 |
-| Prueba piloto y entrega final v1.0 | 15/12/2026 |
+| Inicio acordado del despliegue continuo interno (CC-03) | 21/11/2026 |
+| Fin de la línea base planificada tras CC-03 | 12/12/2026 |
+| Fecha límite del curso para la entrega y el piloto de la v1.0 | 15/12/2026 |
 
 ---
 
@@ -127,13 +135,14 @@ La cafetería registraba pedidos e inventario a mano, lo que generaba:
 - Sin integración con pasarela de pagos (el QR es solo visual; la confirmación es manual)
 - Sin pedidos a domicilio
 - Sin compra de insumos
+- Las vistas independientes de consulta de caja del cajero y de consulta financiera del administrador (RF-38 y RF-39) se retiraron de la v1.0 en CC-03. El alcance conserva el historial de movimientos y los informes de cierre.
 
 ---
 
 ## Repositorios
 
 - **Este repo** — código fuente de la app Android + backend
-- **Documentation-Repo** — acta de constitución, EDT, historias de usuario, requerimientos, cronograma
+- **Documentation-Repo** — acta, EDT y su diccionario, historias, requisitos, cronograma vigente y seguimiento de riesgos. [Documentación del proyecto](https://github.com/Apresso-Project/Documentation-Repo)
 
 ---
 

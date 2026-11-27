@@ -61,7 +61,7 @@ class ComandasRepositoryRemotoTest {
         servidor.enqueue(
             json(
                 200,
-                """[{"id":1,"nombre":"Mesa 1","estado":"DISPONIBLE"},{"id":2,"nombre":"Terraza","estado":"OCUPADA"}]""",
+                """[{"id":1,"nombre":"Mesa 1","estado":"DISPONIBLE","comandaActivaId":null},{"id":2,"nombre":"Terraza","estado":"OCUPADA","comandaActivaId":12}]""",
             ),
         )
 
@@ -71,7 +71,7 @@ class ComandasRepositoryRemotoTest {
         assertEquals("GET", pedido.method)
         assertEquals("/api/mesas", pedido.path)
         assertEquals("Bearer tok.en.x", pedido.getHeader("Authorization"))
-        assertEquals(listOf(Mesa(1, "Mesa 1", EstadoMesa.DISPONIBLE), Mesa(2, "Terraza", EstadoMesa.OCUPADA)), r.valor)
+        assertEquals(listOf(Mesa(1, "Mesa 1", EstadoMesa.DISPONIBLE), Mesa(2, "Terraza", EstadoMesa.OCUPADA, 12)), r.valor)
         assertTrue(r.valor[0].disponible)
         assertFalse(r.valor[1].disponible)
     }
@@ -156,7 +156,11 @@ class ComandasRepositoryRemotoTest {
         servidor.enqueue(json(201, comandaJson))
 
         val r = repositorio.crearComanda(
-            NuevaComanda(mesaId = 3, items = listOf(ItemPedido(7, 2, " sin azúcar "), ItemPedido(9, 1))),
+            NuevaComanda(
+                mesaId = 3,
+                items = listOf(ItemPedido(7, 2, " sin azúcar "), ItemPedido(9, 1)),
+                totalEsperado = BigDecimal("17500.50"),
+            ),
         ) as ResultadoCatalogo.Exito
 
         val pedido = servidor.takeRequest()
@@ -164,7 +168,7 @@ class ComandasRepositoryRemotoTest {
         assertEquals("/api/comandas", pedido.path)
         // clienteId y recompensaId nulos no se envían; las observaciones van sin espacios de los extremos.
         assertEquals(
-            """{"mesaId":3,"items":[{"productoId":7,"cantidad":2,"observaciones":"sin azúcar"},{"productoId":9,"cantidad":1}]}""",
+            """{"mesaId":3,"items":[{"productoId":7,"cantidad":2,"observaciones":"sin azúcar"},{"productoId":9,"cantidad":1}],"totalEsperado":"17500.50"}""",
             pedido.body.readUtf8(),
         )
         val comanda = r.valor

@@ -39,7 +39,7 @@ import com.appresso.app.ui.theme.White
 
 /**
  * Mapa de mesas (RF-15, RF-64): una cuadrícula con cada mesa y su estado. Las disponibles se pueden
- * tocar para armar su comanda (si el rol puede crear comandas); las ocupadas se ven atenuadas.
+ * tocar para armar una comanda. Las ocupadas con una comanda activa permiten abrir su detalle.
  * El administrador ve además el botón «Nueva mesa». Solo dibuja lo que entrega [MesasViewModel].
  */
 @Composable
@@ -66,6 +66,14 @@ fun MesasScreen(
         }
 
         estado.mesaCreada?.let { MensajeConBorde(stringResource(R.string.mesa_creada, it), color = Success) }
+
+        if (estado.error == null || estado.mesas.isNotEmpty()) {
+            BotonSecundario(
+                stringResource(R.string.mesas_actualizar),
+                onReintentar,
+                habilitado = !estado.cargando && estado.formulario?.guardando != true,
+            )
+        }
 
         when {
             estado.cargando && estado.mesas.isEmpty() -> Centrado { Cargando(stringResource(R.string.mesas_cargando)) }
@@ -108,7 +116,7 @@ fun MesasScreen(
                     items(estado.mesas, key = { it.id }) { mesa ->
                         TarjetaMesa(
                             mesa = mesa,
-                            seleccionable = puedeCrearComanda && mesa.disponible,
+                            seleccionable = puedeCrearComanda && (mesa.disponible || mesa.comandaActivaId != null),
                             onClick = { onAbrirMesa(mesa) },
                         )
                     }
@@ -148,5 +156,8 @@ private fun TarjetaMesa(mesa: Mesa, seleccionable: Boolean, onClick: () -> Unit)
             maxLines = 2,
         )
         ChipEstado(textoEstado, if (mesa.disponible) Success else Caramel)
+        if (seleccionable && !mesa.disponible) {
+            Text(stringResource(R.string.mesa_abrir_comanda), style = MaterialTheme.typography.labelMedium, color = Ink)
+        }
     }
 }

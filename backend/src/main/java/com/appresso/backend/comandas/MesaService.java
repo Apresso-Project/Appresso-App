@@ -1,8 +1,10 @@
 package com.appresso.backend.comandas;
 
+import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +33,9 @@ public class MesaService {
 	/** Todas las mesas, ordenadas por nombre (sin distinguir mayúsculas). */
 	@Transactional(readOnly = true)
 	public List<MesaRespuesta> listar() {
-		return mesas.findAll().stream()
-				.sorted(Comparator.comparing(Mesa::getNombre, String.CASE_INSENSITIVE_ORDER).thenComparing(Mesa::getId))
-				.map(MesaRespuesta::de)
+		return mesas.listarConComandaActiva(EstadoComanda.CERRADA).stream()
+				.sorted(Comparator.comparing(MesaRespuesta::nombre, String.CASE_INSENSITIVE_ORDER)
+						.thenComparing(MesaRespuesta::id))
 				.toList();
 	}
 
@@ -44,16 +46,24 @@ public class MesaService {
 	 */
 	@Transactional
 	public MesaRespuesta crear(MesaRequest solicitud, Long actorId) {
-		String nombre = solicitud.nombre().trim();
+		String nombre = solicitud.nombre().strip();
 		if (nombre.isEmpty()) {
 			throw new SolicitudComandaInvalidaException("nombre", "El nombre es obligatorio");
 		}
-		if (mesas.existsByNombreIgnoreCase(nombre)) {
-			throw new ConflictoComandaException("nombre", "Ya existe una mesa con ese nombre");
+		if (mesas.existsByNombreNormalizado(Mesa.normalizarNombre(nombre))) {
+			throw nombreRepetido();
 		}
 		Mesa mesa = new Mesa();
 		mesa.setNombre(nombre);
-		mesas.saveAndFlush(mesa);
+		try {
+			mesas.saveAndFlush(mesa);
+		}
+		catch (DataIntegrityViolationException e) {
+			if (e.getMostSpecificCause() instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+				throw nombreRepetido();
+			}
+			throw e;
+		}
 
 		RegistroAuditoria registro = new RegistroAuditoria();
 		registro.setUsuario(usuarios.getReferenceById(actorId));
@@ -63,6 +73,10 @@ public class MesaService {
 		registro.setDetalle("Nombre: " + nombre);
 		auditoria.save(registro);
 		return MesaRespuesta.de(mesa);
+	}
+
+	private static ConflictoComandaException nombreRepetido() {
+		return new ConflictoComandaException("nombre", "Ya existe una mesa con ese nombre");
 	}
 
 }

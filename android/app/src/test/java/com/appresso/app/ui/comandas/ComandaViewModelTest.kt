@@ -54,7 +54,7 @@ class ComandaViewModelTest {
         assertEquals(listOf(bebidas, postres), estado.categorias)
         assertTrue(estado.vacia)
         assertEquals(pesos("0"), estado.importes.total)
-        assertFalse(estado.puedeEnviar)
+        assertFalse(estado.puedeGuardar)
     }
 
     @Test
@@ -135,9 +135,8 @@ class ComandaViewModelTest {
     }
 
     @Test
-    fun `la comanda vacia no se envia al servidor`() {
-        vm.confirmar()
-        assertEquals(ErrorComanda.Vacia, estado.error)
+    fun `la comanda vacia no se guarda`() {
+        vm.guardar()
         assertTrue(comandas.comandasCreadas.isEmpty())
         assertTrue(comandas.cambios.isEmpty())
     }
@@ -149,7 +148,7 @@ class ComandaViewModelTest {
         assertNull(estado.error)
     }
 
-    // ---------------------------------------------------------------- resumen y envío
+    // ---------------------------------------------------------------- resumen y guardado
 
     @Test
     fun `el resumen muestra las lineas y se puede volver a editar`() {
@@ -164,21 +163,24 @@ class ComandaViewModelTest {
     }
 
     @Test
-    fun `confirmar crea la comanda con la mesa y las cantidades y luego la envia a cocina`() {
-        comandas.comandaCreada = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.PENDIENTE))
-        comandas.estadoCambiado = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.ENVIADA, total = "17500.50"))
+    fun `guardar crea una comanda pendiente con observaciones y el total revisado`() {
+        comandas.comandaCreada = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.PENDIENTE, total = "17500.50"))
         repeat(2) { vm.agregar(latte) }
         vm.agregar(brownie)
+        vm.cambiarObservaciones(latte.id, " sin azúcar ")
         vm.verResumen()
 
-        vm.confirmar()
+        vm.guardar()
 
-        assertEquals(listOf(ItemPedido(7, 2), ItemPedido(9, 1)), comandas.comandasCreadas.single().items)
-        assertEquals(3L, comandas.comandasCreadas.single().mesaId)
-        assertEquals(listOf(12L to EstadoComanda.ENVIADA), comandas.cambios)
-        assertEquals(PasoComanda.ENVIADA, estado.paso)
-        assertEquals(BigDecimal("17500.50"), estado.enviada?.total)
-        assertFalse(estado.enviando)
+        val solicitud = comandas.comandasCreadas.single()
+        assertEquals(listOf(ItemPedido(7, 2, "sin azúcar"), ItemPedido(9, 1)), solicitud.items)
+        assertEquals(3L, solicitud.mesaId)
+        assertEquals(pesos("17500.50"), solicitud.totalEsperado)
+        assertTrue(comandas.cambios.isEmpty())
+        assertEquals(PasoComanda.DETALLE, estado.paso)
+        assertEquals(EstadoComanda.PENDIENTE, estado.guardada?.estado)
+        assertEquals(pesos("17500.50"), estado.guardada?.total)
+        assertFalse(estado.guardando)
     }
 
     @Test
@@ -187,11 +189,11 @@ class ComandaViewModelTest {
         vm.agregar(latte)
         vm.verResumen()
 
-        vm.confirmar()
+        vm.guardar()
 
         assertEquals(ErrorComanda.DelServidor("La mesa ya tiene una comanda abierta"), estado.error)
         assertTrue(comandas.cambios.isEmpty())
-        assertNull(estado.comandaCreadaId)
+        assertNull(estado.guardada)
         assertEquals(PasoComanda.RESUMEN, estado.paso)
     }
 
@@ -202,56 +204,82 @@ class ComandaViewModelTest {
             mapOf("recompensaId" to "La recompensa no está activa"),
         )
         vm.agregar(latte)
-        vm.confirmar()
+        vm.verResumen()
+        vm.guardar()
         assertEquals(ErrorComanda.DelServidor("La recompensa no está activa"), estado.error)
     }
 
     @Test
-    fun `si el envio falla la comanda queda creada y reintentar solo la envia`() {
-        comandas.comandaCreada = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.PENDIENTE))
-        comandas.estadoCambiado = ResultadoCatalogo.SinConexion
+    fun `si el total cambia se recarga el resumen y se espera una confirmacion nueva`() {
         vm.agregar(latte)
         vm.verResumen()
 
-        vm.confirmar()
-        assertEquals(12L, estado.comandaCreadaId)
-        assertEquals(ErrorComanda.SinConexion, estado.error)
-        assertFalse(estado.editable)
+        comandas.comandaCreada = ResultadoCatalogo.Conflicto("Total distinto", mapOf("totalEsperado" to "El total cambió"))
+        menu.respuesta = ResultadoCatalogo.Exito(listOf(bebidas.copy(productos = listOf(latte.copy(precio = pesos("7000"))))))
+        vm.guardar()
 
-        // Ya creada: no se puede volver a editar ni cambiar cantidades.
-        vm.seguirEditando()
-        vm.agregar(latte)
+        assertEquals(pesos("6500"), comandas.comandasCreadas.single().totalEsperado)
+        assertEquals(pesos("7000"), estado.importes.total)
         assertEquals(PasoComanda.RESUMEN, estado.paso)
-        assertEquals(1, estado.cantidadDe(latte.id))
+        assertEquals(ErrorComanda.DelServidor("El total cambió"), estado.error)
+        assertNull(estado.guardada)
 
-        comandas.estadoCambiado = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.ENVIADA))
-        vm.confirmar()
-        assertEquals(1, comandas.comandasCreadas.size)
-        assertEquals(listOf(12L to EstadoComanda.ENVIADA, 12L to EstadoComanda.ENVIADA), comandas.cambios)
-        assertEquals(PasoComanda.ENVIADA, estado.paso)
+        comandas.comandaCreada = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.PENDIENTE, "7000.00"))
+        vm.guardar()
+        assertEquals(listOf(pesos("6500"), pesos("7000")), comandas.comandasCreadas.map { it.totalEsperado })
+        assertEquals(PasoComanda.DETALLE, estado.paso)
+        assertTrue(comandas.cambios.isEmpty())
     }
 
     @Test
-    fun `una transicion rechazada con 400 muestra el mensaje del servidor`() {
-        comandas.comandaCreada = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.PENDIENTE))
-        comandas.estadoCambiado = ResultadoCatalogo.DatosInvalidos("El rol CAJERO no puede pasar la comanda a ENVIADA", emptyMap())
+    fun `si falla la recarga se debe actualizar el menu antes de intentar guardar otra vez`() {
         vm.agregar(latte)
+        vm.verResumen()
+        comandas.comandaCreada = ResultadoCatalogo.Conflicto("Total distinto", mapOf("totalEsperado" to "El total cambió"))
+        menu.respuesta = ResultadoCatalogo.SinConexion
 
-        vm.confirmar()
+        vm.guardar()
+        vm.guardar()
 
-        assertEquals(ErrorComanda.DelServidor("El rol CAJERO no puede pasar la comanda a ENVIADA"), estado.error)
-        assertEquals(PasoComanda.ARMAR, estado.paso)
+        assertEquals(ErrorComanda.SinConexion, estado.errorMenu)
+        assertFalse(estado.puedeGuardar)
+        assertEquals(1, comandas.comandasCreadas.size)
     }
 
     @Test
-    fun `ya enviada no se vuelve a enviar`() {
+    fun `una comanda guardada no se vuelve a crear`() {
         comandas.comandaCreada = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.PENDIENTE))
-        comandas.estadoCambiado = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.ENVIADA))
         vm.agregar(latte)
-        vm.confirmar()
-        vm.confirmar()
+        vm.verResumen()
+        vm.guardar()
+        vm.guardar()
 
         assertEquals(1, comandas.comandasCreadas.size)
-        assertEquals(1, comandas.cambios.size)
+        assertTrue(comandas.cambios.isEmpty())
+    }
+
+    @Test
+    fun `abrir una mesa ocupada consulta su comanda activa y permite reintentar la lectura`() {
+        comandas.comandaConsultada = ResultadoCatalogo.SinConexion
+        val activa = ComandaViewModel(3, "Mesa 3", menu, comandas, comandaActivaId = 12)
+        assertEquals(ErrorComanda.SinConexion, activa.estado.value.error)
+
+        comandas.comandaConsultada = ResultadoCatalogo.Exito(comanda(12, EstadoComanda.PENDIENTE))
+        activa.cargarDetalle()
+        assertEquals(listOf(12L, 12L), comandas.comandasConsultadas)
+        assertEquals(PasoComanda.DETALLE, activa.estado.value.paso)
+        assertEquals(12L, activa.estado.value.guardada?.id)
+        assertTrue(comandas.comandasCreadas.isEmpty())
+    }
+
+    @Test
+    fun `las observaciones se limitan a 100 caracteres y se limpian al quitar el producto`() {
+        vm.agregar(latte)
+        vm.cambiarObservaciones(latte.id, "a".repeat(101))
+        assertEquals("a".repeat(100), estado.lineas.single().observaciones)
+
+        vm.quitar(latte)
+        vm.agregar(latte)
+        assertNull(estado.lineas.single().observaciones)
     }
 }

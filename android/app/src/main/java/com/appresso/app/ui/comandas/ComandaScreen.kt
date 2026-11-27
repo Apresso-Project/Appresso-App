@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -37,8 +38,10 @@ import androidx.compose.ui.unit.dp
 import com.appresso.app.R
 import com.appresso.app.data.comandas.CalculadoraComanda
 import com.appresso.app.data.comandas.Comanda
+import com.appresso.app.data.comandas.EstadoComanda
 import com.appresso.app.data.menu.MenuProducto
 import com.appresso.app.ui.PantallaProvisional
+import com.appresso.app.ui.login.CampoTexto
 import com.appresso.app.ui.menu.formatoPesos
 import com.appresso.app.ui.theme.Caramel
 import com.appresso.app.ui.theme.Cream
@@ -50,36 +53,34 @@ import com.appresso.app.ui.theme.Warning
 import com.appresso.app.ui.theme.White
 import java.math.BigDecimal
 
-/**
- * Armar la comanda de una mesa (RF-15 a RF-17), en tres pasos que dibuja según [ComandaUiState.paso]:
- * - **Armar**: productos del menú con − / + para la cantidad, y abajo cuántos productos lleva y el total.
- * - **Resumen**: cada línea con su subtotal, el subtotal, el descuento (si hay) y el total, antes de
- *   enviar. Con la comanda vacía no se puede llegar aquí ni enviar.
- * - **Enviada**: la confirmación con los importes que devolvió el servidor.
- */
+/** Armado, resumen previo y detalle guardado con los importes del servidor. */
 @Composable
 fun ComandaScreen(
     estado: ComandaUiState,
     onFiltrar: (Long?) -> Unit,
     onAgregar: (MenuProducto) -> Unit,
     onQuitar: (MenuProducto) -> Unit,
+    onObservaciones: (Long, String) -> Unit,
     onVerResumen: () -> Unit,
     onSeguirEditando: () -> Unit,
-    onEnviar: () -> Unit,
+    onGuardar: () -> Unit,
     onReintentarMenu: () -> Unit,
+    onReintentarDetalle: () -> Unit,
     onVolverAMesas: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val titulo = when (estado.paso) {
         PasoComanda.ARMAR -> stringResource(R.string.comanda_titulo, estado.mesaNombre)
         PasoComanda.RESUMEN -> stringResource(R.string.comanda_resumen_titulo, estado.mesaNombre)
-        PasoComanda.ENVIADA -> stringResource(R.string.comanda_enviada_titulo)
+        PasoComanda.DETALLE -> stringResource(R.string.comanda_titulo, estado.mesaNombre)
     }
     PantallaProvisional(titulo = titulo, modifier = modifier) {
         when (estado.paso) {
-            PasoComanda.ARMAR -> Armar(estado, onFiltrar, onAgregar, onQuitar, onVerResumen, onReintentarMenu, onVolverAMesas)
-            PasoComanda.RESUMEN -> Resumen(estado, onSeguirEditando, onEnviar)
-            PasoComanda.ENVIADA -> estado.enviada?.let { Enviada(it, onVolverAMesas) }
+            PasoComanda.ARMAR -> Armar(
+                estado, onFiltrar, onAgregar, onQuitar, onObservaciones, onVerResumen, onReintentarMenu, onVolverAMesas,
+            )
+            PasoComanda.RESUMEN -> Resumen(estado, onSeguirEditando, onGuardar, onReintentarMenu, onVolverAMesas)
+            PasoComanda.DETALLE -> Detalle(estado, onReintentarDetalle, onVolverAMesas)
         }
     }
 }
@@ -92,6 +93,7 @@ private fun ColumnScope.Armar(
     onFiltrar: (Long?) -> Unit,
     onAgregar: (MenuProducto) -> Unit,
     onQuitar: (MenuProducto) -> Unit,
+    onObservaciones: (Long, String) -> Unit,
     onVerResumen: () -> Unit,
     onReintentarMenu: () -> Unit,
     onVolverAMesas: () -> Unit,
@@ -148,6 +150,8 @@ private fun ColumnScope.Armar(
                         producto = producto,
                         cantidad = estado.cantidadDe(producto.id),
                         editable = estado.editable,
+                        observaciones = estado.observaciones[producto.id].orEmpty(),
+                        onObservaciones = { onObservaciones(producto.id, it) },
                         onAgregar = { onAgregar(producto) },
                         onQuitar = { onQuitar(producto) },
                     )
@@ -179,14 +183,15 @@ private fun TarjetaProducto(
     producto: MenuProducto,
     cantidad: Int,
     editable: Boolean,
+    observaciones: String,
+    onObservaciones: (String) -> Unit,
     onAgregar: () -> Unit,
     onQuitar: () -> Unit,
 ) {
     val forma = RoundedCornerShape(16.dp)
     val seleccionado = cantidad > 0
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .fillMaxWidth()
             .shadow(2.dp, forma, ambientColor = Ink.copy(alpha = 0.08f), spotColor = Ink.copy(alpha = 0.08f))
@@ -195,28 +200,43 @@ private fun TarjetaProducto(
             .border(1.5.dp, if (seleccionado) Caramel else White, forma)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-            Text(producto.nombre, style = MaterialTheme.typography.titleMedium, color = Ink)
-            Text(formatoPesos(producto.precio), style = MaterialTheme.typography.bodyMedium, color = Muted)
-            if (seleccionado) {
-                Text(
-                    formatoPesos(CalculadoraComanda.subtotalLinea(producto.precio, cantidad)),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Espresso,
-                )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                Text(producto.nombre, style = MaterialTheme.typography.titleMedium, color = Ink)
+                Text(formatoPesos(producto.precio), style = MaterialTheme.typography.bodyMedium, color = Muted)
+                if (seleccionado) {
+                    Text(
+                        formatoPesos(CalculadoraComanda.subtotalLinea(producto.precio, cantidad)),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Espresso,
+                    )
+                }
+                if (cantidad >= producto.existencias) {
+                    Text(stringResource(R.string.comanda_sin_mas_stock), style = MaterialTheme.typography.labelSmall, color = Warning)
+                }
             }
-            if (cantidad >= producto.existencias) {
-                Text(stringResource(R.string.comanda_sin_mas_stock), style = MaterialTheme.typography.labelSmall, color = Warning)
-            }
+            Selector(
+                nombre = producto.nombre,
+                cantidad = cantidad,
+                puedeQuitar = editable && cantidad > 0,
+                puedeAgregar = editable && cantidad < producto.existencias,
+                onQuitar = onQuitar,
+                onAgregar = onAgregar,
+            )
         }
-        Selector(
-            nombre = producto.nombre,
-            cantidad = cantidad,
-            puedeQuitar = editable && cantidad > 0,
-            puedeAgregar = editable && cantidad < producto.existencias,
-            onQuitar = onQuitar,
-            onAgregar = onAgregar,
-        )
+        if (seleccionado) {
+            CampoTexto(
+                etiqueta = stringResource(R.string.comanda_observaciones),
+                placeholder = stringResource(R.string.comanda_observaciones_ayuda, MAX_OBSERVACIONES_COMANDA),
+                valor = observaciones,
+                onValorChange = onObservaciones,
+                teclado = KeyboardOptions.Default,
+                soloLectura = !editable,
+            )
+        }
     }
 }
 
@@ -313,7 +333,9 @@ private fun BarraTotal(estado: ComandaUiState, onVerResumen: () -> Unit) {
 private fun ColumnScope.Resumen(
     estado: ComandaUiState,
     onSeguirEditando: () -> Unit,
-    onEnviar: () -> Unit,
+    onGuardar: () -> Unit,
+    onReintentarMenu: () -> Unit,
+    onVolverAMesas: () -> Unit,
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -327,6 +349,7 @@ private fun ColumnScope.Resumen(
                         nombre = linea.producto.nombre,
                         detalle = stringResource(R.string.comanda_linea_cantidad, linea.cantidad, formatoPesos(linea.producto.precio)),
                         subtotal = formatoPesos(linea.subtotal),
+                        observaciones = linea.observaciones,
                     )
                 }
             }
@@ -334,38 +357,65 @@ private fun ColumnScope.Resumen(
         item { Importes(estado.importes.subtotal, estado.importes.descuento, estado.importes.total) }
     }
 
-    if (estado.comandaCreadaId != null && estado.error != null) {
-        MensajeConBorde(stringResource(R.string.comanda_creada_sin_enviar), color = Warning)
-    }
     estado.error?.let { MensajeConBorde(textoDe(it)) }
-
+    if (estado.cargandoMenu) {
+        Cargando(stringResource(R.string.comanda_actualizando_menu))
+    } else if (estado.errorMenu != null) {
+        MensajeConBorde(textoDe(estado.errorMenu))
+        BotonSecundario(stringResource(R.string.cat_reintentar), onReintentarMenu)
+    }
     BotonPrimario(
-        stringResource(
-            when {
-                estado.enviando -> R.string.comanda_enviando
-                estado.comandaCreadaId != null -> R.string.comanda_reintentar_envio
-                else -> R.string.comanda_enviar
-            },
-        ),
-        onClick = onEnviar,
-        habilitado = estado.puedeEnviar,
+        stringResource(if (estado.guardando) R.string.comanda_guardando else R.string.comanda_guardar),
+        onClick = onGuardar,
+        habilitado = estado.puedeGuardar,
         modifier = Modifier.fillMaxWidth(),
     )
-    if (estado.comandaCreadaId == null) {
+    BotonSecundario(
+        stringResource(R.string.comanda_seguir_editando),
+        onSeguirEditando,
+        Modifier.fillMaxWidth(),
+        habilitado = !estado.guardando,
+    )
+    if (estado.error != null) {
         BotonSecundario(
-            stringResource(R.string.comanda_seguir_editando),
-            onSeguirEditando,
-            Modifier.fillMaxWidth(),
-            habilitado = !estado.enviando,
+            stringResource(R.string.comanda_volver_mesas),
+            onVolverAMesas,
+            habilitado = !estado.guardando,
         )
     }
 }
 
-// ------------------------------------------------------------------------------------ enviada
+// ------------------------------------------------------------------------------------ detalle
 
 @Composable
-private fun ColumnScope.Enviada(comanda: Comanda, onVolverAMesas: () -> Unit) {
-    MensajeConBorde(stringResource(R.string.comanda_enviada_detalle, comanda.id, comanda.mesaNombre), color = Success)
+private fun ColumnScope.Detalle(estado: ComandaUiState, onReintentar: () -> Unit, onVolverAMesas: () -> Unit) {
+    val guardada = estado.guardada
+    if (guardada != null) {
+        DetalleGuardado(guardada)
+    } else {
+        Centrado {
+            if (estado.cargandoDetalle) Cargando(stringResource(R.string.comanda_cargando_detalle))
+            estado.error?.let {
+                MensajeConBorde(textoDe(it))
+                BotonSecundario(stringResource(R.string.cat_reintentar), onReintentar)
+            }
+        }
+    }
+    BotonPrimario(stringResource(R.string.comanda_volver_mesas), onVolverAMesas, Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun ColumnScope.DetalleGuardado(comanda: Comanda) {
+    val estado = stringResource(
+        when (comanda.estado) {
+            EstadoComanda.PENDIENTE -> R.string.comanda_estado_pendiente
+            EstadoComanda.ENVIADA -> R.string.comanda_estado_enviada
+            EstadoComanda.EN_PREPARACION -> R.string.cocina_estado_en_preparacion
+            EstadoComanda.LISTA -> R.string.cocina_estado_lista
+            EstadoComanda.CERRADA -> R.string.comanda_estado_cerrada
+        },
+    )
+    MensajeConBorde(stringResource(R.string.comanda_detalle_estado, comanda.id, estado), color = Success)
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.weight(1f),
@@ -378,13 +428,13 @@ private fun ColumnScope.Enviada(comanda: Comanda, onVolverAMesas: () -> Unit) {
                         nombre = linea.productoNombre,
                         detalle = stringResource(R.string.comanda_linea_cantidad, linea.cantidad, formatoPesos(linea.precioUnitario)),
                         subtotal = formatoPesos(linea.subtotal),
+                        observaciones = linea.observaciones,
                     )
                 }
             }
         }
         item { Importes(comanda.subtotal, comanda.descuento, comanda.total) }
     }
-    BotonPrimario(stringResource(R.string.comanda_volver_mesas), onVolverAMesas, Modifier.fillMaxWidth())
 }
 
 // ------------------------------------------------------------------------------------ piezas
@@ -405,7 +455,7 @@ private fun Tarjeta(contenido: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun FilaLinea(nombre: String, detalle: String, subtotal: String) {
+private fun FilaLinea(nombre: String, detalle: String, subtotal: String, observaciones: String?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -414,6 +464,7 @@ private fun FilaLinea(nombre: String, detalle: String, subtotal: String) {
         Column(Modifier.weight(1f)) {
             Text(nombre, style = MaterialTheme.typography.titleMedium, color = Ink)
             Text(detalle, style = MaterialTheme.typography.bodyMedium, color = Muted)
+            observaciones?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = Ink) }
         }
         Text(subtotal, style = MaterialTheme.typography.titleMedium, color = Espresso)
     }

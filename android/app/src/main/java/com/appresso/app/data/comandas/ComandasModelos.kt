@@ -10,6 +10,7 @@ data class Mesa(
     val id: Long,
     val nombre: String,
     val estado: EstadoMesa,
+    val comandaActivaId: Long? = null,
 ) {
     val disponible: Boolean get() = estado == EstadoMesa.DISPONIBLE
 }
@@ -43,6 +44,7 @@ data class NuevaComanda(
     val items: List<ItemPedido>,
     val clienteId: Long? = null,
     val recompensaId: Long? = null,
+    val totalEsperado: BigDecimal? = null,
 )
 
 /** Una línea de la comanda tal como la guardó el backend: el precio queda fijo al crearla. */

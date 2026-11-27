@@ -19,10 +19,12 @@ fun ComandaRoute(
         onFiltrar = viewModel::filtrarPorCategoria,
         onAgregar = viewModel::agregar,
         onQuitar = viewModel::quitar,
+        onObservaciones = viewModel::cambiarObservaciones,
         onVerResumen = viewModel::verResumen,
         onSeguirEditando = viewModel::seguirEditando,
-        onEnviar = viewModel::confirmar,
+        onGuardar = viewModel::guardar,
         onReintentarMenu = viewModel::cargarMenu,
+        onReintentarDetalle = viewModel::cargarDetalle,
         onVolverAMesas = onVolverAMesas,
         modifier = modifier,
     )
