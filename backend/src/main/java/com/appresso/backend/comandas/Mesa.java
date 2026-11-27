@@ -1,5 +1,7 @@
 package com.appresso.backend.comandas;
 
+import java.util.Locale;
+
 import jakarta.persistence.*;
 
 /**
@@ -16,6 +18,9 @@ public class Mesa {
 	@Column(nullable = false, length = 30, unique = true)
 	private String nombre;
 
+	@Column(name = "nombre_normalizado", nullable = false, length = 90, unique = true)
+	private String nombreNormalizado;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
 	private EstadoMesa estado = EstadoMesa.DISPONIBLE;
@@ -30,6 +35,11 @@ public class Mesa {
 
 	public void setNombre(String nombre) {
 		this.nombre = nombre;
+		this.nombreNormalizado = normalizarNombre(nombre);
+	}
+
+	static String normalizarNombre(String nombre) {
+		return nombre.strip().toLowerCase(Locale.ROOT);
 	}
 
 	public EstadoMesa getEstado() {

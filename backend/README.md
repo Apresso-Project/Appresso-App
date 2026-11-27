@@ -2,7 +2,7 @@
 
 Servidor de aplicaciones de Appresso, hecho con **Spring Boot** y **PostgreSQL**.
 
-Este README está pensado para quien nunca ha usado Spring. Si algo falla, ve a la sección [Errores comunes](#errores-comunes).
+Este README está pensado para quien nunca ha usado Spring. Si algo falla, ve a la sección [Errores comunes](#7-errores-comunes).
 
 ---
 
@@ -89,7 +89,7 @@ docker compose ps
 ./gradlew bootRun
 
 # Windows (PowerShell o cmd)
-gradlew.bat bootRun
+.\gradlew.bat bootRun
 ```
 
 La primera vez Gradle descarga todo lo que necesita (puede tardar varios minutos). Cuando termine verás una línea como:
@@ -233,22 +233,25 @@ Hace lo mismo que harías a mano en una máquina nueva: descarga el código, ins
 
 La rama `main` está protegida: **no se puede unir un Pull Request si `build-backend` no está en verde.** No se arregla saltándose la regla, se arregla el fallo.
 
-Cuando exista el proyecto Android, tendrá su propio workflow y su check se añadirá a la protección.
+Android tiene su propio workflow, `CI Android`, con el check `build-android`.
 
 ---
 
-## 6. Producción (cómo se conectará en un servidor)
+## 6. Despliegue interno y producción
 
-En un servidor no hay archivo `.env`: las variables las define el proveedor del servidor.
+El acuerdo CC-03 del 21/11/2026 inicia los despliegues internos continuos con el **backend en Render** y **PostgreSQL en Neon**. La v1.0 se publica en producción al cierre de **8.5.1**. La evidencia del primer despliegue interno sigue pendiente de registro.
 
-- Se pueden definir `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`, igual que en desarrollo.
-- Debe definirse `JWT_SECRET` (32 caracteres o más), **distinta a la de desarrollo** y guardada solo en las variables del servidor. Opcionalmente `JWT_EXPIRACION_MINUTOS` (por defecto 720, es decir, 12 horas).
-- Debe definirse **`EXIGIR_HTTPS=true`**: el backend rechaza con `426` toda solicitud sin cifrar (8.4.1). El TLS (`https://` y `wss://`) lo termina el proxy o balanceador del servidor, que le indica al backend `X-Forwarded-Proto: https`. Detalle en [`docs/seguridad-y-ley-1581.md`](../docs/seguridad-y-ley-1581.md), sección 1.2.
-- Para que los clientes reciban el código de recuperación de contraseña, define `CORREO_HOST`, `CORREO_PUERTO`, `CORREO_USUARIO`, `CORREO_CONTRASENA` y `CORREO_REMITENTE` con los datos del servidor de correo (SMTP con STARTTLS). Sin ellas, el código no se envía.
-- **No definas `spring.profiles.active=dev` ni `DEV_ADMIN_*` en el servidor.** Son solo para tu computador: crearían una cuenta de administrador con una contraseña conocida por el equipo.
-- O, si el proveedor entrega una sola dirección de conexión, se puede usar `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` y `SPRING_DATASOURCE_PASSWORD`. Spring las usa en lugar de lo que diga `application.properties`.
+### Preparar el servicio interno
 
-El despliegue (servidor, certificado TLS, copias de seguridad) es el entregable 8.5.1 y no está resuelto aquí.
+- `backend/docker-compose.yml` levanta PostgreSQL 17 para desarrollo local. Para Render queda por preparar un `Dockerfile` que genere el JAR con JDK 21 y `./gradlew bootJar` en `backend/`. El servicio debe escuchar en `0.0.0.0` y en el puerto configurado en Render. La configuración actual de Spring fija `8080`; se puede alinear el valor de `SERVER_PORT` con `PORT` o parametrizarlo al preparar el despliegue. [Docker en Render](https://render.com/docs/docker) · [Configuración del puerto](https://render.com/docs/web-services#port-binding)
+- Crea una base interna separada en Neon y guarda las variables en Render. Para el arranque inicial con Flyway, usa la conexión directa con TLS. Configura `SPRING_DATASOURCE_URL=jdbc:postgresql://<host-directo>:5432/<base>?sslmode=require`, `SPRING_DATASOURCE_USERNAME` y `SPRING_DATASOURCE_PASSWORD`. Flyway aplica las migraciones versionadas al arrancar y Hibernate valida el esquema. [JDBC en Neon](https://neon.com/docs/guides/java) · [Conexiones agrupadas de Neon](https://neon.com/docs/connect/connection-pooling)
+- Define `JWT_SECRET` de al menos 32 caracteres, distinto por entorno, y `EXIGIR_HTTPS=true`. Render termina TLS. Spring usa `server.forward-headers-strategy=native` para interpretar el tráfico que llega a través del proxy. Deja el perfil `dev` para pruebas locales. El inicializador de cuentas de prueba y los emisores de diagnóstico dependen de ese perfil. Para probar el login en el entorno alojado, primero hay que acordar cómo aprovisionar la primera cuenta autorizada. [Configuración HTTPS de Appresso](../docs/seguridad-y-ley-1581.md#12-implementación-de-https-en-todas-las-comunicaciones)
+- Configura `/actuator/health` como comprobación del servicio. Comprueba además `https://<servicio>/api/health` con certificado válido, `/actuator/health/db` con estado `UP` y `wss://<servicio>/ws/websocket` con JWT y una suscripción autorizada. Tras el primer despliegue verificado, Render puede desplegar desde `main` después de que pasen los checks de CI. Registra fecha, commit, resultado y evidencia para R-12. [Comprobaciones de salud](https://render.com/docs/health-checks) · [Despliegues después del CI](https://render.com/docs/deploys#configuring-auto-deploys)
+- Mide la primera respuesta tras inactividad y revisa la reconexión para R-14. El plan gratuito de Render suspende servicios inactivos y bloquea los puertos SMTP habituales, incluido el 587 que usa la configuración del proyecto. Antes de comprometer la recuperación por correo en ese entorno, verifica el plan y el transporte disponible. El backend lee `CORREO_HOST`, `CORREO_PUERTO`, `CORREO_USUARIO`, `CORREO_CONTRASENA` y `CORREO_REMITENTE`. [Plan gratuito de Render](https://render.com/docs/free) · [Suspensión de cómputo en Neon](https://neon.com/docs/introduction/scale-to-zero)
+
+### Cierre de producción (8.5.1)
+
+El entregable incluye servicio y base de producción, HTTPS/WSS, copias de seguridad programadas con restauración verificada y APK firmado con la URL de producción. Registra las comprobaciones de servidor y APK en la [tabla de seguridad de 8.5.1](../docs/pruebas-seguridad.md#por-repetir-en-el-servidor-851).
 
 ---
 

@@ -2,6 +2,7 @@ package com.appresso.backend.comandas;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -9,6 +10,10 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.appresso.backend.fidelizacion.Cliente;
+import com.appresso.backend.fidelizacion.ClienteRepository;
+import com.appresso.backend.fidelizacion.Recompensa;
+import com.appresso.backend.fidelizacion.RecompensaRepository;
 import com.appresso.backend.inventario.Producto;
 import com.appresso.backend.inventario.ProductoRepository;
 import com.appresso.backend.inventario.ProductoService;
@@ -16,7 +21,6 @@ import com.appresso.backend.tiemporeal.ComandaEventoDatos;
 import com.appresso.backend.tiemporeal.ComandaEventoDatos.ItemAgregado;
 import com.appresso.backend.tiemporeal.PublicadorTiempoReal;
 import com.appresso.backend.tiemporeal.TipoEvento;
-import com.appresso.backend.usuarios.Rol;
 import com.appresso.backend.usuarios.Usuario;
 import com.appresso.backend.usuarios.UsuarioRepository;
 
@@ -43,43 +47,76 @@ public class ComandaService {
 	private final MesaRepository mesas;
 	private final ProductoRepository productos;
 	private final UsuarioRepository usuarios;
+	private final ClienteRepository clientes;
+	private final RecompensaRepository recompensas;
 	private final HistorialComandaRepository historial;
 	private final ProductoService productoService;
 	private final PublicadorTiempoReal publicador;
 
 	public ComandaService(ComandaRepository comandas, MesaRepository mesas, ProductoRepository productos,
-			UsuarioRepository usuarios, HistorialComandaRepository historial, ProductoService productoService,
-			PublicadorTiempoReal publicador) {
+			UsuarioRepository usuarios, ClienteRepository clientes, RecompensaRepository recompensas,
+			HistorialComandaRepository historial, ProductoService productoService, PublicadorTiempoReal publicador) {
 		this.comandas = comandas;
 		this.mesas = mesas;
 		this.productos = productos;
 		this.usuarios = usuarios;
+		this.clientes = clientes;
+		this.recompensas = recompensas;
 		this.historial = historial;
 		this.productoService = productoService;
 		this.publicador = publicador;
 	}
 
-	/** Crea una comanda PENDIENTE, ocupa la mesa y publica COMANDA_CREADA. */
+	/** Crea una comanda PENDIENTE sin cliente ni descuento. */
 	@Transactional
 	public Comanda crear(Long mesaId, Long meseroId, List<ItemSolicitado> items) {
-		Mesa mesa = mesas.findById(mesaId).orElseThrow(() -> noExiste("Mesa", mesaId));
+		return crear(mesaId, meseroId, null, null, items, null);
+	}
+
+	/**
+	 * Crea una comanda PENDIENTE, ocupa la mesa y publica COMANDA_CREADA. Calcula subtotales, subtotal,
+	 * descuento y total (RF-17). Si se pide un descuento ({@code recompensaId}) y no es autorizado
+	 * (recompensa inexistente, inactiva, vencida, que no es descuento, sin cliente o sin puntos mínimos)
+	 * se rechaza con 400 y no se crea nada.
+	 */
+	@Transactional
+	public Comanda crear(Long mesaId, Long meseroId, Long clienteId, Long recompensaId, List<ItemSolicitado> items,
+			BigDecimal totalEsperado) {
+		Mesa mesa = mesas.bloquearPorId(mesaId).orElseThrow(() -> new SolicitudComandaInvalidaException("mesaId",
+				"La mesa " + mesaId + " no existe"));
 		Usuario mesero = usuarios.findById(meseroId).orElseThrow(() -> noExiste("Usuario", meseroId));
-		if (comandas.existsByMesaIdAndEstadoNot(mesaId, EstadoComanda.CERRADA)) {
-			throw new IllegalStateException("La mesa " + mesa.getNombre() + " ya tiene una comanda abierta");
-		}
 		if (items == null || items.isEmpty()) {
-			throw new IllegalArgumentException("La comanda debe tener al menos un producto");
+			throw new SolicitudComandaInvalidaException("items", "La comanda debe tener al menos un producto");
+		}
+		if (comandas.existsByMesaIdAndEstadoNot(mesaId, EstadoComanda.CERRADA)) {
+			throw new ConflictoComandaException("mesaId", "La mesa " + mesa.getNombre() + " ya tiene una comanda abierta");
+		}
+		Cliente cliente = clienteId == null ? null : clientes.findById(clienteId)
+				.orElseThrow(() -> new SolicitudComandaInvalidaException("clienteId", "El cliente " + clienteId + " no existe"));
+		Recompensa recompensa = null;
+		if (recompensaId != null) {
+			if (cliente == null) {
+				throw new SolicitudComandaInvalidaException("recompensaId", "Para aplicar un descuento indica el cliente");
+			}
+			recompensa = recompensas.findById(recompensaId).orElseThrow(() -> new SolicitudComandaInvalidaException(
+					"recompensaId", "La recompensa " + recompensaId + " no existe"));
+			CalculadoraComanda.validarAutorizado(recompensa, cliente.getPuntos(), LocalDate.now());
 		}
 
 		Comanda comanda = new Comanda();
 		comanda.setMesa(mesa);
 		comanda.setMesero(mesero);
+		comanda.setCliente(cliente);
+		comanda.setRecompensa(recompensa);
 		List<ItemAgregado> agregados = new ArrayList<>();
 		for (ItemSolicitado item : items) {
 			comanda.agregarDetalle(nuevoDetalle(comanda, item, false));
 			agregados.add(aItem(item));
 		}
 		recalcular(comanda);
+		if (totalEsperado != null && totalEsperado.compareTo(comanda.getTotal()) != 0) {
+			throw new ConflictoComandaException("totalEsperado", "El total cambió. Revisa los precios actualizados.");
+		}
 		mesa.setEstado(EstadoMesa.OCUPADA);
 		comandas.save(comanda);
 		registrar(comanda, null, EstadoComanda.PENDIENTE, "Comanda creada", mesero);
@@ -90,7 +127,8 @@ public class ComandaService {
 
 	/**
 	 * Mueve la comanda al estado siguiente (PENDIENTE → ENVIADA → EN_PREPARACION → LISTA → CERRADA).
-	 * Cada transición la ejecuta solo su rol: MESERO envía, COCINERO prepara y termina, CAJERO cierra.
+	 * Cada transición la ejecuta solo su rol (o el administrador), según {@link PoliticaTransiciones};
+	 * una transición inválida lanza {@link TransicionInvalidaException} (400).
 	 * Al enviarla se descuenta el inventario (RF-18) y se guarda la hora de envío; al cerrarla se
 	 * libera la mesa.
 	 */
@@ -99,23 +137,14 @@ public class ComandaService {
 		Comanda comanda = comandas.bloquearPorId(comandaId).orElseThrow(() -> noExiste("Comanda", comandaId));
 		Usuario usuario = usuarios.findById(usuarioId).orElseThrow(() -> noExiste("Usuario", usuarioId));
 		EstadoComanda anterior = comanda.getEstado();
-		if (nuevo.ordinal() != anterior.ordinal() + 1) {
-			throw new IllegalStateException("Transición no permitida: " + anterior + " → " + nuevo);
-		}
-		Rol requerido = switch (nuevo) {
-			case ENVIADA -> Rol.MESERO;
-			case EN_PREPARACION, LISTA -> Rol.COCINERO;
-			default -> Rol.CAJERO;
-		};
-		if (usuario.getRol() != requerido) {
-			throw new IllegalStateException("Solo el rol " + requerido + " puede pasar la comanda a " + nuevo);
+		PoliticaTransiciones.validar(anterior, nuevo, usuario.getRol());
+
+		if (nuevo == EstadoComanda.ENVIADA && comanda.getDetalles().isEmpty()) {
+			throw new TransicionInvalidaException("No se puede enviar una comanda vacía");
 		}
 
 		comanda.setEstado(nuevo);
 		if (nuevo == EstadoComanda.ENVIADA) {
-			if (comanda.getDetalles().isEmpty()) {
-				throw new IllegalStateException("No se puede enviar una comanda vacía");
-			}
 			comanda.setFechaEnvio(Instant.now());
 			// Las comandas toman los bloqueos de productos en el mismo orden.
 			List<DetalleComanda> detalles = comanda.getDetalles().stream()
@@ -144,7 +173,7 @@ public class ComandaService {
 		Comanda comanda = comandas.bloquearPorId(comandaId).orElseThrow(() -> noExiste("Comanda", comandaId));
 		Usuario usuario = usuarios.findById(usuarioId).orElseThrow(() -> noExiste("Usuario", usuarioId));
 		if (comanda.getEstado() == EstadoComanda.CERRADA) {
-			throw new IllegalStateException("La comanda ya está pagada y no se puede modificar");
+			throw new ConflictoComandaException("La comanda ya está pagada y no se puede modificar");
 		}
 		boolean despuesDeEnvio = comanda.getEstado() != EstadoComanda.PENDIENTE;
 		comanda.agregarDetalle(nuevoDetalle(comanda, item, despuesDeEnvio));
@@ -160,23 +189,24 @@ public class ComandaService {
 
 	private DetalleComanda nuevoDetalle(Comanda comanda, ItemSolicitado item, boolean despuesDeEnvio) {
 		if (item.cantidad() < 1) {
-			throw new IllegalArgumentException("La cantidad debe ser al menos 1");
+			throw new SolicitudComandaInvalidaException("items", "La cantidad debe ser al menos 1");
 		}
 		if (item.observaciones() != null && item.observaciones().length() > 100) {
-			throw new IllegalArgumentException("Las observaciones no pueden superar 100 caracteres");
+			throw new SolicitudComandaInvalidaException("items", "Las observaciones no pueden superar 100 caracteres");
 		}
 		Producto producto = (despuesDeEnvio ? productos.bloquearPorId(item.productoId()) : productos.findById(item.productoId()))
-				.orElseThrow(() -> noExiste("Producto", item.productoId()));
+				.orElseThrow(() -> new SolicitudComandaInvalidaException("items",
+						"El producto " + item.productoId() + " no existe"));
 		// Un producto de una categoría desactivada no aparece en el menú (3.1.1) y tampoco se puede pedir.
 		if (!producto.isActivo() || !producto.getCategoria().isActiva()) {
-			throw new IllegalStateException("El producto " + producto.getNombre() + " no está disponible");
+			throw new ConflictoComandaException("items", "El producto " + producto.getNombre() + " no está disponible");
 		}
 		// Mientras la comanda no se envía, el stock aún no se ha descontado: se suma lo ya pedido.
 		long yaPedido = despuesDeEnvio ? 0 : comanda.getDetalles().stream()
 				.filter(d -> d.getProducto().getId().equals(producto.getId()))
 				.mapToLong(DetalleComanda::getCantidad).sum();
 		if (yaPedido + item.cantidad() > producto.getStockActual()) {
-			throw new IllegalStateException("No hay suficiente stock de " + producto.getNombre()
+			throw new ConflictoComandaException("items", "No hay suficiente stock de " + producto.getNombre()
 					+ ": quedan " + producto.getStockActual());
 		}
 		DetalleComanda detalle = new DetalleComanda();
@@ -188,13 +218,12 @@ public class ComandaService {
 		return detalle;
 	}
 
+	/** Subtotal, descuento y total salen siempre de las líneas y de la recompensa (RF-17). */
 	private void recalcular(Comanda comanda) {
-		BigDecimal subtotal = BigDecimal.ZERO;
-		for (DetalleComanda d : comanda.getDetalles()) {
-			subtotal = subtotal.add(d.getPrecioUnitario().multiply(BigDecimal.valueOf(d.getCantidad())));
-		}
-		comanda.setSubtotal(subtotal);
-		comanda.setTotal(subtotal.subtract(comanda.getDescuento()));
+		CalculadoraComanda.Importes importes = CalculadoraComanda.calcular(comanda.getDetalles(), comanda.getRecompensa());
+		comanda.setSubtotal(importes.subtotal());
+		comanda.setDescuento(importes.descuento());
+		comanda.setTotal(importes.total());
 	}
 
 	private void registrar(Comanda comanda, EstadoComanda anterior, EstadoComanda nuevo, String descripcion,

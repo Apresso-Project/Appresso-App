@@ -2,7 +2,7 @@
 
 **Criterio (RF-18, RF-21, RF-26):** una comanda aparece en la pantalla de cocina, y cada cambio de estado se propaga, en **menos de 3 segundos** desde que el servidor lo publica.
 
-> **Estado: pendiente de medir en un teléfono real.** Este documento trae el procedimiento y la tabla para completar. Los números del servidor (una sola máquina) están en [`api-menu-cocina.md`](api-menu-cocina.md); lo que falta es lo que ve un teléfono real en la red del equipo. **No se inventan cifras:** si algo no se pudo probar, se escribe «no se probó» y el motivo.
+> **Estado: medición en teléfono aplazada.** La verificación funcional en teléfono puede hacerse con el backend y el APK de la misma revisión. Registra tiempos cuando se retome SCRUM-93. [Mediciones del servidor](api-menu-cocina.md)
 
 ## Qué se mide
 
@@ -16,7 +16,7 @@ evento=COMANDA_ESTADO_CAMBIADO llegada=120 ms actualizacion=85 ms total=205 ms |
 |---|---|---|
 | `llegada` | Del instante en que el servidor publicó el evento a que el teléfono lo recibió (red + WebSocket). | Servidor y teléfono |
 | `actualizacion` | De que el teléfono recibió el evento a que la lista nueva ya estaba en el estado de la pantalla (pedir `GET /api/comandas/cocina`, leerla y reemplazarla). | Solo el teléfono |
-| `total` | `llegada + actualizacion`: **el plazo de 3 s.** | Servidor y teléfono |
+| `total` | `llegada + actualizacion`, desde la publicación hasta que el estado de la vista tiene los datos nuevos. | Servidor y teléfono |
 
 - Al final de cada línea va el resumen acumulado: `n` muestras, percentil 95, máximo y el porcentaje de cambios por debajo de 3 s.
 - Un cambio que llega mientras se está pidiendo la lista se mide cuando la consulta **repetida** lo refleja, no antes.
@@ -39,12 +39,12 @@ curl -X POST "http://localhost:8080/api/dev/tiempo-real/emitir-cocina?cantidad=5
      -H "Authorization: Bearer <token del administrador>"
 ```
 
-Emite `COMANDA_ESTADO_CAMBIADO` y `COMANDA_MODIFICADA` alternados. Las comandas de mentira no existen en la base, así que la lista no cambia, pero la app igual la vuelve a pedir y la muestra: se mide el tramo **servidor → red → WebSocket → REST → pantalla**. La lista real puede ser más grande que la de la prueba; si hay comandas en la base, la consulta tarda un poco más y se verá en `actualizacion`.
+Emite `COMANDA_ESTADO_CAMBIADO` y `COMANDA_MODIFICADA` para comandas sintéticas. La app vuelve a consultar la lista y registra cuándo aplicó la respuesta al estado de la vista. Para el piloto, mide también un envío real hasta que la comanda sea visible. Registra los eventos emitidos y las muestras reportadas para detectar actualizaciones ausentes o fallidas.
 
 ## Procedimiento
 
-1. Deja Cocina abierta y el teléfono con la pantalla encendida.
-2. Emite 50 eventos con el comando de arriba. Copia la última línea de logcat (el resumen acumulado) en la tabla.
+1. Abre Cocina para iniciar un registro nuevo y mantén el teléfono con la pantalla encendida.
+2. Emite 50 eventos. Copia el resumen final de logcat y compara el número de muestras con los eventos emitidos.
 3. Repite con **dos o más teléfonos** a la vez (Plan de Calidad, RNF-04) y anota cada uno.
 4. **Desconexión:** apaga el Wi-Fi del teléfono con Cocina abierta. Debe aparecer «Sin conexión…» en 5 s o menos (RNF-21) y la lista se conserva. Vuelve a conectar: el aviso desaparece y la lista se actualiza sola (`RESINCRONIZACION` en logcat).
 5. **Segundo plano:** manda la app a segundo plano y vuelve. Debe reconectar y releer la lista.
@@ -53,7 +53,7 @@ Emite `COMANDA_ESTADO_CAMBIADO` y `COMANDA_MODIFICADA` alternados. Las comandas 
 
 > **COMPLETAR con lo medido.**
 
-- **Fecha, red y equipos:** … (Wi-Fi o punto de acceso; modelo y Android de cada teléfono; cuántos conectados a la vez).
+- **Fecha, commits, red y equipos:** … (backend y APK, Wi-Fi o punto de acceso, modelo y Android de cada teléfono, número de dispositivos conectados).
 - **Eventos emitidos:** … (cantidad y pausa).
 
 | Dispositivo | Muestras | `llegada` típica (ms) | `actualizacion` típica (ms) | p95 total (ms) | Máximo total (ms) | % bajo 3 s |

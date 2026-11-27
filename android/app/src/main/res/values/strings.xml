@@ -368,4 +368,64 @@
         <item quantity="other">%d productos más</item>
     </plurals>
     <string name="inv_ver_inventario">Ver inventario</string>
+
+    <!-- Mesas y comandas (4.1.1) -->
+    <string name="mesas_titulo">Mapa de mesas</string>
+    <string name="mesas_nueva">Nueva mesa</string>
+    <string name="mesas_volver">Volver</string>
+    <string name="mesas_cargando">Cargando mesas</string>
+    <string name="mesas_vacio_admin">Aún no hay mesas. Crea la primera con «Nueva mesa».</string>
+    <string name="mesas_vacio_mesero">Aún no hay mesas. Pídele al administrador que las cree.</string>
+    <string name="mesas_resumen">%1$d disponibles · %2$d ocupadas</string>
+    <string name="mesas_ayuda">Elige una mesa disponible para armar una comanda o una ocupada para abrir la que ya tiene.</string>
+    <string name="mesa_estado_disponible">Disponible</string>
+    <string name="mesa_estado_ocupada">Ocupada</string>
+    <string name="mesa_abrir_comanda">Abrir comanda existente</string>
+    <string name="mesas_actualizar">Actualizar mesas</string>
+    <string name="mesa_descripcion">%1$s, %2$s</string>
+    <string name="mesa_creada">Mesa «%1$s» creada. Ya aparece disponible.</string>
+    <string name="mesa_form_titulo">Nueva mesa</string>
+    <string name="mesa_form_nombre">Nombre de la mesa</string>
+    <string name="mesa_form_placeholder">Ej.: Mesa 5, Terraza 2</string>
+    <string name="mesa_form_crear">Crear mesa</string>
+    <string name="mesa_form_guardando">Creando…</string>
+    <string name="mesa_form_cancelar">Cancelar</string>
+    <string name="mesa_error_vacio">Escribe el nombre de la mesa.</string>
+    <string name="mesa_error_largo">El nombre no puede superar 30 caracteres.</string>
+    <string name="mesa_error_repetido">Ya existe una mesa con ese nombre.</string>
+
+    <string name="comanda_titulo">Comanda · %1$s</string>
+    <string name="comanda_resumen_titulo">Resumen · %1$s</string>
+    <string name="comanda_volver_mesas">Volver a las mesas</string>
+    <string name="comanda_cargando_menu">Cargando productos</string>
+    <string name="comanda_actualizando_menu">Actualizando productos y precios</string>
+    <string name="comanda_cargando_detalle">Cargando comanda</string>
+    <string name="comanda_no_encontrada">Esta comanda ya no está disponible.</string>
+    <string name="comanda_menu_vacio">No hay productos disponibles en el menú.</string>
+    <string name="comanda_filtro_todas">Todas</string>
+    <string name="comanda_agregar">Agregar una unidad de %1$s</string>
+    <string name="comanda_quitar">Quitar una unidad de %1$s</string>
+    <string name="comanda_cantidad">%1$d unidades de %2$s</string>
+    <string name="comanda_sin_mas_stock">Sin más unidades</string>
+    <string name="comanda_observaciones">Observaciones</string>
+    <string name="comanda_observaciones_ayuda">Opcional, máximo %1$d caracteres</string>
+    <string name="comanda_precio_unidad">%1$s c/u</string>
+    <string name="comanda_linea_cantidad">%1$d × %2$s</string>
+    <plurals name="comanda_unidades">
+        <item quantity="one">%d producto</item>
+        <item quantity="other">%d productos</item>
+    </plurals>
+    <string name="comanda_ver_resumen">Ver resumen</string>
+    <string name="comanda_vacia_ayuda">Agrega al menos un producto para continuar.</string>
+    <string name="comanda_error_vacia">La comanda está vacía: agrega al menos un producto.</string>
+    <string name="comanda_subtotal">Subtotal</string>
+    <string name="comanda_descuento">Descuento</string>
+    <string name="comanda_total">Total</string>
+    <string name="comanda_guardar">Guardar comanda</string>
+    <string name="comanda_guardando">Guardando…</string>
+    <string name="comanda_seguir_editando">Seguir editando</string>
+    <string name="comanda_detalle_estado">Comanda #%1$d · %2$s</string>
+    <string name="comanda_estado_pendiente">Pendiente de envío</string>
+    <string name="comanda_estado_enviada">Enviada a cocina</string>
+    <string name="comanda_estado_cerrada">Cerrada</string>
 </resources>

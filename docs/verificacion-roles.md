@@ -9,7 +9,7 @@ Evidencia del entregable 2.3.1 (control de acceso por rol), subtarea SCRUM-51. C
 | La app muestra "Sin conexión a Internet. Por favor, verifica tu red." y no se cierra | Parte C (app) |
 | Las pruebas automatizadas cubren cada rol contra cada endpoint restringido | `PoliticaPermisosTest` (backend, cada regla × 5 roles) y `PermisosTest` (app) |
 
-**Fecha:** ____ · **Quién verificó:** ____ · **Commit:** ____ · **Dispositivo:** ____ (Android __)
+**Evidencia del teléfono pendiente.** Registra fecha, persona que verifica, commit, modelo y versión de Android.
 
 ## Preparación
 
@@ -40,11 +40,11 @@ Desde `backend/`, en PowerShell:
 .\scripts\verificar-roles.ps1 -ClaveAdmin "una_clave" -ClaveUsuarios "otra_clave"
 ```
 
-Inicia sesión con los cinco roles y prueba cada regla de [`permisos-por-rol.md`](permisos-por-rol.md) con cada uno y sin token (6 verificaciones por regla). Guarda el detalle en `verificacion-roles.csv`.
+El script inicia sesión con los cinco roles y prueba las rutas de su lista con cada uno y sin token (6 verificaciones por regla). Guarda el detalle en `verificacion-roles.csv`. Para un nuevo registro de backend, falta actualizar esa lista con las reglas vigentes de [permisos-por-rol.md](permisos-por-rol.md), incluida `GET /api/menu`.
 
 | Resultado | |
 |---|---|
-| Verificaciones correctas | 258 / 258 (22/11/2026) |
+| Verificaciones correctas | 258 / 258 (22/11/2026, antes de integrar el menú 3.3.1) |
 | Fallas | 0 |
 | Evidencia | `verificacion-roles.csv` + captura de la consola |
 
@@ -54,11 +54,11 @@ Para cada rol: iniciar sesión, comparar el menú con la columna "Debe ver", abr
 
 | Rol | Debe ver (en este orden) | No debe ver (ejemplos) | Menú correcto | Abre y vuelve | Cierra sesión | Captura |
 |---|---|---|:-:|:-:|:-:|---|
-| Administrador | Usuarios · Productos e inventario · Mesas y comandas · Cocina · Cobros · Caja · Solicitudes de retiro · Clientes · Recompensas y promociones | Pedidos · Mis puntos | | | | |
-| Cajero | Cobros · Pedidos · Caja · Solicitudes de retiro | Usuarios · Cocina · Clientes | | | | |
-| Mesero | Mesas y comandas · Cobros · Clientes | Usuarios · Caja · Cocina | | | | |
+| Administrador | Usuarios · Productos e inventario · Menú · Mesas y comandas · Cocina · Cobros · Caja · Solicitudes de retiro · Clientes · Recompensas y promociones | Pedidos · Mis puntos | | | | |
+| Cajero | Cobros · Pedidos · Caja · Solicitudes de retiro | Usuarios · Menú · Cocina · Clientes | | | | |
+| Mesero | Mesas y comandas · Menú · Cobros · Clientes | Usuarios · Caja · Cocina | | | | |
 | Cocinero | Cocina | Todo lo demás | | | | |
-| Cliente | Mis puntos · Recompensas y promociones · Mis datos | Todo lo del personal | | | | |
+| Cliente | Menú · Mis puntos · Recompensas y promociones · Mis datos | Usuarios · Productos e inventario · Cocina · Caja | | | | |
 
 ## Parte C — App: pérdida de conexión
 
@@ -68,9 +68,9 @@ Para cada rol: iniciar sesión, comparar el menú con la columna "Debe ver", abr
 | Credenciales erróneas | Contraseña incorrecta | "Credenciales inválidas", sin decir qué dato falló | |
 | Recuperación | Encender el backend e iniciar sesión de nuevo | Entra normalmente | |
 
-## Pendiente para cuando existan las pantallas de los módulos
+## Verificación de sesión en una pantalla conectada
 
-Hoy las secciones son provisionales y no llaman al backend después del login, así que estos dos casos se cubren con pruebas automatizadas y se verifican en la app cuando cada módulo tenga su pantalla:
+Las pruebas automatizadas cubren ambos casos. Para comprobar la sesión vencida o revocada en el teléfono, usa una cuenta de prueba y una pantalla conectada al backend como Menú o Cocina. Usa la prueba del backend de la parte A para validar la denegación por rol cuando la app ya oculta la opción.
 
 - **403 en la app:** aviso "No tienes permiso para realizar esta acción." sin cerrar la sesión (`InterceptorErroresTest`, SCRUM-49).
 - **401 con la sesión abierta** (por ejemplo, un usuario desactivado por el administrador): la app vuelve sola al login (`InterceptorSesionTest`, SCRUM-46).
