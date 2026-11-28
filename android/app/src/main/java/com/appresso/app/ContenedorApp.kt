@@ -25,10 +25,13 @@ import com.appresso.app.data.catalogo.InventarioRepository
 import com.appresso.app.data.remote.AuthApi
 import com.appresso.app.data.remote.CatalogoApi
 import com.appresso.app.data.remote.BusEventosRed
+import com.appresso.app.data.pagos.PagosRepository
+import com.appresso.app.data.pagos.PagosRepositoryRemoto
 import com.appresso.app.data.remote.ClienteHttp
 import com.appresso.app.data.remote.ClientesApi
 import com.appresso.app.data.remote.CuentaApi
 import com.appresso.app.data.remote.MisDatosApi
+import com.appresso.app.data.remote.PagosApi
 import com.appresso.app.data.remote.UsuariosApi
 import com.appresso.app.data.usuarios.UsuariosRepository
 import com.appresso.app.data.usuarios.UsuariosRepositoryRemoto
@@ -117,4 +120,8 @@ class ContenedorApp(
                 token = { almacenSesion.sesion.value?.token },
             )
         }
+
+    val pagosRepository: PagosRepository by lazy {
+        PagosRepositoryRemoto(retrofit.create(PagosApi::class.java))
+    }
 }

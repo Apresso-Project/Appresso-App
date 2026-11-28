@@ -428,4 +428,39 @@
     <string name="comanda_estado_pendiente">Pendiente de envío</string>
     <string name="comanda_estado_enviada">Enviada a cocina</string>
     <string name="comanda_estado_cerrada">Cerrada</string>
+
+    <!-- Cobros y confirmación de pago (6.1.1) -->
+    <string name="cobros_titulo">Cobros</string>
+    <string name="cobros_instruccion">Escribe el número de la comanda que vas a cobrar. Debe estar en estado Lista.</string>
+    <string name="cobros_numero_comanda">Número de comanda</string>
+    <string name="cobros_continuar">Continuar</string>
+    <string name="pago_titulo">Confirmar pago</string>
+    <string name="pago_resumen_comanda">Comanda %1$d · %2$s</string>
+    <string name="pago_resumen_comanda_sin_mesa">Comanda %1$d</string>
+    <string name="pago_total">Total: %1$s</string>
+    <string name="pago_total_lo_calcula_el_servidor">El valor es el total de la comanda y lo calcula el sistema.</string>
+    <string name="pago_elige_medio">Medio de pago</string>
+    <string name="pago_medio_efectivo">Efectivo</string>
+    <string name="pago_medio_transferencia">Transferencia</string>
+    <string name="pago_sin_medios">Tu rol no puede confirmar pagos.</string>
+    <string name="pago_confirmar">Confirmar pago</string>
+    <string name="pago_confirmando">Confirmando pago</string>
+    <string name="pago_volver">Volver</string>
+    <string name="pago_listo">Listo</string>
+    <string name="pago_dialogo_titulo">¿Confirmar pago por %1$s?</string>
+    <string name="pago_dialogo_efectivo">Confirma que recibiste el efectivo. El pago se suma a la caja y la comanda se cierra.</string>
+    <string name="pago_dialogo_transferencia">Confirma que verificaste el comprobante de la transferencia. El pago se suma al saldo de transferencias y la comanda se cierra.</string>
+    <string name="pago_dialogo_confirmar">Sí, confirmar</string>
+    <string name="pago_dialogo_cancelar">Cancelar</string>
+    <string name="pago_registrado">Pago registrado</string>
+    <string name="pago_ya_estaba_registrado">Este pago ya estaba registrado; no se cobró otra vez.</string>
+    <string name="pago_resumen_valor">Valor: %1$s</string>
+    <string name="pago_resumen_medio">Medio: %1$s</string>
+    <string name="pago_resumen_usuario">Confirmado por %1$s</string>
+    <string name="pago_comanda_cerrada">La comanda quedó cerrada y la mesa disponible.</string>
+    <string name="pago_error_sin_conexion">Sin conexión. No sabemos si el pago se registró: vuelve a confirmar, no se cobrará dos veces.</string>
+    <string name="pago_error_servidor">Algo salió mal. Vuelve a confirmar: si el pago ya se registró, no se cobrará otra vez.</string>
+    <string name="pago_error_no_encontrada">Esa comanda no existe. Revisa el número.</string>
+    <string name="pago_error_conflicto">La comanda no se puede pagar en este momento.</string>
+    <string name="pago_error_datos">Revisa los datos del pago.</string>
 </resources>

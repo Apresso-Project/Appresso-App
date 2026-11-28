@@ -62,6 +62,7 @@ import com.appresso.app.ui.login.LoginRoute
 import com.appresso.app.ui.login.LoginViewModel
 import com.appresso.app.ui.menu.MenuRoute
 import com.appresso.app.ui.menu.MenuViewModel
+import com.appresso.app.ui.pagos.CobrosRoute
 import com.appresso.app.ui.usuarios.UsuariosRoute
 import com.appresso.app.ui.usuarios.UsuariosViewModel
 import com.appresso.app.tiemporeal.MedidorCocina
@@ -279,6 +280,13 @@ private fun Seccion(destino: Destino.Seccion, contenedor: ContenedorApp, token: 
                 onCerrarSesion = { contenedor.almacenSesion.borrar() },
             )
         }
+
+        Opcion.COBROS -> CobrosRoute(
+            rol = destino.rol,
+            token = token,
+            repositorio = contenedor.pagosRepository,
+            onVolver = onVolver,
+        )
 
         else -> SeccionProvisionalScreen(opcion = destino.opcion, onVolver = onVolver)
     }
