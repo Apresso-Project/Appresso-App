@@ -19,7 +19,7 @@ PENDIENTE → ENVIADA → EN_PREPARACION → LISTA → CERRADA
 
 El **administrador** puede ejecutar cualquier transición. La regla vive en `PoliticaTransiciones` (única fuente) y cada cambio queda en `historial_comanda` y se publica por tiempo real (`COMANDA_ESTADO_CAMBIADO`, ver `tiempo-real.md`).
 
-El pedido se entrega al cliente cuando está listo. En la operación final, el módulo de pagos (6.x) confirma el cobro y cierra la comanda. 4.1.1 implementa las reglas del ciclo de vida y deja la integración del pago al módulo correspondiente. La cancelación (RF-63) corresponde a 4.2.2.
+El pedido se entrega al cliente cuando está listo. En la operación normal, el módulo de pagos (6.1.1, `docs/api-pagos.md`) confirma el cobro y cierra la comanda. El `PATCH` a `CERRADA` de 4.1.1 solo valida el rol y no genera pago. La cancelación (RF-63) corresponde a 4.2.2.
 
 ### `PATCH /comandas/{id}/estado`
 
