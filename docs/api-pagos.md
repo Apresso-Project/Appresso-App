@@ -112,3 +112,13 @@ curl -X POST http://localhost:8080/api/pagos/transferencia \
   -d '{"comandaId":18}'
 
 ```
+
+## Pruebas (SCRUM-108)
+
+`cd backend && ./gradlew test` ejecuta `PagoControllerTest` (seguridad real, H2 y las mismas migraciones de producción). Cubre:
+
+- **Quién confirma qué:** el cajero y el administrador, efectivo y transferencia; el mesero, solo transferencia (403 en efectivo); cocinero y cliente, ninguno (403); sin sesión, 401.
+- **Un solo pago por comanda:** el segundo intento responde 409 aunque cambie el medio o el usuario, y no cambia ningún saldo; el reintento con el mismo identificador de operación devuelve el pago de antes sin sumar otra vez.
+- **Los saldos no se cruzan:** un pago en efectivo solo sube el efectivo; una transferencia solo sube las transferencias; varios pagos mezclados suman cada uno a su saldo; un retiro en efectivo solo baja el efectivo; un pago rechazado no mueve ningún saldo.
+- **Contrato:** campos exactos de la respuesta, formato de los errores (400, 404, 409) y quién consulta `GET /api/caja/saldos`.
+- **Efectos:** la comanda queda `CERRADA`, la mesa `DISPONIBLE`, se publica el evento de tiempo real y el pago queda en el libro de caja y en la auditoría.
