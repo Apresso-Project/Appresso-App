@@ -1,6 +1,6 @@
-# API de pagos — Appresso
+# API de pagos y saldos — Appresso
 
-Contrato del entregable 6.1.1 (RF-28, RF-29, RF-30, RF-41, RF-43) para quien lo consuma desde la app Android. El código está en `backend/src/main/java/com/appresso/backend/caja/` y las pruebas en `backend/src/test/java/com/appresso/backend/caja/PagoControllerTest.java`.
+Contrato del entregable 6.1.1 (RF-28, RF-29, RF-30, RF-31, RF-41, RF-43) para quien lo consuma desde la app Android. El código está en `backend/src/main/java/com/appresso/backend/caja/` y las pruebas en `backend/src/test/java/com/appresso/backend/caja/PagoControllerTest.java`.
 
 Todas las peticiones llevan `Authorization: Bearer <token>` (ver [`api-auth.md`](api-auth.md)). Quién puede usar cada ruta lo decide `PoliticaPermisos` (ver [`permisos-por-rol.md`](permisos-por-rol.md)); el servicio vuelve a validar el rol del medio de pago.
 
@@ -65,23 +65,42 @@ La app debe mostrar el `mensaje` tal cual y, ante un 409 de "ya fue pagada", ref
 ## Qué pasa al confirmar
 
 1. Se crea el `Pago` (medio, valor, fecha y hora, usuario que lo confirmó). Una comanda solo admite un pago.
-2. La comanda pasa a `CERRADA`, la mesa queda `DISPONIBLE` y se publica `COMANDA_ESTADO_CAMBIADO` por `/topic/comandas` (ver [`tiempo-real.md`](tiempo-real.md)), que ya trae el estado nuevo y el estado anterior.
-3. Queda un registro de auditoría `PAGO_REGISTRADO`.
+2. Se crea un movimiento `PAGO` en el libro de caja con el **mismo medio** y valor.
+3. La comanda pasa a `CERRADA`, la mesa queda `DISPONIBLE` y se publica `COMANDA_ESTADO_CAMBIADO` por `/topic/comandas` (ver [`tiempo-real.md`](tiempo-real.md)), que ya trae el estado nuevo y el estado anterior.
+4. Queda un registro de auditoría `PAGO_REGISTRADO`.
 
 Todo ocurre en una sola transacción: si algo falla, no queda nada a medias.
 
 > Mostrar el código QR no crea ningún registro: el pago existe solo cuando se confirma. El QR y su pantalla son del entregable 6.2.1.
+
+## Saldos
+
+`GET /api/caja/saldos` — solo administrador (RF-39).
+
+```json
+{ "efectivo": 62500.00, "transferencias": 37500.00, "jornadaId": 2, "calculadoEn": "2026-11-18T15:45:00Z" }
+```
+
+Los saldos no se guardan: se calculan sumando el libro de caja (`MovimientoCaja`), cada medio con **sus propios** movimientos, así no se cruzan (RF-31):
+
+- **Efectivo** = saldo inicial de la jornada actual + pagos e ingresos − retiros de esa jornada.
+- **Transferencias** = pagos confirmados e ingresos − retiros de todo el historial (no se reinician al cerrar la jornada).
+
+La jornada actual es la abierta; si no hay ninguna, la última que existió (o `jornadaId: null` y efectivo 0 si nunca hubo).
 
 ## Decisiones tomadas
 
 - **Jornada automática.** Mientras no exista el flujo de apertura de jornada (RF-49), si se confirma un pago sin jornada abierta se abre una con saldo inicial de efectivo 0 y queda auditado (`JORNADA_ABIERTA_AUTOMATICA`). Cuando se implemente RF-49, esto debería pasar a rechazar el pago con un mensaje.
 - **El valor lo pone el servidor**, para que el cliente no pueda cobrar otra cantidad.
 - **El cierre normal de una comanda es el pago.** Al confirmar el pago, la comanda `LISTA` pasa a `CERRADA` por `ComandaService.cerrarPorPago`. El `PATCH /api/comandas/{id}/estado` hacia `CERRADA` (HU 4.1.1) sigue existiendo y **no genera pago**: una comanda cerrada sin pago se trata como cancelada. Se revisará con la cancelación de comandas (RF-63, entregable 4.2.2).
-- **Pendiente en otras historias:** consultar pagos del día (RF-38), puntos de fidelización por pago (RF-52), QR (6.2.1), ingresos y retiros (6.3.1), saldos (SCRUM-107, mismo entregable).
+- **Pendiente en otras historias:** consultar pagos del día (RF-38), puntos de fidelización por pago (RF-52), QR (6.2.1), ingresos y retiros (6.3.1).
 
 ## Ejemplos
 
 ```bash
+# Administrador consulta los saldos
+curl http://localhost:8080/api/caja/saldos -H "Authorization: Bearer $TOKEN_ADMIN"
+
 # Cajero cobra en efectivo
 curl -X POST http://localhost:8080/api/pagos/efectivo \
   -H "Authorization: Bearer $TOKEN_CAJERO" -H "Content-Type: application/json" \
